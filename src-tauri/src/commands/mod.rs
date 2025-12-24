@@ -6,6 +6,7 @@
 mod batch;
 mod decrypt;
 mod encrypt;
+pub mod file_utils;
 mod streaming;
 
 // Re-export commands for registration in main.rs

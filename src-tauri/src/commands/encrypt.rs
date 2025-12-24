@@ -17,6 +17,7 @@
 use std::fs;
 use tauri::{command, AppHandle, Emitter};
 
+use crate::commands::file_utils::{atomic_write, validate_file_size, validate_input_path};
 use crate::crypto::{derive_key, encrypt, generate_salt, EncryptedFile, Password};
 use crate::error::CryptoResult;
 use crate::events::{ProgressEvent, CRYPTO_PROGRESS_EVENT};
@@ -121,8 +122,14 @@ pub async fn encrypt_file(
         ));
     }
 
+    // Validate input path (check for symlinks, canonicalize)
+    let validated_input = validate_input_path(&input_path)?;
+
+    // Validate file size for in-memory operation
+    validate_file_size(&input_path)?;
+
     // Read plaintext
-    let plaintext = fs::read(&input_path)?;
+    let plaintext = fs::read(&validated_input)?;
     log::info!("Read {} bytes from input file", plaintext.len());
 
     // Emit: Deriving key (the slow step)
@@ -155,9 +162,9 @@ pub async fn encrypt_file(
     // Emit: Writing file
     let _ = app.emit(CRYPTO_PROGRESS_EVENT, ProgressEvent::writing());
 
-    // Write encrypted file to disk
+    // Write encrypted file to disk with secure permissions and atomic write
     let output_data = encrypted_file.serialize();
-    fs::write(&output_path, output_data)?;
+    atomic_write(&output_path, &output_data)?;
     log::info!("Encrypted file written to: {}", output_path);
 
     // Emit: Complete

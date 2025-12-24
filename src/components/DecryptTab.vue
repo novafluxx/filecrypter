@@ -85,12 +85,14 @@ async function handleDecrypt() {
   // Start listening for progress events before decryption begins
   await startListening();
 
+  let success = false;
   try {
-    const success = await fileOps.performDecrypt();
+    success = await fileOps.performDecrypt();
     // Password is automatically cleared for security
   } finally {
-    // Progress listener auto-stops on completion, but stop on error too
-    if (!showProgress.value) {
+    // On error or failure, reset progress immediately
+    // On success, progress auto-resets after showing 100%
+    if (!success) {
       stopListening();
     }
   }

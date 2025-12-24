@@ -14,6 +14,38 @@ import type { StatusType } from '../types/crypto';
 import { useTauri } from './useTauri';
 
 /**
+ * Safe error messages to display to users.
+ * Maps error keywords to user-friendly messages.
+ * This prevents leaking sensitive system information in error messages.
+ */
+const SAFE_ERROR_MESSAGES: Record<string, string> = {
+  InvalidPassword: 'Incorrect password or corrupted file',
+  FileNotFound: 'File could not be accessed',
+  FileTooLarge: 'File is too large for this operation. Use streaming for large files.',
+  TooManyFiles: 'Too many files selected for batch operation',
+  InvalidPath: 'Invalid file path',
+  permission: 'Permission denied - unable to access file',
+  default: 'Operation failed - please try again',
+};
+
+/**
+ * Sanitize error messages for user display.
+ * Prevents information leakage by mapping backend errors to safe messages.
+ */
+function sanitizeErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    const msg = error.message;
+    // Check for known error keywords
+    for (const [key, safeMsg] of Object.entries(SAFE_ERROR_MESSAGES)) {
+      if (key !== 'default' && msg.includes(key)) {
+        return safeMsg;
+      }
+    }
+  }
+  return SAFE_ERROR_MESSAGES['default'] ?? 'Operation failed';
+}
+
+/**
  * Composable for file encryption/decryption operations
  *
  * Provides reactive state management and validation logic
@@ -218,8 +250,8 @@ export function useFileOps() {
 
       return true;
     } catch (error) {
-      // Handle errors from Rust backend
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      // Handle errors from Rust backend with sanitized messages
+      const errorMessage = sanitizeErrorMessage(error);
       showStatus(errorMessage, 'error', 0);
       return false;
     } finally {
@@ -271,8 +303,8 @@ export function useFileOps() {
 
       return true;
     } catch (error) {
-      // Handle errors (most commonly: wrong password)
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      // Handle errors (most commonly: wrong password) with sanitized messages
+      const errorMessage = sanitizeErrorMessage(error);
       showStatus(errorMessage, 'error', 0);
       return false;
     } finally {

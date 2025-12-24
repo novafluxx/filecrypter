@@ -87,13 +87,15 @@ async function handleEncrypt() {
   // Start listening for progress events before encryption begins
   await startListening();
 
+  let success = false;
   try {
-    const success = await fileOps.performEncrypt();
+    success = await fileOps.performEncrypt();
     // If successful, optionally reset some fields
     // For now, we keep the paths so user can encrypt again with different password
   } finally {
-    // Progress listener auto-stops on completion, but stop on error too
-    if (!showProgress.value) {
+    // On error or failure, reset progress immediately
+    // On success, progress auto-resets after showing 100%
+    if (!success) {
       stopListening();
     }
   }

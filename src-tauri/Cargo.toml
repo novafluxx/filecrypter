@@ -33,6 +33,7 @@ aes-gcm = "0.10"
 argon2 = "0.5"
 rand = "0.8"
 zeroize = { version = "1", features = ["derive"] }
+blake3 = "1"
 
 # Error handling
 thiserror = "2"

@@ -20,7 +20,7 @@ use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 
 use aes_gcm::{
-    aead::{Aead, KeyInit},
+    aead::{Aead, KeyInit, OsRng},
     Aes256Gcm, Nonce,
 };
 use rand::RngCore;
@@ -40,6 +40,12 @@ const NONCE_SIZE: usize = 12;
 
 /// AES-GCM authentication tag size
 const TAG_SIZE: usize = 16;
+
+/// Maximum allowed chunks (~10TB at 1MB chunks)
+const MAX_CHUNKS: u64 = 10_000_000;
+
+/// Expected salt size for Argon2 (16 bytes = 128 bits)
+const EXPECTED_SALT_SIZE: usize = 16;
 
 /// Progress callback type for streaming operations
 pub type ProgressCallback = Box<dyn Fn(u64, u64) + Send + Sync>;
@@ -87,9 +93,9 @@ pub fn encrypt_file_streaming<P: AsRef<Path>>(
     let cipher = Aes256Gcm::new_from_slice(key.as_slice())
         .map_err(|_| CryptoError::EncryptionFailed)?;
 
-    // Generate base nonce
+    // Generate base nonce using cryptographically secure RNG
     let mut base_nonce = [0u8; NONCE_SIZE];
-    rand::thread_rng().fill_bytes(&mut base_nonce);
+    OsRng.fill_bytes(&mut base_nonce);
 
     // Calculate total chunks
     let total_chunks = (file_size as usize + chunk_size - 1) / chunk_size;
@@ -172,10 +178,7 @@ pub fn decrypt_file_streaming<P: AsRef<Path>>(
     let mut version = [0u8; 1];
     reader.read_exact(&mut version)?;
     if version[0] != STREAMING_VERSION {
-        return Err(CryptoError::FormatError(format!(
-            "Unsupported streaming format version: {}",
-            version[0]
-        )));
+        return Err(CryptoError::FormatError("Unsupported file format".to_string()));
     }
 
     // Read salt
@@ -183,8 +186,8 @@ pub fn decrypt_file_streaming<P: AsRef<Path>>(
     reader.read_exact(&mut salt_len_bytes)?;
     let salt_len = u32::from_le_bytes(salt_len_bytes) as usize;
 
-    if salt_len > 256 {
-        return Err(CryptoError::FormatError("Invalid salt length".to_string()));
+    if salt_len != EXPECTED_SALT_SIZE {
+        return Err(CryptoError::FormatError("Invalid salt size".to_string()));
     }
 
     let mut salt = vec![0u8; salt_len];
@@ -202,6 +205,11 @@ pub fn decrypt_file_streaming<P: AsRef<Path>>(
     let mut total_chunks_bytes = [0u8; 8];
     reader.read_exact(&mut total_chunks_bytes)?;
     let total_chunks = u64::from_le_bytes(total_chunks_bytes);
+
+    // Validate chunk count to prevent DoS attacks
+    if total_chunks > MAX_CHUNKS {
+        return Err(CryptoError::FormatError("File too large".to_string()));
+    }
 
     // Derive key
     let password = Password::new(password.to_string());
@@ -222,8 +230,8 @@ pub fn decrypt_file_streaming<P: AsRef<Path>>(
         reader.read_exact(&mut chunk_len_bytes)?;
         let chunk_len = u32::from_le_bytes(chunk_len_bytes) as usize;
 
-        // Sanity check chunk length
-        if chunk_len > DEFAULT_CHUNK_SIZE + TAG_SIZE + 1024 * 1024 {
+        // Sanity check chunk length (allow 1KB tolerance for potential metadata)
+        if chunk_len > DEFAULT_CHUNK_SIZE + TAG_SIZE + 1024 {
             return Err(CryptoError::FormatError("Invalid chunk length".to_string()));
         }
 
@@ -255,18 +263,21 @@ pub fn decrypt_file_streaming<P: AsRef<Path>>(
     Ok(())
 }
 
-/// Derive a unique nonce for each chunk
+/// Derive a unique nonce for each chunk using BLAKE3
 ///
-/// XORs the base nonce with the chunk index (as little-endian u64)
+/// Uses BLAKE3 as a KDF to derive cryptographically unique nonces for each chunk.
+/// This provides proper domain separation and prevents nonce collisions.
 fn derive_chunk_nonce(base_nonce: &[u8; NONCE_SIZE], chunk_index: u64) -> [u8; NONCE_SIZE] {
-    let mut nonce = *base_nonce;
-    let index_bytes = chunk_index.to_le_bytes();
+    // Use BLAKE3 to derive unique nonces for each chunk
+    // This provides cryptographic separation between chunk nonces
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(b"filecypter-chunk-nonce-v1"); // Domain separation
+    hasher.update(base_nonce);
+    hasher.update(&chunk_index.to_le_bytes());
 
-    // XOR the first 8 bytes with the chunk index
-    for (i, &b) in index_bytes.iter().enumerate() {
-        nonce[i] ^= b;
-    }
-
+    let hash = hasher.finalize();
+    let mut nonce = [0u8; NONCE_SIZE];
+    nonce.copy_from_slice(&hash.as_bytes()[..NONCE_SIZE]);
     nonce
 }
 
@@ -290,18 +301,22 @@ mod tests {
     fn test_derive_chunk_nonce() {
         let base = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
-        // Chunk 0 should be same as base (0 XOR anything = anything)
+        // BLAKE3-based derivation: all nonces should be unique and unpredictable
         let nonce0 = derive_chunk_nonce(&base, 0);
-        assert_eq!(nonce0, base);
-
-        // Chunk 1 should differ
         let nonce1 = derive_chunk_nonce(&base, 1);
-        assert_ne!(nonce1, base);
-        assert_eq!(nonce1[0], base[0] ^ 1); // First byte XORed with 1
-
-        // Different chunks should have different nonces
         let nonce2 = derive_chunk_nonce(&base, 2);
+
+        // All nonces should be different from base and each other
+        assert_ne!(nonce0, base);
+        assert_ne!(nonce1, base);
+        assert_ne!(nonce2, base);
+        assert_ne!(nonce0, nonce1);
         assert_ne!(nonce1, nonce2);
+        assert_ne!(nonce0, nonce2);
+
+        // Same inputs should produce same output (deterministic)
+        let nonce0_again = derive_chunk_nonce(&base, 0);
+        assert_eq!(nonce0, nonce0_again);
     }
 
     #[test]

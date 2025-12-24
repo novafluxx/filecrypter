@@ -11,6 +11,7 @@ use std::path::Path;
 use tauri::{command, AppHandle, Emitter};
 use serde::Serialize;
 
+use crate::commands::file_utils::{secure_write, validate_batch_count, validate_input_path};
 use crate::crypto::{decrypt, derive_key, encrypt, generate_salt, EncryptedFile, Password};
 use crate::error::{CryptoError, CryptoResult};
 
@@ -85,6 +86,9 @@ pub async fn batch_encrypt(
     if input_paths.is_empty() {
         return Err(CryptoError::FormatError("No files selected".to_string()));
     }
+
+    // Validate batch file count
+    validate_batch_count(input_paths.len())?;
 
     // Verify output directory exists
     if !Path::new(&output_dir).is_dir() {
@@ -161,8 +165,11 @@ async fn encrypt_single_file(
     input_path: &str,
     output_dir: &str,
 ) -> CryptoResult<String> {
+    // Validate input path (check for symlinks)
+    let validated_path = validate_input_path(input_path)?;
+
     // Read input file
-    let plaintext = fs::read(input_path)?;
+    let plaintext = fs::read(&validated_path)?;
 
     // Generate unique salt for this file
     let salt = generate_salt()?;
@@ -174,19 +181,19 @@ async fn encrypt_single_file(
     let (nonce, ciphertext) = encrypt(&key, &plaintext)?;
 
     // Create output path
-    let input_filename = Path::new(input_path)
+    let input_filename = validated_path
         .file_name()
         .ok_or_else(|| CryptoError::FormatError("Invalid input path".to_string()))?;
     let output_filename = format!("{}.encrypted", input_filename.to_string_lossy());
     let output_path = Path::new(output_dir).join(&output_filename);
 
-    // Serialize and write
+    // Serialize and write with secure permissions
     let encrypted_file = EncryptedFile {
         salt,
         nonce,
         ciphertext,
     };
-    fs::write(&output_path, encrypted_file.serialize())?;
+    secure_write(&output_path, &encrypted_file.serialize())?;
 
     Ok(output_path.to_string_lossy().to_string())
 }
@@ -217,6 +224,9 @@ pub async fn batch_decrypt(
     if input_paths.is_empty() {
         return Err(CryptoError::FormatError("No files selected".to_string()));
     }
+
+    // Validate batch file count
+    validate_batch_count(input_paths.len())?;
 
     // Verify output directory exists
     if !Path::new(&output_dir).is_dir() {
@@ -293,8 +303,11 @@ async fn decrypt_single_file(
     input_path: &str,
     output_dir: &str,
 ) -> CryptoResult<String> {
+    // Validate input path (check for symlinks)
+    let validated_path = validate_input_path(input_path)?;
+
     // Read encrypted file
-    let encrypted_data = fs::read(input_path)?;
+    let encrypted_data = fs::read(&validated_path)?;
 
     // Parse format
     let encrypted_file = EncryptedFile::deserialize(&encrypted_data)?;
@@ -306,7 +319,7 @@ async fn decrypt_single_file(
     let plaintext = decrypt(&key, &encrypted_file.nonce, &encrypted_file.ciphertext)?;
 
     // Create output path (remove .encrypted extension if present)
-    let input_filename = Path::new(input_path)
+    let input_filename = validated_path
         .file_name()
         .ok_or_else(|| CryptoError::FormatError("Invalid input path".to_string()))?
         .to_string_lossy();
@@ -319,8 +332,8 @@ async fn decrypt_single_file(
 
     let output_path = Path::new(output_dir).join(&output_filename);
 
-    // Write decrypted file
-    fs::write(&output_path, plaintext)?;
+    // Write decrypted file with secure permissions
+    secure_write(&output_path, &plaintext)?;
 
     Ok(output_path.to_string_lossy().to_string())
 }

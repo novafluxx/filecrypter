@@ -61,6 +61,33 @@ function getFileName(path: string): string {
   return parts[parts.length - 1] || path;
 }
 
+/**
+ * Safe error messages to display to users.
+ * Prevents information leakage by mapping backend errors to safe messages.
+ */
+const SAFE_ERROR_MESSAGES: Record<string, string> = {
+  InvalidPassword: 'Incorrect password or corrupted file',
+  FileNotFound: 'File could not be accessed',
+  FileTooLarge: 'File is too large for this operation',
+  TooManyFiles: 'Too many files selected for batch operation',
+  InvalidPath: 'Invalid file path',
+  permission: 'Permission denied',
+  default: 'Operation failed - please try again',
+};
+
+/**
+ * Sanitize error messages for user display.
+ */
+function sanitizeErrorMessage(error: unknown): string {
+  const errStr = String(error);
+  for (const [key, safeMsg] of Object.entries(SAFE_ERROR_MESSAGES)) {
+    if (key !== 'default' && errStr.includes(key)) {
+      return safeMsg;
+    }
+  }
+  return SAFE_ERROR_MESSAGES['default'] ?? 'Operation failed';
+}
+
 // Setup progress listener
 async function startProgressListener() {
   unlistenProgress = await listen<BatchProgress>('batch-progress', (event) => {
@@ -161,7 +188,7 @@ async function handleBatchOperation() {
       statusType.value = 'info';
     }
   } catch (error) {
-    statusMessage.value = `Batch operation failed: ${error}`;
+    statusMessage.value = sanitizeErrorMessage(error);
     statusType.value = 'error';
   } finally {
     isProcessing.value = false;
@@ -231,13 +258,13 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
             'file-error': batchResult?.files[index]?.success === false
           }"
         >
-          <span class="file-name" :title="path">{{ getFileName(path) }}</span>
+          <span class="file-name" :title="getFileName(path)">{{ getFileName(path) }}</span>
           <span
             v-if="batchResult?.files[index]?.error"
             class="file-error-msg"
-            :title="batchResult.files[index].error ?? ''"
+            :title="sanitizeErrorMessage(batchResult.files[index].error)"
           >
-            {{ batchResult.files[index].error }}
+            {{ sanitizeErrorMessage(batchResult.files[index].error) }}
           </span>
           <button
             v-if="!isProcessing && !batchResult"

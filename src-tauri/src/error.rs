@@ -32,6 +32,18 @@ pub enum CryptoError {
     /// I/O error (file not found, permission denied, etc.)
     #[error("File error: {0}")]
     Io(#[from] std::io::Error),
+
+    /// File too large for in-memory processing
+    #[error("FileTooLarge: {0}")]
+    FileTooLarge(String),
+
+    /// Too many files in batch operation
+    #[error("TooManyFiles: {0}")]
+    TooManyFiles(String),
+
+    /// Invalid file path (symlinks, etc.)
+    #[error("InvalidPath: {0}")]
+    InvalidPath(String),
 }
 
 /// Result type alias for crypto operations

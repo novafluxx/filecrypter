@@ -478,7 +478,7 @@ label {
 /* File List */
 .file-list {
   margin-top: 12px;
-  max-height: 200px;
+  max-height: 150px;
   overflow-y: auto;
   border: 1px solid var(--border-color);
   border-radius: 6px;

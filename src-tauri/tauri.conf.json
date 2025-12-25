@@ -15,9 +15,7 @@
         "title": "FileCypter",
         "width": 700,
         "height": 750,
-        "minWidth": 500,
-        "minHeight": 600,
-        "resizable": true,
+        "resizable": false,
         "fullscreen": false
       }
     ],

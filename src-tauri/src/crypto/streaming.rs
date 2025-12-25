@@ -16,7 +16,7 @@
 // Each chunk's nonce is derived via BLAKE3(base_nonce || chunk_index)
 // For version 3, the header bytes are authenticated as AAD for every chunk.
 
-use std::fs::{File, OpenOptions};
+use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 

@@ -332,8 +332,8 @@ async fn decrypt_single_file(
         .ok_or_else(|| CryptoError::FormatError("Invalid input path".to_string()))?
         .to_string_lossy();
 
-    let output_filename = if input_filename.ends_with(".encrypted") {
-        input_filename[..input_filename.len() - 10].to_string()
+    let output_filename = if let Some(stripped) = input_filename.strip_suffix(".encrypted") {
+        stripped.to_string()
     } else {
         format!("{}.decrypted", input_filename)
     };

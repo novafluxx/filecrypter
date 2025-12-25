@@ -107,7 +107,7 @@ pub fn encrypt_file_streaming<P: AsRef<Path>>(
         .map_err(|_| CryptoError::EncryptionFailed)?;
 
     // Calculate total chunks
-    let total_chunks = (file_size as usize + chunk_size - 1) / chunk_size;
+    let total_chunks = (file_size as usize).div_ceil(chunk_size);
     let total_chunks = if total_chunks == 0 { 1 } else { total_chunks };
     let total_chunks_u64 = total_chunks as u64;
 

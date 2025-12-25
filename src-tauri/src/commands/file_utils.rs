@@ -24,6 +24,10 @@ pub const MAX_BATCH_FILES: usize = 1000;
 ///
 /// On Unix systems, sets file permissions to 0o600.
 /// On Windows, uses default permissions (ACLs inherited from parent).
+///
+/// Note: Prefer `atomic_write()` for better safety (prevents partial writes).
+/// This function is kept for cases where atomic writes aren't feasible.
+#[allow(dead_code)]
 #[cfg(unix)]
 pub fn secure_write<P: AsRef<Path>>(path: P, data: &[u8]) -> Result<(), std::io::Error> {
     use std::os::unix::fs::OpenOptionsExt;
@@ -39,10 +43,19 @@ pub fn secure_write<P: AsRef<Path>>(path: P, data: &[u8]) -> Result<(), std::io:
     Ok(())
 }
 
+#[allow(dead_code)]
 #[cfg(windows)]
 pub fn secure_write<P: AsRef<Path>>(path: P, data: &[u8]) -> Result<(), std::io::Error> {
-    // Windows uses ACLs which are inherited from parent directory
-    // For enhanced security, consider using SetSecurityInfo API
+    // TODO: Implement proper Windows ACLs for secure file permissions
+    // Currently uses default ACLs inherited from parent directory.
+    // This means encrypted files may be readable by other users/administrators.
+    //
+    // To fix: Use Windows API SetSecurityInfo to set restrictive DACL
+    // Consider using windows-sys crate for proper ACL implementation.
+    // Should restrict access to current user only (equivalent to Unix 0o600).
+    //
+    // SECURITY LIMITATION: Until implemented, encrypted files on Windows
+    // may not have restrictive permissions.
     fs::write(path, data)
 }
 

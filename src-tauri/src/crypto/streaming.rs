@@ -31,6 +31,8 @@ use crate::crypto::secure::Password;
 use crate::error::{CryptoError, CryptoResult};
 
 #[cfg(unix)]
+use std::fs::OpenOptions;
+#[cfg(unix)]
 use std::os::unix::fs::OpenOptionsExt;
 
 /// Default chunk size: 1 MB

@@ -11,7 +11,9 @@ use std::path::Path;
 use tauri::{command, AppHandle, Emitter};
 use serde::Serialize;
 
-use crate::commands::file_utils::{secure_write, validate_batch_count, validate_input_path};
+use crate::commands::file_utils::{
+    secure_write, validate_batch_count, validate_file_size, validate_input_path,
+};
 use crate::crypto::{decrypt, derive_key, encrypt, generate_salt, EncryptedFile, Password};
 use crate::error::{CryptoError, CryptoResult};
 
@@ -168,6 +170,9 @@ async fn encrypt_single_file(
     // Validate input path (check for symlinks)
     let validated_path = validate_input_path(input_path)?;
 
+    // Validate file size for in-memory operation
+    validate_file_size(&validated_path)?;
+
     // Read input file
     let plaintext = fs::read(&validated_path)?;
 
@@ -305,6 +310,9 @@ async fn decrypt_single_file(
 ) -> CryptoResult<String> {
     // Validate input path (check for symlinks)
     let validated_path = validate_input_path(input_path)?;
+
+    // Validate file size for in-memory operation
+    validate_file_size(&validated_path)?;
 
     // Read encrypted file
     let encrypted_data = fs::read(&validated_path)?;

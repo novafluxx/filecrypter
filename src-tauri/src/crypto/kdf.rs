@@ -19,7 +19,7 @@ use argon2::{
     password_hash::{PasswordHasher, SaltString},
     Algorithm, Argon2, Params, Version,
 };
-use rand::{rngs::OsRng, RngCore};
+use rand::{rngs::OsRng, TryRngCore};
 
 use crate::crypto::secure::{Password, SecureBytes};
 use crate::error::{CryptoError, CryptoResult};
@@ -128,7 +128,9 @@ pub fn generate_salt() -> CryptoResult<Vec<u8>> {
     let mut salt = vec![0u8; SALT_LENGTH];
 
     // Fill with cryptographically secure random bytes from the OS
-    OsRng.fill_bytes(&mut salt);
+    let mut rng = OsRng;
+    rng.try_fill_bytes(&mut salt)
+        .map_err(|_| CryptoError::EncryptionFailed)?;
 
     Ok(salt)
 }

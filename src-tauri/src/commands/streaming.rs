@@ -5,11 +5,13 @@
 //
 // Progress events are emitted during processing to update the UI.
 
+use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::{command, AppHandle, Emitter};
 
+use crate::commands::file_utils::validate_input_path;
 use crate::crypto::{
-    decrypt_file_streaming, encrypt_file_streaming, should_use_streaming,
+    decrypt_file_streaming, encrypt_file_streaming, should_use_streaming, Password,
     DEFAULT_CHUNK_SIZE, STREAMING_THRESHOLD,
 };
 use crate::error::CryptoResult;
@@ -43,6 +45,11 @@ pub async fn encrypt_file_streamed(
     // Emit: Deriving key
     let _ = app.emit(CRYPTO_PROGRESS_EVENT, ProgressEvent::deriving_key());
 
+    // Validate input path (check for symlinks, canonicalize)
+    let validated_input = validate_input_path(&input_path)?;
+    let validated_output = PathBuf::from(&output_path);
+    let password = Password::new(password);
+
     // Create progress callback
     let app_handle = Arc::new(app.clone());
     let progress_callback = move |bytes_processed: u64, total_bytes: u64| {
@@ -65,9 +72,9 @@ pub async fn encrypt_file_streamed(
 
     // Perform streaming encryption
     encrypt_file_streaming(
-        &input_path,
-        &output_path,
-        &password,
+        validated_input,
+        validated_output,
+        password.as_str(),
         DEFAULT_CHUNK_SIZE,
         Some(Box::new(progress_callback)),
     )?;
@@ -106,6 +113,11 @@ pub async fn decrypt_file_streamed(
     // Emit: Deriving key
     let _ = app.emit(CRYPTO_PROGRESS_EVENT, ProgressEvent::deriving_key());
 
+    // Validate input path (check for symlinks, canonicalize)
+    let validated_input = validate_input_path(&input_path)?;
+    let validated_output = PathBuf::from(&output_path);
+    let password = Password::new(password);
+
     // Create progress callback
     let app_handle = Arc::new(app.clone());
     let progress_callback = move |bytes_processed: u64, total_bytes: u64| {
@@ -128,9 +140,9 @@ pub async fn decrypt_file_streamed(
 
     // Perform streaming decryption
     decrypt_file_streaming(
-        &input_path,
-        &output_path,
-        &password,
+        validated_input,
+        validated_output,
+        password.as_str(),
         Some(Box::new(progress_callback)),
     )?;
 

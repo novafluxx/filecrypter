@@ -9,31 +9,38 @@
 // - AES-GCM authentication tag verifies each chunk's integrity
 // - Chunk ordering is implicitly verified by sequential nonces
 //
-// File format (version 2):
+// File format (version 3):
 // [VERSION:1] [SALT_LEN:4] [SALT:N] [BASE_NONCE:12] [CHUNK_SIZE:4] [TOTAL_CHUNKS:8]
 // [CHUNK_1_LEN:4] [CHUNK_1_DATA] [CHUNK_2_LEN:4] [CHUNK_2_DATA] ...
 //
-// Each chunk's nonce = base_nonce XOR chunk_index (as little-endian u64)
+// Each chunk's nonce is derived via BLAKE3(base_nonce || chunk_index)
+// For version 3, the header bytes are authenticated as AAD for every chunk.
 
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 
 use aes_gcm::{
-    aead::{Aead, KeyInit, OsRng},
+    aead::{Aead, KeyInit, Payload},
     Aes256Gcm, Nonce,
 };
-use rand::RngCore;
+use rand::{rngs::OsRng, TryRngCore};
 
 use crate::crypto::kdf::{derive_key, generate_salt};
 use crate::crypto::secure::Password;
 use crate::error::{CryptoError, CryptoResult};
 
+#[cfg(unix)]
+use std::os::unix::fs::OpenOptionsExt;
+
 /// Default chunk size: 1 MB
 pub const DEFAULT_CHUNK_SIZE: usize = 1024 * 1024;
 
-/// Streaming file format version
-pub const STREAMING_VERSION: u8 = 2;
+/// Streaming file format version (current)
+pub const STREAMING_VERSION: u8 = 3;
+
+/// Legacy streaming file format version
+pub const STREAMING_VERSION_V2: u8 = 2;
 
 /// Nonce size for AES-GCM (96 bits = 12 bytes)
 const NONCE_SIZE: usize = 12;
@@ -82,8 +89,11 @@ pub fn encrypt_file_streaming<P: AsRef<Path>>(
     let file_size = input_file.metadata()?.len();
     let mut reader = BufReader::new(input_file);
 
-    // Create output file
-    let output_file = File::create(output_path.as_ref())?;
+    // Create output file with secure permissions (0o600 on Unix)
+    // Note: Streaming operations write directly to the final file (not atomic)
+    // because the files are too large for atomic write (which requires temp file).
+    // Incomplete writes will be detected during decryption by authentication failure.
+    let output_file = create_secure_output_file(output_path.as_ref())?;
     let mut writer = BufWriter::new(output_file);
 
     // Generate salt and derive key
@@ -94,20 +104,46 @@ pub fn encrypt_file_streaming<P: AsRef<Path>>(
         .map_err(|_| CryptoError::EncryptionFailed)?;
 
     // Generate base nonce using cryptographically secure RNG
+    // Combined with timestamp to prevent nonce reuse even if RNG has low entropy
     let mut base_nonce = [0u8; NONCE_SIZE];
-    OsRng.fill_bytes(&mut base_nonce);
+    let mut rng = OsRng;
+    rng.try_fill_bytes(&mut base_nonce)
+        .map_err(|_| CryptoError::EncryptionFailed)?;
+
+    // Mix in timestamp as additional entropy source
+    // This prevents nonce reuse even if RNG fails or has low entropy
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|_| CryptoError::EncryptionFailed)?
+        .as_nanos() as u64;
+
+    for (i, byte) in timestamp.to_le_bytes().iter().enumerate() {
+        if i < NONCE_SIZE {
+            base_nonce[i] ^= byte;
+        }
+    }
 
     // Calculate total chunks
-    let total_chunks = (file_size as usize + chunk_size - 1) / chunk_size;
-    let total_chunks = if total_chunks == 0 { 1 } else { total_chunks };
+    // Note: Empty files (0 bytes) are represented as 1 chunk with 0 data bytes.
+    // This ensures the file header is written, and decryption will immediately
+    // complete when it tries to read the first chunk and finds EOF.
+    let total_chunks_u64 = if file_size == 0 {
+        1u64
+    } else {
+        (file_size / chunk_size as u64) + if file_size % chunk_size as u64 != 0 { 1 } else { 0 }
+    };
+
+    // Validate chunk count to prevent creating files that can't be decrypted
+    if total_chunks_u64 > MAX_CHUNKS {
+        return Err(CryptoError::FormatError(format!(
+            "File too large for encryption: {} chunks (max {})",
+            total_chunks_u64, MAX_CHUNKS
+        )));
+    }
 
     // Write header
-    writer.write_all(&[STREAMING_VERSION])?;
-    writer.write_all(&(salt.len() as u32).to_le_bytes())?;
-    writer.write_all(&salt)?;
-    writer.write_all(&base_nonce)?;
-    writer.write_all(&(chunk_size as u32).to_le_bytes())?;
-    writer.write_all(&(total_chunks as u64).to_le_bytes())?;
+    let header = build_header(STREAMING_VERSION, &salt, &base_nonce, chunk_size, total_chunks_u64);
+    writer.write_all(&header)?;
 
     // Process chunks
     let mut buffer = vec![0u8; chunk_size];
@@ -126,7 +162,13 @@ pub fn encrypt_file_streaming<P: AsRef<Path>>(
 
         // Encrypt chunk
         let ciphertext = cipher
-            .encrypt(nonce, &buffer[..bytes_read])
+            .encrypt(
+                nonce,
+                Payload {
+                    msg: &buffer[..bytes_read],
+                    aad: &header,
+                },
+            )
             .map_err(|_| CryptoError::EncryptionFailed)?;
 
         // Write chunk: [length:4][ciphertext+tag]
@@ -177,7 +219,7 @@ pub fn decrypt_file_streaming<P: AsRef<Path>>(
     // Read and verify version
     let mut version = [0u8; 1];
     reader.read_exact(&mut version)?;
-    if version[0] != STREAMING_VERSION {
+    if version[0] != STREAMING_VERSION && version[0] != STREAMING_VERSION_V2 {
         return Err(CryptoError::FormatError("Unsupported file format".to_string()));
     }
 
@@ -200,7 +242,7 @@ pub fn decrypt_file_streaming<P: AsRef<Path>>(
     // Read chunk size and total chunks
     let mut chunk_size_bytes = [0u8; 4];
     reader.read_exact(&mut chunk_size_bytes)?;
-    let _chunk_size = u32::from_le_bytes(chunk_size_bytes) as usize;
+    let chunk_size = u32::from_le_bytes(chunk_size_bytes) as usize;
 
     let mut total_chunks_bytes = [0u8; 8];
     reader.read_exact(&mut total_chunks_bytes)?;
@@ -211,14 +253,21 @@ pub fn decrypt_file_streaming<P: AsRef<Path>>(
         return Err(CryptoError::FormatError("File too large".to_string()));
     }
 
+    let header = build_header(version[0], &salt, &base_nonce, chunk_size, total_chunks);
+    let header_aad = if version[0] == STREAMING_VERSION {
+        Some(header.as_slice())
+    } else {
+        None
+    };
+
     // Derive key
     let password = Password::new(password.to_string());
     let key = derive_key(&password, &salt)?;
     let cipher = Aes256Gcm::new_from_slice(key.as_slice())
         .map_err(|_| CryptoError::EncryptionFailed)?;
 
-    // Create output file
-    let output_file = File::create(output_path.as_ref())?;
+    // Create output file with secure permissions (0o600 on Unix)
+    let output_file = create_secure_output_file(output_path.as_ref())?;
     let mut writer = BufWriter::new(output_file);
 
     // Process chunks
@@ -230,9 +279,15 @@ pub fn decrypt_file_streaming<P: AsRef<Path>>(
         reader.read_exact(&mut chunk_len_bytes)?;
         let chunk_len = u32::from_le_bytes(chunk_len_bytes) as usize;
 
-        // Sanity check chunk length (allow 1KB tolerance for potential metadata)
-        if chunk_len > DEFAULT_CHUNK_SIZE + TAG_SIZE + 1024 {
-            return Err(CryptoError::FormatError("Invalid chunk length".to_string()));
+        // Strict chunk length validation
+        // For version 3, we know the exact chunk_size from header
+        // Maximum valid chunk: chunk_size + TAG_SIZE (no extra tolerance needed)
+        let max_valid_chunk = chunk_size + TAG_SIZE;
+        if chunk_len > max_valid_chunk {
+            return Err(CryptoError::FormatError(format!(
+                "Invalid chunk length: {} bytes (max {} for chunk_size {})",
+                chunk_len, max_valid_chunk, chunk_size
+            )));
         }
 
         // Read encrypted chunk
@@ -244,9 +299,15 @@ pub fn decrypt_file_streaming<P: AsRef<Path>>(
         let nonce = Nonce::from_slice(&chunk_nonce);
 
         // Decrypt chunk
-        let plaintext = cipher
-            .decrypt(nonce, ciphertext.as_ref())
-            .map_err(|_| CryptoError::InvalidPassword)?;
+        let plaintext = if let Some(aad) = header_aad {
+            cipher
+                .decrypt(nonce, Payload { msg: ciphertext.as_ref(), aad })
+                .map_err(|_| CryptoError::InvalidPassword)?
+        } else {
+            cipher
+                .decrypt(nonce, ciphertext.as_ref())
+                .map_err(|_| CryptoError::InvalidPassword)?
+        };
 
         // Write plaintext
         writer.write_all(&plaintext)?;
@@ -279,6 +340,43 @@ fn derive_chunk_nonce(base_nonce: &[u8; NONCE_SIZE], chunk_index: u64) -> [u8; N
     let mut nonce = [0u8; NONCE_SIZE];
     nonce.copy_from_slice(&hash.as_bytes()[..NONCE_SIZE]);
     nonce
+}
+
+fn build_header(
+    version: u8,
+    salt: &[u8],
+    base_nonce: &[u8; NONCE_SIZE],
+    chunk_size: usize,
+    total_chunks: u64,
+) -> Vec<u8> {
+    let mut header = Vec::with_capacity(1 + 4 + salt.len() + NONCE_SIZE + 4 + 8);
+    header.push(version);
+    header.extend_from_slice(&(salt.len() as u32).to_le_bytes());
+    header.extend_from_slice(salt);
+    header.extend_from_slice(base_nonce);
+    header.extend_from_slice(&(chunk_size as u32).to_le_bytes());
+    header.extend_from_slice(&total_chunks.to_le_bytes());
+    header
+}
+
+fn create_secure_output_file(path: &Path) -> std::io::Result<File> {
+    #[cfg(unix)]
+    {
+        OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(path)
+    }
+
+    #[cfg(windows)]
+    {
+        // TODO: Implement proper Windows ACLs for secure file permissions
+        // Currently uses default ACLs inherited from parent directory.
+        // See file_utils.rs secure_write() for more details on this limitation.
+        File::create(path)
+    }
 }
 
 /// Check if a file should use streaming encryption based on size

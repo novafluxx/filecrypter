@@ -19,11 +19,8 @@
 // - Very fast (hardware acceleration on most modern CPUs)
 // - Encryption/decryption is typically <10ms for small files
 
-use aes_gcm::{
-    aead::{Aead, OsRng},
-    Aes256Gcm, KeyInit, Nonce,
-};
-use rand::RngCore;
+use aes_gcm::{aead::Aead, Aes256Gcm, KeyInit, Nonce};
+use rand::{rngs::OsRng, TryRngCore};
 
 use crate::crypto::secure::SecureBytes;
 use crate::error::{CryptoError, CryptoResult};
@@ -72,7 +69,9 @@ pub fn encrypt(key: &SecureBytes, plaintext: &[u8]) -> CryptoResult<(Vec<u8>, Ve
     // Generate a random nonce using OS-provided CSPRNG
     // CRITICAL: Nonces must be unique for each encryption with the same key
     let mut nonce_bytes = [0u8; NONCE_SIZE];
-    OsRng.fill_bytes(&mut nonce_bytes);
+    let mut rng = OsRng;
+    rng.try_fill_bytes(&mut nonce_bytes)
+        .map_err(|_| CryptoError::EncryptionFailed)?;
     let nonce = Nonce::from_slice(&nonce_bytes);
 
     // Create the AES-256-GCM cipher instance with our key

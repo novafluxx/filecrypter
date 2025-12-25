@@ -11,7 +11,9 @@ use std::path::Path;
 use tauri::{command, AppHandle, Emitter};
 use serde::Serialize;
 
-use crate::commands::file_utils::{secure_write, validate_batch_count, validate_input_path};
+use crate::commands::file_utils::{
+    atomic_write, validate_batch_count, validate_file_size, validate_input_path,
+};
 use crate::crypto::{decrypt, derive_key, encrypt, generate_salt, EncryptedFile, Password};
 use crate::error::{CryptoError, CryptoResult};
 
@@ -166,7 +168,12 @@ async fn encrypt_single_file(
     output_dir: &str,
 ) -> CryptoResult<String> {
     // Validate input path (check for symlinks)
-    let validated_path = validate_input_path(input_path)?;
+    let validated_path = validate_input_path(input_path)
+        .map_err(|e| CryptoError::FormatError(format!("File '{}': {}", input_path, e)))?;
+
+    // Validate file size for in-memory operation
+    validate_file_size(&validated_path)
+        .map_err(|e| CryptoError::FormatError(format!("File '{}': {}", input_path, e)))?;
 
     // Read input file
     let plaintext = fs::read(&validated_path)?;
@@ -187,13 +194,13 @@ async fn encrypt_single_file(
     let output_filename = format!("{}.encrypted", input_filename.to_string_lossy());
     let output_path = Path::new(output_dir).join(&output_filename);
 
-    // Serialize and write with secure permissions
+    // Serialize and write atomically with secure permissions
     let encrypted_file = EncryptedFile {
         salt,
         nonce,
         ciphertext,
     };
-    secure_write(&output_path, &encrypted_file.serialize())?;
+    atomic_write(&output_path, &encrypted_file.serialize())?;
 
     Ok(output_path.to_string_lossy().to_string())
 }
@@ -304,7 +311,12 @@ async fn decrypt_single_file(
     output_dir: &str,
 ) -> CryptoResult<String> {
     // Validate input path (check for symlinks)
-    let validated_path = validate_input_path(input_path)?;
+    let validated_path = validate_input_path(input_path)
+        .map_err(|e| CryptoError::FormatError(format!("File '{}': {}", input_path, e)))?;
+
+    // Validate file size for in-memory operation
+    validate_file_size(&validated_path)
+        .map_err(|e| CryptoError::FormatError(format!("File '{}': {}", input_path, e)))?;
 
     // Read encrypted file
     let encrypted_data = fs::read(&validated_path)?;
@@ -324,16 +336,16 @@ async fn decrypt_single_file(
         .ok_or_else(|| CryptoError::FormatError("Invalid input path".to_string()))?
         .to_string_lossy();
 
-    let output_filename = if input_filename.ends_with(".encrypted") {
-        input_filename[..input_filename.len() - 10].to_string()
+    let output_filename = if let Some(stripped) = input_filename.strip_suffix(".encrypted") {
+        stripped.to_string()
     } else {
         format!("{}.decrypted", input_filename)
     };
 
     let output_path = Path::new(output_dir).join(&output_filename);
 
-    // Write decrypted file with secure permissions
-    secure_write(&output_path, &plaintext)?;
+    // Write decrypted file atomically with secure permissions
+    atomic_write(&output_path, &plaintext)?;
 
     Ok(output_path.to_string_lossy().to_string())
 }

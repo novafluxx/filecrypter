@@ -8,7 +8,9 @@
 
 use std::fs;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
+
+use tempfile::NamedTempFile;
 
 use crate::error::{CryptoError, CryptoResult};
 
@@ -22,6 +24,10 @@ pub const MAX_BATCH_FILES: usize = 1000;
 ///
 /// On Unix systems, sets file permissions to 0o600.
 /// On Windows, uses default permissions (ACLs inherited from parent).
+///
+/// Note: Prefer `atomic_write()` for better safety (prevents partial writes).
+/// This function is kept for cases where atomic writes aren't feasible.
+#[allow(dead_code)]
 #[cfg(unix)]
 pub fn secure_write<P: AsRef<Path>>(path: P, data: &[u8]) -> Result<(), std::io::Error> {
     use std::os::unix::fs::OpenOptionsExt;
@@ -37,10 +43,19 @@ pub fn secure_write<P: AsRef<Path>>(path: P, data: &[u8]) -> Result<(), std::io:
     Ok(())
 }
 
+#[allow(dead_code)]
 #[cfg(windows)]
 pub fn secure_write<P: AsRef<Path>>(path: P, data: &[u8]) -> Result<(), std::io::Error> {
-    // Windows uses ACLs which are inherited from parent directory
-    // For enhanced security, consider using SetSecurityInfo API
+    // TODO: Implement proper Windows ACLs for secure file permissions
+    // Currently uses default ACLs inherited from parent directory.
+    // This means encrypted files may be readable by other users/administrators.
+    //
+    // To fix: Use Windows API SetSecurityInfo to set restrictive DACL
+    // Consider using windows-sys crate for proper ACL implementation.
+    // Should restrict access to current user only (equivalent to Unix 0o600).
+    //
+    // SECURITY LIMITATION: Until implemented, encrypted files on Windows
+    // may not have restrictive permissions.
     fs::write(path, data)
 }
 
@@ -50,17 +65,29 @@ pub fn secure_write<P: AsRef<Path>>(path: P, data: &[u8]) -> Result<(), std::io:
 /// If the process crashes, only the temp file is left behind.
 pub fn atomic_write<P: AsRef<Path>>(path: P, data: &[u8]) -> CryptoResult<()> {
     let path = path.as_ref();
-    let temp_path = path.with_extension("tmp");
+    let parent = path.parent().unwrap_or_else(|| Path::new("."));
 
-    // Write to temp file with secure permissions
-    secure_write(&temp_path, data)?;
+    let mut temp_file = NamedTempFile::new_in(parent).map_err(CryptoError::Io)?;
 
-    // Atomically rename to final path
-    fs::rename(&temp_path, path).map_err(|e| {
-        // Try to clean up temp file on rename failure
-        let _ = fs::remove_file(&temp_path);
-        CryptoError::Io(e)
-    })?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = temp_file
+            .as_file()
+            .metadata()
+            .map_err(CryptoError::Io)?
+            .permissions();
+        perms.set_mode(0o600);
+        fs::set_permissions(temp_file.path(), perms).map_err(CryptoError::Io)?;
+    }
+
+    temp_file.write_all(data).map_err(CryptoError::Io)?;
+    temp_file.flush().map_err(CryptoError::Io)?;
+
+    if let Err(e) = temp_file.persist(path) {
+        let _ = fs::remove_file(e.file.path());
+        return Err(CryptoError::Io(e.error));
+    }
 
     Ok(())
 }
@@ -82,24 +109,53 @@ pub fn validate_input_path(path: &str) -> CryptoResult<PathBuf> {
         )));
     }
 
-    // Check if it's a symlink
-    let metadata = fs::symlink_metadata(path)?;
-    if metadata.file_type().is_symlink() {
-        return Err(CryptoError::InvalidPath(
-            "Symlinks are not allowed for security reasons".to_string(),
-        ));
-    }
+    // Check for symlinks in any path component
+    validate_no_symlinks(path)?;
 
     // Canonicalize the path
     let canonical = fs::canonicalize(path)?;
     Ok(canonical)
 }
 
+fn validate_no_symlinks(path: &Path) -> CryptoResult<()> {
+    let mut current = if path.is_absolute() {
+        PathBuf::new()
+    } else {
+        std::env::current_dir().map_err(CryptoError::Io)?
+    };
+
+    for component in path.components() {
+        match component {
+            Component::Prefix(prefix) => {
+                current.push(prefix.as_os_str());
+            }
+            Component::RootDir => {
+                current.push(component.as_os_str());
+            }
+            Component::CurDir => {}
+            Component::ParentDir => {
+                current.pop();
+            }
+            Component::Normal(_) => {
+                current.push(component.as_os_str());
+                let metadata = fs::symlink_metadata(&current)?;
+                if metadata.file_type().is_symlink() {
+                    return Err(CryptoError::InvalidPath(
+                        "Symlinks are not allowed for security reasons".to_string(),
+                    ));
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
 /// Validate file size for in-memory operations
 ///
 /// Returns an error if the file is too large to process in memory.
-pub fn validate_file_size(path: &str) -> CryptoResult<u64> {
-    let metadata = fs::metadata(path)?;
+pub fn validate_file_size<P: AsRef<Path>>(path: P) -> CryptoResult<u64> {
+    let metadata = fs::metadata(path.as_ref())?;
     let size = metadata.len();
 
     if size > MAX_IN_MEMORY_SIZE {

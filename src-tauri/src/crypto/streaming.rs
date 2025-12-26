@@ -374,10 +374,10 @@ fn create_secure_output_file(path: &Path) -> std::io::Result<File> {
 
     #[cfg(windows)]
     {
-        // TODO: Implement proper Windows ACLs for secure file permissions
-        // Currently uses default ACLs inherited from parent directory.
-        // See file_utils.rs secure_write() for more details on this limitation.
-        File::create(path)
+        use crate::security::create_secure_file;
+
+        // Create file with restrictive permissions atomically (no TOCTOU vulnerability)
+        create_secure_file(path).map_err(|e| e.into())
     }
 }
 
@@ -421,16 +421,19 @@ mod tests {
 
     #[test]
     fn test_streaming_encrypt_decrypt_roundtrip() {
+        // Create a temp directory for output files (avoids sharing violations on Windows)
+        let temp_dir = tempfile::tempdir().unwrap();
+
         // Create a test file with some content
         let content = b"Hello, streaming encryption! This is test content.";
         let input_file = NamedTempFile::new().unwrap();
         fs::write(input_file.path(), content).unwrap();
 
         // Encrypt
-        let encrypted_file = NamedTempFile::new().unwrap();
+        let encrypted_path = temp_dir.path().join("encrypted.bin");
         encrypt_file_streaming(
             input_file.path(),
-            encrypted_file.path(),
+            &encrypted_path,
             "test_password",
             1024, // Small chunk size for testing
             None,
@@ -438,35 +441,32 @@ mod tests {
         .unwrap();
 
         // Verify encrypted file is different
-        let encrypted_data = fs::read(encrypted_file.path()).unwrap();
+        let encrypted_data = fs::read(&encrypted_path).unwrap();
         assert_ne!(encrypted_data, content);
 
         // Decrypt
-        let decrypted_file = NamedTempFile::new().unwrap();
-        decrypt_file_streaming(
-            encrypted_file.path(),
-            decrypted_file.path(),
-            "test_password",
-            None,
-        )
-        .unwrap();
+        let decrypted_path = temp_dir.path().join("decrypted.bin");
+        decrypt_file_streaming(&encrypted_path, &decrypted_path, "test_password", None).unwrap();
 
         // Verify content matches
-        let decrypted_content = fs::read(decrypted_file.path()).unwrap();
+        let decrypted_content = fs::read(&decrypted_path).unwrap();
         assert_eq!(content, decrypted_content.as_slice());
     }
 
     #[test]
     fn test_streaming_wrong_password() {
+        // Create a temp directory for output files (avoids sharing violations on Windows)
+        let temp_dir = tempfile::tempdir().unwrap();
+
         // Create and encrypt a file
         let content = b"Secret data";
         let input_file = NamedTempFile::new().unwrap();
         fs::write(input_file.path(), content).unwrap();
 
-        let encrypted_file = NamedTempFile::new().unwrap();
+        let encrypted_path = temp_dir.path().join("encrypted.bin");
         encrypt_file_streaming(
             input_file.path(),
-            encrypted_file.path(),
+            &encrypted_path,
             "correct_password",
             1024,
             None,
@@ -474,13 +474,9 @@ mod tests {
         .unwrap();
 
         // Try to decrypt with wrong password
-        let decrypted_file = NamedTempFile::new().unwrap();
-        let result = decrypt_file_streaming(
-            encrypted_file.path(),
-            decrypted_file.path(),
-            "wrong_password",
-            None,
-        );
+        let decrypted_path = temp_dir.path().join("decrypted.bin");
+        let result =
+            decrypt_file_streaming(&encrypted_path, &decrypted_path, "wrong_password", None);
 
         assert!(result.is_err());
         assert!(matches!(result, Err(CryptoError::InvalidPassword)));
@@ -504,6 +500,9 @@ mod tests {
 
     #[test]
     fn test_streaming_multi_chunk() {
+        // Create a temp directory for output files (avoids sharing violations on Windows)
+        let temp_dir = tempfile::tempdir().unwrap();
+
         // Create a file that spans multiple chunks
         let chunk_size = 1024;
         let num_chunks = 5;
@@ -513,10 +512,10 @@ mod tests {
         fs::write(input_file.path(), &content).unwrap();
 
         // Encrypt
-        let encrypted_file = NamedTempFile::new().unwrap();
+        let encrypted_path = temp_dir.path().join("encrypted.bin");
         encrypt_file_streaming(
             input_file.path(),
-            encrypted_file.path(),
+            &encrypted_path,
             "multi_chunk_test",
             chunk_size,
             None,
@@ -524,17 +523,12 @@ mod tests {
         .unwrap();
 
         // Decrypt
-        let decrypted_file = NamedTempFile::new().unwrap();
-        decrypt_file_streaming(
-            encrypted_file.path(),
-            decrypted_file.path(),
-            "multi_chunk_test",
-            None,
-        )
-        .unwrap();
+        let decrypted_path = temp_dir.path().join("decrypted.bin");
+        decrypt_file_streaming(&encrypted_path, &decrypted_path, "multi_chunk_test", None)
+            .unwrap();
 
         // Verify
-        let decrypted_content = fs::read(decrypted_file.path()).unwrap();
+        let decrypted_content = fs::read(&decrypted_path).unwrap();
         assert_eq!(content, decrypted_content);
     }
 

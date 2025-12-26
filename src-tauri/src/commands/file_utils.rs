@@ -46,17 +46,13 @@ pub fn secure_write<P: AsRef<Path>>(path: P, data: &[u8]) -> Result<(), std::io:
 #[allow(dead_code)]
 #[cfg(windows)]
 pub fn secure_write<P: AsRef<Path>>(path: P, data: &[u8]) -> Result<(), std::io::Error> {
-    // TODO: Implement proper Windows ACLs for secure file permissions
-    // Currently uses default ACLs inherited from parent directory.
-    // This means encrypted files may be readable by other users/administrators.
-    //
-    // To fix: Use Windows API SetSecurityInfo to set restrictive DACL
-    // Consider using windows-sys crate for proper ACL implementation.
-    // Should restrict access to current user only (equivalent to Unix 0o600).
-    //
-    // SECURITY LIMITATION: Until implemented, encrypted files on Windows
-    // may not have restrictive permissions.
-    fs::write(path, data)
+    use crate::security::create_secure_file;
+
+    // Create file with restrictive permissions atomically (no TOCTOU vulnerability)
+    let mut file = create_secure_file(&path)?;
+    file.write_all(data)?;
+    file.flush()?;
+    Ok(())
 }
 
 /// Write data atomically: write to temp file, then rename
@@ -79,6 +75,18 @@ pub fn atomic_write<P: AsRef<Path>>(path: P, data: &[u8]) -> CryptoResult<()> {
             .permissions();
         perms.set_mode(0o600);
         fs::set_permissions(temp_file.path(), perms).map_err(CryptoError::Io)?;
+    }
+
+    // On Windows, apply restrictive DACL to temp file BEFORE writing sensitive data
+    // This minimizes the TOCTOU window - the file has secure permissions before data is written
+    #[cfg(windows)]
+    {
+        use crate::security::set_owner_only_dacl;
+        if let Err(err) = set_owner_only_dacl(temp_file.path()) {
+            // Clean up temp file and fail
+            let _ = fs::remove_file(temp_file.path());
+            return Err(CryptoError::Io(err.into()));
+        }
     }
 
     temp_file.write_all(data).map_err(CryptoError::Io)?;
@@ -189,18 +197,19 @@ mod tests {
 
     #[test]
     fn test_secure_write() {
-        let temp_file = NamedTempFile::new().unwrap();
-        let path = temp_file.path();
+        // Use tempdir to get a path without keeping a file handle open
+        let temp_dir = tempfile::tempdir().unwrap();
+        let path = temp_dir.path().join("secure_file.txt");
 
-        secure_write(path, b"test data").unwrap();
+        secure_write(&path, b"test data").unwrap();
 
-        let content = fs::read(path).unwrap();
+        let content = fs::read(&path).unwrap();
         assert_eq!(content, b"test data");
 
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let metadata = fs::metadata(path).unwrap();
+            let metadata = fs::metadata(&path).unwrap();
             let mode = metadata.permissions().mode();
             // Check that only owner has read/write (0o600 = 384 in decimal)
             assert_eq!(mode & 0o777, 0o600);
@@ -209,17 +218,23 @@ mod tests {
 
     #[test]
     fn test_atomic_write() {
+        // Create a temp file and immediately close the handle
+        // On Windows, the file must be closed before we can overwrite it atomically
         let temp_file = NamedTempFile::new().unwrap();
-        let path = temp_file.path();
+        let path = temp_file.path().to_path_buf();
+        drop(temp_file); // Close the file handle
 
-        atomic_write(path, b"atomic data").unwrap();
+        atomic_write(&path, b"atomic data").unwrap();
 
-        let content = fs::read(path).unwrap();
+        let content = fs::read(&path).unwrap();
         assert_eq!(content, b"atomic data");
 
         // Temp file should not exist
         let temp_path = path.with_extension("tmp");
         assert!(!temp_path.exists());
+
+        // Clean up
+        let _ = fs::remove_file(&path);
     }
 
     #[test]

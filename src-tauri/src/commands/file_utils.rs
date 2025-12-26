@@ -51,14 +51,19 @@ pub fn secure_write<P: AsRef<Path>>(path: P, data: &[u8]) -> Result<(), std::io:
     // Write the file first
     fs::write(&path, data)?;
 
-    // Then apply restrictive DACL (current user read/write only)
-    // Log warning on failure but don't fail the operation
+    // Apply restrictive DACL (current user read/write only)
+    // Fail if we cannot set permissions - security is critical for encrypted files
     if let Err(code) = set_owner_only_dacl(&path) {
-        log::warn!(
-            "Failed to set restrictive DACL on {:?}: Windows error code {}",
-            path.as_ref(),
-            code
-        );
+        // Clean up the insecure file before returning error
+        let _ = fs::remove_file(&path);
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            format!(
+                "Failed to set restrictive permissions on {:?}: Windows error code {}",
+                path.as_ref(),
+                code
+            ),
+        ));
     }
 
     Ok(())
@@ -95,15 +100,20 @@ pub fn atomic_write<P: AsRef<Path>>(path: P, data: &[u8]) -> CryptoResult<()> {
     }
 
     // On Windows, apply restrictive DACL after persist
+    // Fail if we cannot set permissions - security is critical for encrypted files
     #[cfg(windows)]
     {
         use crate::security::set_owner_only_dacl;
         if let Err(code) = set_owner_only_dacl(path) {
-            log::warn!(
-                "Failed to set restrictive DACL on {:?}: Windows error code {}",
-                path,
-                code
-            );
+            // Clean up the insecure file before returning error
+            let _ = fs::remove_file(path);
+            return Err(CryptoError::Io(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                format!(
+                    "Failed to set restrictive permissions on {:?}: Windows error code {}",
+                    path, code
+                ),
+            )));
         }
     }
 

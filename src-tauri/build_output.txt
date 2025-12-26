@@ -1,3 +1,0 @@
-    Checking filecypter v0.1.0 (C:\Users\novaf\Projects\filecypter\src-tauri)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.22s
-

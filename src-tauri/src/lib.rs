@@ -8,6 +8,7 @@ mod commands;
 mod crypto;
 mod error;
 pub mod events;
+pub mod security;
 
 // Import commands for registration
 use commands::{

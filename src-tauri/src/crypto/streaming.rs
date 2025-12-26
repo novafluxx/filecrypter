@@ -374,10 +374,22 @@ fn create_secure_output_file(path: &Path) -> std::io::Result<File> {
 
     #[cfg(windows)]
     {
-        // TODO: Implement proper Windows ACLs for secure file permissions
-        // Currently uses default ACLs inherited from parent directory.
-        // See file_utils.rs secure_write() for more details on this limitation.
-        File::create(path)
+        use crate::security::set_owner_only_dacl;
+
+        // Create the file first
+        let file = File::create(path)?;
+
+        // Apply restrictive DACL (current user read/write only)
+        // Log warning on failure but don't fail the operation
+        if let Err(code) = set_owner_only_dacl(path) {
+            log::warn!(
+                "Failed to set restrictive DACL on {:?}: Windows error code {}",
+                path,
+                code
+            );
+        }
+
+        Ok(file)
     }
 }
 

@@ -46,17 +46,22 @@ pub fn secure_write<P: AsRef<Path>>(path: P, data: &[u8]) -> Result<(), std::io:
 #[allow(dead_code)]
 #[cfg(windows)]
 pub fn secure_write<P: AsRef<Path>>(path: P, data: &[u8]) -> Result<(), std::io::Error> {
-    // TODO: Implement proper Windows ACLs for secure file permissions
-    // Currently uses default ACLs inherited from parent directory.
-    // This means encrypted files may be readable by other users/administrators.
-    //
-    // To fix: Use Windows API SetSecurityInfo to set restrictive DACL
-    // Consider using windows-sys crate for proper ACL implementation.
-    // Should restrict access to current user only (equivalent to Unix 0o600).
-    //
-    // SECURITY LIMITATION: Until implemented, encrypted files on Windows
-    // may not have restrictive permissions.
-    fs::write(path, data)
+    use crate::security::set_owner_only_dacl;
+
+    // Write the file first
+    fs::write(&path, data)?;
+
+    // Then apply restrictive DACL (current user read/write only)
+    // Log warning on failure but don't fail the operation
+    if let Err(code) = set_owner_only_dacl(&path) {
+        log::warn!(
+            "Failed to set restrictive DACL on {:?}: Windows error code {}",
+            path.as_ref(),
+            code
+        );
+    }
+
+    Ok(())
 }
 
 /// Write data atomically: write to temp file, then rename
@@ -87,6 +92,19 @@ pub fn atomic_write<P: AsRef<Path>>(path: P, data: &[u8]) -> CryptoResult<()> {
     if let Err(e) = temp_file.persist(path) {
         let _ = fs::remove_file(e.file.path());
         return Err(CryptoError::Io(e.error));
+    }
+
+    // On Windows, apply restrictive DACL after persist
+    #[cfg(windows)]
+    {
+        use crate::security::set_owner_only_dacl;
+        if let Err(code) = set_owner_only_dacl(path) {
+            log::warn!(
+                "Failed to set restrictive DACL on {:?}: Windows error code {}",
+                path,
+                code
+            );
+        }
     }
 
     Ok(())
@@ -209,17 +227,23 @@ mod tests {
 
     #[test]
     fn test_atomic_write() {
+        // Create a temp file and immediately close the handle
+        // On Windows, the file must be closed before we can overwrite it atomically
         let temp_file = NamedTempFile::new().unwrap();
-        let path = temp_file.path();
+        let path = temp_file.path().to_path_buf();
+        drop(temp_file); // Close the file handle
 
-        atomic_write(path, b"atomic data").unwrap();
+        atomic_write(&path, b"atomic data").unwrap();
 
-        let content = fs::read(path).unwrap();
+        let content = fs::read(&path).unwrap();
         assert_eq!(content, b"atomic data");
 
         // Temp file should not exist
         let temp_path = path.with_extension("tmp");
         assert!(!temp_path.exists());
+
+        // Clean up
+        let _ = fs::remove_file(&path);
     }
 
     #[test]

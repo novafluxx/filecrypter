@@ -46,26 +46,12 @@ pub fn secure_write<P: AsRef<Path>>(path: P, data: &[u8]) -> Result<(), std::io:
 #[allow(dead_code)]
 #[cfg(windows)]
 pub fn secure_write<P: AsRef<Path>>(path: P, data: &[u8]) -> Result<(), std::io::Error> {
-    use crate::security::set_owner_only_dacl;
+    use crate::security::create_secure_file;
 
-    // Write the file first
-    fs::write(&path, data)?;
-
-    // Apply restrictive DACL (current user read/write only)
-    // Fail if we cannot set permissions - security is critical for encrypted files
-    if let Err(code) = set_owner_only_dacl(&path) {
-        // Clean up the insecure file before returning error
-        let _ = fs::remove_file(&path);
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::PermissionDenied,
-            format!(
-                "Failed to set restrictive permissions on {:?}: Windows error code {}",
-                path.as_ref(),
-                code
-            ),
-        ));
-    }
-
+    // Create file with restrictive permissions atomically (no TOCTOU vulnerability)
+    let mut file = create_secure_file(&path)?;
+    file.write_all(data)?;
+    file.flush()?;
     Ok(())
 }
 
@@ -91,30 +77,24 @@ pub fn atomic_write<P: AsRef<Path>>(path: P, data: &[u8]) -> CryptoResult<()> {
         fs::set_permissions(temp_file.path(), perms).map_err(CryptoError::Io)?;
     }
 
+    // On Windows, apply restrictive DACL to temp file BEFORE writing sensitive data
+    // This minimizes the TOCTOU window - the file has secure permissions before data is written
+    #[cfg(windows)]
+    {
+        use crate::security::set_owner_only_dacl;
+        if let Err(err) = set_owner_only_dacl(temp_file.path()) {
+            // Clean up temp file and fail
+            let _ = fs::remove_file(temp_file.path());
+            return Err(CryptoError::Io(err.into()));
+        }
+    }
+
     temp_file.write_all(data).map_err(CryptoError::Io)?;
     temp_file.flush().map_err(CryptoError::Io)?;
 
     if let Err(e) = temp_file.persist(path) {
         let _ = fs::remove_file(e.file.path());
         return Err(CryptoError::Io(e.error));
-    }
-
-    // On Windows, apply restrictive DACL after persist
-    // Fail if we cannot set permissions - security is critical for encrypted files
-    #[cfg(windows)]
-    {
-        use crate::security::set_owner_only_dacl;
-        if let Err(code) = set_owner_only_dacl(path) {
-            // Clean up the insecure file before returning error
-            let _ = fs::remove_file(path);
-            return Err(CryptoError::Io(std::io::Error::new(
-                std::io::ErrorKind::PermissionDenied,
-                format!(
-                    "Failed to set restrictive permissions on {:?}: Windows error code {}",
-                    path, code
-                ),
-            )));
-        }
     }
 
     Ok(())
@@ -217,18 +197,19 @@ mod tests {
 
     #[test]
     fn test_secure_write() {
-        let temp_file = NamedTempFile::new().unwrap();
-        let path = temp_file.path();
+        // Use tempdir to get a path without keeping a file handle open
+        let temp_dir = tempfile::tempdir().unwrap();
+        let path = temp_dir.path().join("secure_file.txt");
 
-        secure_write(path, b"test data").unwrap();
+        secure_write(&path, b"test data").unwrap();
 
-        let content = fs::read(path).unwrap();
+        let content = fs::read(&path).unwrap();
         assert_eq!(content, b"test data");
 
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let metadata = fs::metadata(path).unwrap();
+            let metadata = fs::metadata(&path).unwrap();
             let mode = metadata.permissions().mode();
             // Check that only owner has read/write (0o600 = 384 in decimal)
             assert_eq!(mode & 0o777, 0o600);

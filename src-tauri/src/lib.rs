@@ -17,6 +17,11 @@ use commands::{
 };
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+/// Build and run the Tauri application.
+///
+/// This function registers plugins and IPC commands, then starts the Tauri runtime.
+/// The desktop binary (`src-tauri/src/main.rs`) delegates to this so the setup lives
+/// in one place.
 pub fn run() {
     tauri::Builder::default()
         // Register plugins
@@ -34,13 +39,13 @@ pub fn run() {
         })
         // Register Tauri commands that can be called from the frontend
         .invoke_handler(tauri::generate_handler![
-            encrypt_file,           // Standard encryption (in-memory)
-            decrypt_file,           // Standard decryption (in-memory)
-            batch_encrypt,          // Batch encrypt multiple files
-            batch_decrypt,          // Batch decrypt multiple files
-            encrypt_file_streamed,  // Streaming encryption (for large files)
-            decrypt_file_streamed,  // Streaming decryption (for large files)
-            check_use_streaming,    // Check if file should use streaming
+            encrypt_file,            // Standard encryption (in-memory)
+            decrypt_file,            // Standard decryption (in-memory)
+            batch_encrypt,           // Batch encrypt multiple files
+            batch_decrypt,           // Batch decrypt multiple files
+            encrypt_file_streamed,   // Streaming encryption (for large files)
+            decrypt_file_streamed,   // Streaming decryption (for large files)
+            check_use_streaming,     // Check if file should use streaming
             get_streaming_threshold, // Get streaming threshold (10MB)
         ])
         .run(tauri::generate_context!())

@@ -5,6 +5,8 @@ FileCypter is a cross-platform desktop app for encrypting and decrypting files. 
 ## Features
 - Password-based encryption using AES-256-GCM.
 - Argon2id key derivation with per-file salt and nonce.
+- Streaming (chunked) encryption for large files (auto-selected for >10 MB).
+- Batch encrypt/decrypt with progress updates.
 - Native file dialogs via Tauri.
 
 ## Tech Stack
@@ -45,8 +47,13 @@ bun run build
 bun run tauri:build
 ```
 
+Preview the production build:
+```bash
+bun run preview
+```
+
 ## Testing & Linting
-Run Rust tests:
+Run Rust tests (unit + integration):
 ```bash
 cd src-tauri
 cargo test
@@ -62,7 +69,8 @@ cargo clippy
 - Encryption uses AES-256-GCM with Argon2id key derivation.
 - Each encryption generates a unique salt and nonce.
 - File I/O is handled in Rust; the frontend only invokes commands.
-- Current implementation loads entire files into memory.
+- Single-file operations switch to streaming for large files (default threshold: 10 MB).
+- Batch operations are in-memory and enforce a per-file size limit (100 MB).
 
 ## Contributing
 See `AGENTS.md` for repository guidelines and contribution practices.

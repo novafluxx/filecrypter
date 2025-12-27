@@ -62,11 +62,7 @@ pub async fn encrypt_file_streamed(
 
         let _ = app_handle.emit(
             CRYPTO_PROGRESS_EVENT,
-            ProgressEvent::new(
-                "encrypting",
-                percent,
-                "Encrypting file chunks...",
-            ),
+            ProgressEvent::new("encrypting", percent, "Encrypting file chunks..."),
         );
     };
 
@@ -130,11 +126,7 @@ pub async fn decrypt_file_streamed(
 
         let _ = app_handle.emit(
             CRYPTO_PROGRESS_EVENT,
-            ProgressEvent::new(
-                "decrypting",
-                percent,
-                "Decrypting file chunks...",
-            ),
+            ProgressEvent::new("decrypting", percent, "Decrypting file chunks..."),
         );
     };
 

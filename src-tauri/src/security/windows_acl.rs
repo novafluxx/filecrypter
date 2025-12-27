@@ -327,11 +327,7 @@ mod tests {
 
         // Create file with secure permissions from the start
         let result = create_secure_file(&path);
-        assert!(
-            result.is_ok(),
-            "Failed to create secure file: {:?}",
-            result
-        );
+        assert!(result.is_ok(), "Failed to create secure file: {:?}", result);
 
         let mut file = result.unwrap();
         file.write_all(b"secure content").unwrap();

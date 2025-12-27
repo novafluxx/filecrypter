@@ -5,15 +5,17 @@
 // files in chunks (default 1MB), encrypting each chunk independently.
 //
 // Security considerations:
-// - Each chunk uses a unique nonce derived from base_nonce + chunk_index
+// - Each chunk uses a unique nonce derived from (base_nonce, chunk_index) via BLAKE3
 // - AES-GCM authentication tag verifies each chunk's integrity
-// - Chunk ordering is implicitly verified by sequential nonces
+// - Chunk ordering is enforced by binding chunk_index into the nonce derivation
 //
 // File format (version 3):
-// [VERSION:1] [SALT_LEN:4] [SALT:N] [BASE_NONCE:12] [CHUNK_SIZE:4] [TOTAL_CHUNKS:8]
-// [CHUNK_1_LEN:4] [CHUNK_1_DATA] [CHUNK_2_LEN:4] [CHUNK_2_DATA] ...
+// All integer fields are little-endian.
+// [VERSION:1] [SALT_LEN_LE:4] [SALT:N] [BASE_NONCE:12] [CHUNK_SIZE_LE:4] [TOTAL_CHUNKS_LE:8]
+// [CHUNK_1_LEN_LE:4] [CHUNK_1_CIPHERTEXT+TAG] [CHUNK_2_LEN_LE:4] [CHUNK_2_CIPHERTEXT+TAG] ...
 //
-// Each chunk's nonce is derived via BLAKE3(base_nonce || chunk_index)
+// Each chunk's nonce is derived via:
+// BLAKE3("filecypter-chunk-nonce-v1" || base_nonce || chunk_index)
 // For version 3, the header bytes are authenticated as AAD for every chunk.
 
 use std::fs::File;
@@ -81,10 +83,16 @@ pub fn encrypt_file_streaming<P: AsRef<Path>>(
     progress_callback: Option<ProgressCallback>,
 ) -> CryptoResult<()> {
     if password.is_empty() {
-        return Err(CryptoError::FormatError("Password cannot be empty".to_string()));
+        return Err(CryptoError::FormatError(
+            "Password cannot be empty".to_string(),
+        ));
     }
 
-    let chunk_size = if chunk_size == 0 { DEFAULT_CHUNK_SIZE } else { chunk_size };
+    let chunk_size = if chunk_size == 0 {
+        DEFAULT_CHUNK_SIZE
+    } else {
+        chunk_size
+    };
 
     // Open input file and get size
     let input_file = File::open(input_path.as_ref())?;
@@ -102,8 +110,8 @@ pub fn encrypt_file_streaming<P: AsRef<Path>>(
     let salt = generate_salt()?;
     let password = Password::new(password.to_string());
     let key = derive_key(&password, &salt)?;
-    let cipher = Aes256Gcm::new_from_slice(key.as_slice())
-        .map_err(|_| CryptoError::EncryptionFailed)?;
+    let cipher =
+        Aes256Gcm::new_from_slice(key.as_slice()).map_err(|_| CryptoError::EncryptionFailed)?;
 
     // Generate base nonce using cryptographically secure RNG
     // Combined with timestamp to prevent nonce reuse even if RNG has low entropy
@@ -126,13 +134,18 @@ pub fn encrypt_file_streaming<P: AsRef<Path>>(
     }
 
     // Calculate total chunks
-    // Note: Empty files (0 bytes) are represented as 1 chunk with 0 data bytes.
-    // This ensures the file header is written, and decryption will immediately
-    // complete when it tries to read the first chunk and finds EOF.
+    // Note: Empty files (0 bytes) are represented as 1 chunk with 0 data bytes, so we still
+    // produce a single AEAD tag. This lets decryption validate the password (and header AAD)
+    // even for empty inputs.
     let total_chunks_u64 = if file_size == 0 {
         1u64
     } else {
-        (file_size / chunk_size as u64) + if file_size % chunk_size as u64 != 0 { 1 } else { 0 }
+        (file_size / chunk_size as u64)
+            + if file_size % chunk_size as u64 != 0 {
+                1
+            } else {
+                0
+            }
     };
 
     // Validate chunk count to prevent creating files that can't be decrypted
@@ -144,21 +157,28 @@ pub fn encrypt_file_streaming<P: AsRef<Path>>(
     }
 
     // Write header
-    let header = build_header(STREAMING_VERSION, &salt, &base_nonce, chunk_size, total_chunks_u64);
+    let header = build_header(
+        STREAMING_VERSION,
+        &salt,
+        &base_nonce,
+        chunk_size,
+        total_chunks_u64,
+    );
     writer.write_all(&header)?;
 
     // Process chunks
     let mut buffer = vec![0u8; chunk_size];
-    let mut chunk_index: u64 = 0;
     let mut bytes_processed: u64 = 0;
 
-    loop {
-        let bytes_read = reader.read(&mut buffer)?;
-        if bytes_read == 0 {
-            break;
+    for chunk_index in 0..total_chunks_u64 {
+        let remaining = file_size.saturating_sub(chunk_index * chunk_size as u64);
+        let bytes_to_read = std::cmp::min(chunk_size as u64, remaining) as usize;
+
+        if bytes_to_read > 0 {
+            reader.read_exact(&mut buffer[..bytes_to_read])?;
         }
 
-        // Derive chunk nonce from base_nonce XOR chunk_index
+        // Derive a per-chunk nonce deterministically from (base_nonce, chunk_index).
         let chunk_nonce = derive_chunk_nonce(&base_nonce, chunk_index);
         let nonce = Nonce::from_slice(&chunk_nonce);
 
@@ -167,7 +187,7 @@ pub fn encrypt_file_streaming<P: AsRef<Path>>(
             .encrypt(
                 nonce,
                 Payload {
-                    msg: &buffer[..bytes_read],
+                    msg: &buffer[..bytes_to_read],
                     aad: &header,
                 },
             )
@@ -177,8 +197,7 @@ pub fn encrypt_file_streaming<P: AsRef<Path>>(
         writer.write_all(&(ciphertext.len() as u32).to_le_bytes())?;
         writer.write_all(&ciphertext)?;
 
-        bytes_processed += bytes_read as u64;
-        chunk_index += 1;
+        bytes_processed += bytes_to_read as u64;
 
         // Call progress callback
         if let Some(ref callback) = progress_callback {
@@ -210,7 +229,9 @@ pub fn decrypt_file_streaming<P: AsRef<Path>>(
     progress_callback: Option<ProgressCallback>,
 ) -> CryptoResult<()> {
     if password.is_empty() {
-        return Err(CryptoError::FormatError("Password cannot be empty".to_string()));
+        return Err(CryptoError::FormatError(
+            "Password cannot be empty".to_string(),
+        ));
     }
 
     // Open input file
@@ -222,7 +243,9 @@ pub fn decrypt_file_streaming<P: AsRef<Path>>(
     let mut version = [0u8; 1];
     reader.read_exact(&mut version)?;
     if version[0] != STREAMING_VERSION && version[0] != STREAMING_VERSION_V2 {
-        return Err(CryptoError::FormatError("Unsupported file format".to_string()));
+        return Err(CryptoError::FormatError(
+            "Unsupported file format".to_string(),
+        ));
     }
 
     // Read salt
@@ -265,8 +288,8 @@ pub fn decrypt_file_streaming<P: AsRef<Path>>(
     // Derive key
     let password = Password::new(password.to_string());
     let key = derive_key(&password, &salt)?;
-    let cipher = Aes256Gcm::new_from_slice(key.as_slice())
-        .map_err(|_| CryptoError::EncryptionFailed)?;
+    let cipher =
+        Aes256Gcm::new_from_slice(key.as_slice()).map_err(|_| CryptoError::EncryptionFailed)?;
 
     // Create output file with secure permissions (0o600 on Unix)
     let output_file = create_secure_output_file(output_path.as_ref())?;
@@ -303,7 +326,13 @@ pub fn decrypt_file_streaming<P: AsRef<Path>>(
         // Decrypt chunk
         let plaintext = if let Some(aad) = header_aad {
             cipher
-                .decrypt(nonce, Payload { msg: ciphertext.as_ref(), aad })
+                .decrypt(
+                    nonce,
+                    Payload {
+                        msg: ciphertext.as_ref(),
+                        aad,
+                    },
+                )
                 .map_err(|_| CryptoError::InvalidPassword)?
         } else {
             cipher
@@ -314,6 +343,7 @@ pub fn decrypt_file_streaming<P: AsRef<Path>>(
         // Write plaintext
         writer.write_all(&plaintext)?;
 
+        // Track encrypted bytes processed (excludes header and per-chunk length fields).
         bytes_processed += chunk_len as u64;
 
         // Call progress callback
@@ -454,6 +484,34 @@ mod tests {
     }
 
     #[test]
+    fn test_streaming_empty_file_roundtrip() {
+        // Empty inputs should still authenticate (we store a single empty chunk + tag).
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        let input_file = NamedTempFile::new().unwrap(); // Empty by default
+
+        let encrypted_path = temp_dir.path().join("encrypted_empty.bin");
+        encrypt_file_streaming(
+            input_file.path(),
+            &encrypted_path,
+            "test_password",
+            1024,
+            None,
+        )
+        .unwrap();
+
+        // Encrypted file should contain at least header + length + tag.
+        let encrypted_data = fs::read(&encrypted_path).unwrap();
+        assert!(!encrypted_data.is_empty());
+
+        let decrypted_path = temp_dir.path().join("decrypted_empty.bin");
+        decrypt_file_streaming(&encrypted_path, &decrypted_path, "test_password", None).unwrap();
+
+        let decrypted_data = fs::read(&decrypted_path).unwrap();
+        assert!(decrypted_data.is_empty());
+    }
+
+    #[test]
     fn test_streaming_wrong_password() {
         // Create a temp directory for output files (avoids sharing violations on Windows)
         let temp_dir = tempfile::tempdir().unwrap();
@@ -506,7 +564,9 @@ mod tests {
         // Create a file that spans multiple chunks
         let chunk_size = 1024;
         let num_chunks = 5;
-        let content: Vec<u8> = (0..chunk_size * num_chunks).map(|i| (i % 256) as u8).collect();
+        let content: Vec<u8> = (0..chunk_size * num_chunks)
+            .map(|i| (i % 256) as u8)
+            .collect();
 
         let input_file = NamedTempFile::new().unwrap();
         fs::write(input_file.path(), &content).unwrap();
@@ -524,8 +584,7 @@ mod tests {
 
         // Decrypt
         let decrypted_path = temp_dir.path().join("decrypted.bin");
-        decrypt_file_streaming(&encrypted_path, &decrypted_path, "multi_chunk_test", None)
-            .unwrap();
+        decrypt_file_streaming(&encrypted_path, &decrypted_path, "multi_chunk_test", None).unwrap();
 
         // Verify
         let decrypted_content = fs::read(&decrypted_path).unwrap();
@@ -536,7 +595,10 @@ mod tests {
     fn test_should_use_streaming() {
         assert!(!should_use_streaming(1024, STREAMING_THRESHOLD)); // 1KB - no
         assert!(!should_use_streaming(10 * 1024 * 1024, STREAMING_THRESHOLD)); // 10MB exactly - no
-        assert!(should_use_streaming(10 * 1024 * 1024 + 1, STREAMING_THRESHOLD)); // 10MB + 1 - yes
+        assert!(should_use_streaming(
+            10 * 1024 * 1024 + 1,
+            STREAMING_THRESHOLD
+        )); // 10MB + 1 - yes
         assert!(should_use_streaming(100 * 1024 * 1024, STREAMING_THRESHOLD)); // 100MB - yes
     }
 }

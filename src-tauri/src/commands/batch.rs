@@ -1,15 +1,16 @@
 // commands/batch.rs - Batch Encryption/Decryption Commands
 //
 // This module implements batch processing for multiple files.
-// Key optimization: derive encryption key ONCE per batch (same password).
-// Each file still gets its own unique salt for security.
+// Each file is encrypted/decrypted independently:
+// - A unique salt is generated per encrypted file, so Argon2id key derivation runs per file.
+// - The `Password` wrapper is reused across the batch to avoid repeated allocations.
 //
 // Progress events are emitted for each file being processed.
 
+use serde::Serialize;
 use std::fs;
 use std::path::Path;
 use tauri::{command, AppHandle, Emitter};
-use serde::Serialize;
 
 use crate::commands::file_utils::{
     atomic_write, validate_batch_count, validate_file_size, validate_input_path,
@@ -82,7 +83,8 @@ fn emit_batch_progress<F>(
     });
 }
 
-fn emit_batch_complete<F>(emit_progress: &mut F, total_files: usize) where
+fn emit_batch_complete<F>(emit_progress: &mut F, total_files: usize)
+where
     F: FnMut(BatchProgress),
 {
     emit_progress(BatchProgress {
@@ -104,7 +106,9 @@ where
     F: FnMut(BatchProgress),
 {
     if password.is_empty() {
-        return Err(CryptoError::FormatError("Password cannot be empty".to_string()));
+        return Err(CryptoError::FormatError(
+            "Password cannot be empty".to_string(),
+        ));
     }
 
     if input_paths.is_empty() {
@@ -116,7 +120,9 @@ where
 
     // Verify output directory exists
     if !Path::new(output_dir).is_dir() {
-        return Err(CryptoError::FormatError("Output directory does not exist".to_string()));
+        return Err(CryptoError::FormatError(
+            "Output directory does not exist".to_string(),
+        ));
     }
 
     let total_files = input_paths.len();
@@ -177,7 +183,9 @@ where
     F: FnMut(BatchProgress),
 {
     if password.is_empty() {
-        return Err(CryptoError::FormatError("Password cannot be empty".to_string()));
+        return Err(CryptoError::FormatError(
+            "Password cannot be empty".to_string(),
+        ));
     }
 
     if input_paths.is_empty() {
@@ -189,7 +197,9 @@ where
 
     // Verify output directory exists
     if !Path::new(output_dir).is_dir() {
-        return Err(CryptoError::FormatError("Output directory does not exist".to_string()));
+        return Err(CryptoError::FormatError(
+            "Output directory does not exist".to_string(),
+        ));
     }
 
     let total_files = input_paths.len();
@@ -260,7 +270,11 @@ pub async fn batch_encrypt(
     output_dir: String,
     password: String,
 ) -> CryptoResult<BatchResult> {
-    log::info!("Batch encrypting {} files to {}", input_paths.len(), output_dir);
+    log::info!(
+        "Batch encrypting {} files to {}",
+        input_paths.len(),
+        output_dir
+    );
 
     let mut emit_progress = |progress: BatchProgress| {
         let _ = app.emit(BATCH_PROGRESS_EVENT, progress);
@@ -330,7 +344,11 @@ pub async fn batch_decrypt(
     output_dir: String,
     password: String,
 ) -> CryptoResult<BatchResult> {
-    log::info!("Batch decrypting {} files to {}", input_paths.len(), output_dir);
+    log::info!(
+        "Batch decrypting {} files to {}",
+        input_paths.len(),
+        output_dir
+    );
 
     let mut emit_progress = |progress: BatchProgress| {
         let _ = app.emit(BATCH_PROGRESS_EVENT, progress);
@@ -409,8 +427,13 @@ mod tests {
         let output_dir_str = output_dir.path().to_string_lossy().to_string();
         let mut no_progress = |_progress: BatchProgress| {};
 
-        let result = batch_encrypt_impl(&input_paths, &output_dir_str, "password123", &mut no_progress)
-            .unwrap();
+        let result = batch_encrypt_impl(
+            &input_paths,
+            &output_dir_str,
+            "password123",
+            &mut no_progress,
+        )
+        .unwrap();
 
         assert_eq!(result.success_count, 2);
         assert_eq!(result.failed_count, 0);
@@ -435,8 +458,13 @@ mod tests {
         let output_dir_str = output_dir.path().to_string_lossy().to_string();
         let mut no_progress = |_progress: BatchProgress| {};
 
-        let result = batch_encrypt_impl(&input_paths, &output_dir_str, "password123", &mut no_progress)
-            .unwrap();
+        let result = batch_encrypt_impl(
+            &input_paths,
+            &output_dir_str,
+            "password123",
+            &mut no_progress,
+        )
+        .unwrap();
 
         assert_eq!(result.success_count, 1);
         assert_eq!(result.failed_count, 1);
@@ -450,8 +478,12 @@ mod tests {
         let input_paths: Vec<String> = Vec::new();
         let mut no_progress = |_progress: BatchProgress| {};
 
-        let result =
-            batch_encrypt_impl(&input_paths, output_dir.path().to_str().unwrap(), "password123", &mut no_progress);
+        let result = batch_encrypt_impl(
+            &input_paths,
+            output_dir.path().to_str().unwrap(),
+            "password123",
+            &mut no_progress,
+        );
 
         assert!(result.is_err());
     }

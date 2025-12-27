@@ -218,23 +218,22 @@ mod tests {
 
     #[test]
     fn test_atomic_write() {
-        // Create a temp file and immediately close the handle
-        // On Windows, the file must be closed before we can overwrite it atomically
-        let temp_file = NamedTempFile::new().unwrap();
-        let path = temp_file.path().to_path_buf();
-        drop(temp_file); // Close the file handle
+        // Use a dedicated temp directory so we can assert that no temp artifacts remain.
+        let temp_dir = tempfile::tempdir().unwrap();
+        let path = temp_dir.path().join("output.bin");
 
         atomic_write(&path, b"atomic data").unwrap();
 
         let content = fs::read(&path).unwrap();
         assert_eq!(content, b"atomic data");
 
-        // Temp file should not exist
-        let temp_path = path.with_extension("tmp");
-        assert!(!temp_path.exists());
-
-        // Clean up
-        let _ = fs::remove_file(&path);
+        // Temp files should have been persisted/cleaned up; only the final file should remain.
+        let mut files: Vec<String> = fs::read_dir(temp_dir.path())
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        files.sort();
+        assert_eq!(files, vec!["output.bin".to_string()]);
     }
 
     #[test]

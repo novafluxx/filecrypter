@@ -79,8 +79,8 @@ pub fn encrypt(key: &SecureBytes, plaintext: &[u8]) -> CryptoResult<(Vec<u8>, Ve
     let nonce = Nonce::from_slice(&nonce_bytes);
 
     // Create the AES-256-GCM cipher instance with our key
-    let cipher = Aes256Gcm::new_from_slice(key.as_slice())
-        .map_err(|_| CryptoError::EncryptionFailed)?;
+    let cipher =
+        Aes256Gcm::new_from_slice(key.as_slice()).map_err(|_| CryptoError::EncryptionFailed)?;
 
     // Perform the encryption
     // This produces: ciphertext || tag (tag is automatically appended)
@@ -148,8 +148,8 @@ pub fn decrypt(key: &SecureBytes, nonce: &[u8], ciphertext: &[u8]) -> CryptoResu
     let nonce = Nonce::from_slice(nonce);
 
     // Create the AES-256-GCM cipher instance with our key
-    let cipher = Aes256Gcm::new_from_slice(key.as_slice())
-        .map_err(|_| CryptoError::DecryptionFailed)?;
+    let cipher =
+        Aes256Gcm::new_from_slice(key.as_slice()).map_err(|_| CryptoError::DecryptionFailed)?;
 
     // Perform the decryption
     // This automatically verifies the authentication tag

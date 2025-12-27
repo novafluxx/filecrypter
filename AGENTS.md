@@ -2,19 +2,20 @@
 
 ## Project Structure & Module Organization
 - `src/` holds the Vue 3 frontend (entry: `src/main.ts`, root UI: `src/App.vue`).
-- `src/components/` contains tab UI components (e.g., `EncryptTab.vue`, `DecryptTab.vue`).
-- `src/composables/` has shared frontend logic (`useFileOps.ts`, `useTauri.ts`).
+- `src/components/` contains tab UI components and shared widgets (e.g., `EncryptTab.vue`, `DecryptTab.vue`, `BatchTab.vue`, `ProgressBar.vue`).
+- `src/composables/` has shared frontend logic (file ops, progress, theme, drag/drop, password strength, Tauri IPC).
 - `src/types/` stores TypeScript type definitions.
-- `src-tauri/` is the Rust/Tauri backend (commands, crypto, errors).
-- `src-tauri/src/commands/` defines IPC handlers, and `src-tauri/src/crypto/` holds AES/Argon2 implementations.
+- `src-tauri/` is the Rust/Tauri backend (commands, crypto, security, errors).
+- `src-tauri/src/commands/` defines IPC handlers (batch, streaming, file utils), and `src-tauri/src/crypto/` holds AES/Argon2 + streaming implementations.
 
 ## Build, Test, and Development Commands
 - `bun install` installs frontend dependencies.
 - `bun run dev` starts the Vite dev server on port 5173.
 - `bun run build` runs type checking (`vue-tsc`) and builds the frontend.
+- `bun run preview` serves the production build locally.
 - `bun run tauri:dev` launches the full Tauri app with hot reload.
 - `bun run tauri:build` creates a production desktop build.
-- `cd src-tauri && cargo test` runs Rust unit tests.
+- `cd src-tauri && cargo test` runs Rust unit + integration tests.
 - `cd src-tauri && cargo clippy` runs the Rust linter.
 
 ## Coding Style & Naming Conventions
@@ -24,7 +25,8 @@
 - IPC command names are `snake_case` (e.g., `encrypt_file`, `decrypt_file`).
 
 ## Testing Guidelines
-- Rust tests live in `#[cfg(test)]` blocks within backend modules.
+- Rust unit tests live in `#[cfg(test)]` blocks within backend modules.
+- Rust integration tests live in `src-tauri/tests/`.
 - Frontend: no test framework is configured yet.
 - Preferred test command: `cd src-tauri && cargo test`.
 

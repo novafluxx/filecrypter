@@ -76,9 +76,9 @@ const SALT_LENGTH: usize = 16;
 pub fn derive_key(password: &Password, salt: &[u8]) -> CryptoResult<SecureBytes> {
     // Create Argon2 parameters with our security settings
     let params = Params::new(
-        MEMORY_COST,    // Memory cost (KiB)
-        TIME_COST,      // Time cost (iterations)
-        PARALLELISM,    // Parallelism (threads)
+        MEMORY_COST,      // Memory cost (KiB)
+        TIME_COST,        // Time cost (iterations)
+        PARALLELISM,      // Parallelism (threads)
         Some(KEY_LENGTH), // Output length
     )
     .map_err(|_| CryptoError::EncryptionFailed)?;
@@ -100,9 +100,7 @@ pub fn derive_key(password: &Password, salt: &[u8]) -> CryptoResult<SecureBytes>
         .map_err(|_| CryptoError::EncryptionFailed)?;
 
     // Extract the raw hash bytes (our encryption key)
-    let hash = password_hash
-        .hash
-        .ok_or(CryptoError::EncryptionFailed)?;
+    let hash = password_hash.hash.ok_or(CryptoError::EncryptionFailed)?;
 
     // The hash is the derived key - wrap it in SecureBytes for safe handling
     let key_bytes = hash.as_bytes()[..KEY_LENGTH].to_vec();
@@ -245,7 +243,10 @@ mod tests {
 
         // Typically should be 100-500ms on modern hardware
         // This is intentionally slow for security
-        assert!(duration.as_millis() > 10, "Key derivation suspiciously fast");
+        assert!(
+            duration.as_millis() > 10,
+            "Key derivation suspiciously fast"
+        );
         assert!(duration.as_secs() < 5, "Key derivation too slow");
     }
 }

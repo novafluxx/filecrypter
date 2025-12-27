@@ -70,7 +70,11 @@ impl ProgressEvent {
 
     /// Create "deriving key" progress event
     pub fn deriving_key() -> Self {
-        Self::new("deriving_key", 20, "Deriving encryption key (this may take a moment)...")
+        Self::new(
+            "deriving_key",
+            20,
+            "Deriving encryption key (this may take a moment)...",
+        )
     }
 
     /// Create "encrypting" progress event

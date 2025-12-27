@@ -153,10 +153,7 @@ pub async fn decrypt_file(
     // If the tag doesn't match (wrong password or tampered data), this will fail
     let plaintext = decrypt(&key, &encrypted_file.nonce, &encrypted_file.ciphertext)?;
 
-    log::info!(
-        "Decryption successful: {} bytes decrypted",
-        plaintext.len()
-    );
+    log::info!("Decryption successful: {} bytes decrypted", plaintext.len());
 
     // Emit: Writing file
     let _ = app.emit(CRYPTO_PROGRESS_EVENT, ProgressEvent::writing());
@@ -273,7 +270,8 @@ mod tests {
     #[test]
     fn test_encrypt_decrypt_roundtrip() {
         // Full roundtrip test
-        let original_content = b"Hello, FileCypter! Testing full roundtrip encryption and decryption.";
+        let original_content =
+            b"Hello, FileCypter! Testing full roundtrip encryption and decryption.";
         let password = "SecurePassword123!";
 
         // Create original file

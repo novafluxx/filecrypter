@@ -13,7 +13,7 @@ pub mod streaming;
 pub use cipher::{decrypt, encrypt};
 pub use format::EncryptedFile;
 pub use kdf::{derive_key, generate_salt};
-pub use secure::Password;
+pub use secure::{Password, SecureBytes};
 pub use streaming::{
     decrypt_file_streaming, encrypt_file_streaming, should_use_streaming,
     DEFAULT_CHUNK_SIZE, STREAMING_THRESHOLD,

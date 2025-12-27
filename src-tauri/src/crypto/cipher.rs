@@ -54,11 +54,15 @@ const NONCE_SIZE: usize = 12;
 /// - Encryption operation fails (rare, usually indicates hardware issues)
 ///
 /// # Example
-/// ```
+/// ```no_run
+/// use filecypter_lib::crypto::{encrypt, SecureBytes};
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let key = SecureBytes::new(vec![0u8; 32]);
 /// let plaintext = b"Hello, World!";
-/// let (nonce, ciphertext) = encrypt(&key, plaintext)?;
+/// let (_nonce, _ciphertext) = encrypt(&key, plaintext)?;
 /// // ciphertext is now encrypted and includes authentication tag
+/// # Ok(())
+/// # }
 /// ```
 pub fn encrypt(key: &SecureBytes, plaintext: &[u8]) -> CryptoResult<(Vec<u8>, Vec<u8>)> {
     // Validate key length (AES-256 requires exactly 32 bytes)
@@ -119,11 +123,15 @@ pub fn encrypt(key: &SecureBytes, plaintext: &[u8]) -> CryptoResult<(Vec<u8>, Ve
 /// - Ciphertext is too short (missing tag)
 ///
 /// # Example
-/// ```
+/// ```no_run
+/// use filecypter_lib::crypto::{decrypt, SecureBytes};
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let key = SecureBytes::new(vec![0u8; 32]);
 /// let nonce = vec![1u8; 12];
-/// let ciphertext = vec![/* encrypted data */];
-/// let plaintext = decrypt(&key, &nonce, &ciphertext)?;
+/// let ciphertext = vec![0u8; 16];
+/// let _plaintext = decrypt(&key, &nonce, &ciphertext)?;
+/// # Ok(())
+/// # }
 /// ```
 pub fn decrypt(key: &SecureBytes, nonce: &[u8], ciphertext: &[u8]) -> CryptoResult<Vec<u8>> {
     // Validate key length

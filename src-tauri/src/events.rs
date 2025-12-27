@@ -49,8 +49,9 @@ impl ProgressEvent {
     /// * `message` - Human-readable status message
     ///
     /// # Example
-    /// ```rust
-    /// let event = ProgressEvent::new("deriving_key", 20, "Deriving encryption key...");
+    /// ```no_run
+    /// use filecypter_lib::events::ProgressEvent;
+    /// let _event = ProgressEvent::new("deriving_key", 20, "Deriving encryption key...");
     /// ```
     pub fn new(stage: &str, percent: u32, message: &str) -> Self {
         Self {

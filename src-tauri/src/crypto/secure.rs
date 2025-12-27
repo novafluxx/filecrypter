@@ -17,8 +17,9 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 /// preventing sensitive cryptographic material from lingering in memory.
 ///
 /// # Example
-/// ```
-/// let key = SecureBytes::new(vec![1, 2, 3, 4]);
+/// ```no_run
+/// use filecypter_lib::crypto::SecureBytes;
+/// let _key = SecureBytes::new(vec![1, 2, 3, 4]);
 /// // key.0 is automatically zeroed when key goes out of scope
 /// ```
 #[derive(Zeroize, ZeroizeOnDrop)]
@@ -73,9 +74,10 @@ impl std::fmt::Debug for SecureBytes {
 /// - Clone is intentionally not implemented
 ///
 /// # Example
-/// ```
+/// ```no_run
+/// use filecypter_lib::crypto::Password;
 /// let password = Password::new("my_secret".to_string());
-/// let bytes = password.as_bytes(); // Access for cryptographic operations
+/// let _bytes = password.as_bytes(); // Access for cryptographic operations
 /// // password is automatically zeroed when it goes out of scope
 /// ```
 #[derive(Zeroize, ZeroizeOnDrop)]

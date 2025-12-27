@@ -170,3 +170,43 @@ pub fn check_use_streaming(file_path: String) -> CryptoResult<bool> {
 pub fn get_streaming_threshold() -> u64 {
     STREAMING_THRESHOLD
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
+    #[test]
+    fn test_check_use_streaming_below_threshold() {
+        let mut file = NamedTempFile::new().unwrap();
+        let size = (STREAMING_THRESHOLD - 1) as usize;
+        file.write_all(&vec![0u8; size]).unwrap();
+        file.flush().unwrap();
+
+        let result = check_use_streaming(file.path().to_string_lossy().to_string()).unwrap();
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_check_use_streaming_above_threshold() {
+        let mut file = NamedTempFile::new().unwrap();
+        let size = (STREAMING_THRESHOLD + 1) as usize;
+        file.write_all(&vec![0u8; size]).unwrap();
+        file.flush().unwrap();
+
+        let result = check_use_streaming(file.path().to_string_lossy().to_string()).unwrap();
+        assert!(result);
+    }
+
+    #[test]
+    fn test_get_streaming_threshold() {
+        assert_eq!(get_streaming_threshold(), STREAMING_THRESHOLD);
+    }
+
+    #[test]
+    fn test_check_use_streaming_missing_file() {
+        let result = check_use_streaming("missing-file.bin".to_string());
+        assert!(result.is_err());
+    }
+}

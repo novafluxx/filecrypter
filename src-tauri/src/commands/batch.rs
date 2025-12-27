@@ -59,28 +59,50 @@ pub struct BatchResult {
 /// Event name for batch progress
 pub const BATCH_PROGRESS_EVENT: &str = "batch-progress";
 
-/// Encrypt multiple files with the same password
-///
-/// This command efficiently encrypts multiple files by deriving the key once.
-/// Each file gets its own unique salt for security.
-///
-/// # Arguments
-/// * `app` - Tauri app handle for emitting progress events
-/// * `input_paths` - List of file paths to encrypt
-/// * `output_dir` - Directory where encrypted files will be saved
-/// * `password` - Password for encryption (used for all files)
-///
-/// # Returns
-/// BatchResult with success/failure status for each file
-#[command]
-pub async fn batch_encrypt(
-    app: AppHandle,
-    input_paths: Vec<String>,
-    output_dir: String,
-    password: String,
-) -> CryptoResult<BatchResult> {
-    log::info!("Batch encrypting {} files to {}", input_paths.len(), output_dir);
+fn emit_batch_progress<F>(
+    emit_progress: &mut F,
+    input_path: &str,
+    file_index: usize,
+    total_files: usize,
+    stage: &str,
+) where
+    F: FnMut(BatchProgress),
+{
+    let file_name = Path::new(input_path)
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| input_path.to_string());
 
+    emit_progress(BatchProgress {
+        current_file: file_name,
+        file_index,
+        total_files,
+        stage: stage.to_string(),
+        percent: ((file_index * 100) / total_files) as u32,
+    });
+}
+
+fn emit_batch_complete<F>(emit_progress: &mut F, total_files: usize) where
+    F: FnMut(BatchProgress),
+{
+    emit_progress(BatchProgress {
+        current_file: String::new(),
+        file_index: total_files,
+        total_files,
+        stage: "complete".to_string(),
+        percent: 100,
+    });
+}
+
+fn batch_encrypt_impl<F>(
+    input_paths: &[String],
+    output_dir: &str,
+    password: &str,
+    emit_progress: &mut F,
+) -> CryptoResult<BatchResult>
+where
+    F: FnMut(BatchProgress),
+{
     if password.is_empty() {
         return Err(CryptoError::FormatError("Password cannot be empty".to_string()));
     }
@@ -93,31 +115,18 @@ pub async fn batch_encrypt(
     validate_batch_count(input_paths.len())?;
 
     // Verify output directory exists
-    if !Path::new(&output_dir).is_dir() {
+    if !Path::new(output_dir).is_dir() {
         return Err(CryptoError::FormatError("Output directory does not exist".to_string()));
     }
 
     let total_files = input_paths.len();
     let mut results: Vec<FileResult> = Vec::with_capacity(total_files);
-    let password = Password::new(password);
+    let password = Password::new(password.to_string());
 
     for (index, input_path) in input_paths.iter().enumerate() {
-        // Emit progress
-        let file_name = Path::new(input_path)
-            .file_name()
-            .map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_else(|| input_path.clone());
+        emit_batch_progress(emit_progress, input_path, index, total_files, "encrypting");
 
-        let _ = app.emit(BATCH_PROGRESS_EVENT, BatchProgress {
-            current_file: file_name.clone(),
-            file_index: index,
-            total_files,
-            stage: "encrypting".to_string(),
-            percent: ((index * 100) / total_files) as u32,
-        });
-
-        // Process this file
-        let result = encrypt_single_file(&password, input_path, &output_dir).await;
+        let result = encrypt_single_file(&password, input_path, output_dir);
 
         match result {
             Ok(output_path) => {
@@ -140,19 +149,16 @@ pub async fn batch_encrypt(
         }
     }
 
-    // Emit completion
-    let _ = app.emit(BATCH_PROGRESS_EVENT, BatchProgress {
-        current_file: String::new(),
-        file_index: total_files,
-        total_files,
-        stage: "complete".to_string(),
-        percent: 100,
-    });
+    emit_batch_complete(emit_progress, total_files);
 
     let success_count = results.iter().filter(|r| r.success).count();
     let failed_count = results.len() - success_count;
 
-    log::info!("Batch encryption complete: {} succeeded, {} failed", success_count, failed_count);
+    log::info!(
+        "Batch encryption complete: {} succeeded, {} failed",
+        success_count,
+        failed_count
+    );
 
     Ok(BatchResult {
         files: results,
@@ -161,8 +167,110 @@ pub async fn batch_encrypt(
     })
 }
 
+fn batch_decrypt_impl<F>(
+    input_paths: &[String],
+    output_dir: &str,
+    password: &str,
+    emit_progress: &mut F,
+) -> CryptoResult<BatchResult>
+where
+    F: FnMut(BatchProgress),
+{
+    if password.is_empty() {
+        return Err(CryptoError::FormatError("Password cannot be empty".to_string()));
+    }
+
+    if input_paths.is_empty() {
+        return Err(CryptoError::FormatError("No files selected".to_string()));
+    }
+
+    // Validate batch file count
+    validate_batch_count(input_paths.len())?;
+
+    // Verify output directory exists
+    if !Path::new(output_dir).is_dir() {
+        return Err(CryptoError::FormatError("Output directory does not exist".to_string()));
+    }
+
+    let total_files = input_paths.len();
+    let mut results: Vec<FileResult> = Vec::with_capacity(total_files);
+    let password = Password::new(password.to_string());
+
+    for (index, input_path) in input_paths.iter().enumerate() {
+        emit_batch_progress(emit_progress, input_path, index, total_files, "decrypting");
+
+        let result = decrypt_single_file(&password, input_path, output_dir);
+
+        match result {
+            Ok(output_path) => {
+                results.push(FileResult {
+                    input_path: input_path.clone(),
+                    output_path: Some(output_path),
+                    success: true,
+                    error: None,
+                });
+            }
+            Err(e) => {
+                log::error!("Failed to decrypt {}: {}", input_path, e);
+                results.push(FileResult {
+                    input_path: input_path.clone(),
+                    output_path: None,
+                    success: false,
+                    error: Some(e.to_string()),
+                });
+            }
+        }
+    }
+
+    emit_batch_complete(emit_progress, total_files);
+
+    let success_count = results.iter().filter(|r| r.success).count();
+    let failed_count = results.len() - success_count;
+
+    log::info!(
+        "Batch decryption complete: {} succeeded, {} failed",
+        success_count,
+        failed_count
+    );
+
+    Ok(BatchResult {
+        files: results,
+        success_count,
+        failed_count,
+    })
+}
+
+/// Encrypt multiple files with the same password
+///
+/// This command efficiently encrypts multiple files by deriving the key once.
+/// Each file gets its own unique salt for security.
+///
+/// # Arguments
+/// * `app` - Tauri app handle for emitting progress events
+/// * `input_paths` - List of file paths to encrypt
+/// * `output_dir` - Directory where encrypted files will be saved
+/// * `password` - Password for encryption (used for all files)
+///
+/// # Returns
+/// BatchResult with success/failure status for each file
+#[command]
+pub async fn batch_encrypt(
+    app: AppHandle,
+    input_paths: Vec<String>,
+    output_dir: String,
+    password: String,
+) -> CryptoResult<BatchResult> {
+    log::info!("Batch encrypting {} files to {}", input_paths.len(), output_dir);
+
+    let mut emit_progress = |progress: BatchProgress| {
+        let _ = app.emit(BATCH_PROGRESS_EVENT, progress);
+    };
+
+    batch_encrypt_impl(&input_paths, &output_dir, &password, &mut emit_progress)
+}
+
 /// Encrypt a single file (internal helper)
-async fn encrypt_single_file(
+fn encrypt_single_file(
     password: &Password,
     input_path: &str,
     output_dir: &str,
@@ -224,88 +332,15 @@ pub async fn batch_decrypt(
 ) -> CryptoResult<BatchResult> {
     log::info!("Batch decrypting {} files to {}", input_paths.len(), output_dir);
 
-    if password.is_empty() {
-        return Err(CryptoError::FormatError("Password cannot be empty".to_string()));
-    }
+    let mut emit_progress = |progress: BatchProgress| {
+        let _ = app.emit(BATCH_PROGRESS_EVENT, progress);
+    };
 
-    if input_paths.is_empty() {
-        return Err(CryptoError::FormatError("No files selected".to_string()));
-    }
-
-    // Validate batch file count
-    validate_batch_count(input_paths.len())?;
-
-    // Verify output directory exists
-    if !Path::new(&output_dir).is_dir() {
-        return Err(CryptoError::FormatError("Output directory does not exist".to_string()));
-    }
-
-    let total_files = input_paths.len();
-    let mut results: Vec<FileResult> = Vec::with_capacity(total_files);
-    let password = Password::new(password);
-
-    for (index, input_path) in input_paths.iter().enumerate() {
-        // Emit progress
-        let file_name = Path::new(input_path)
-            .file_name()
-            .map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_else(|| input_path.clone());
-
-        let _ = app.emit(BATCH_PROGRESS_EVENT, BatchProgress {
-            current_file: file_name.clone(),
-            file_index: index,
-            total_files,
-            stage: "decrypting".to_string(),
-            percent: ((index * 100) / total_files) as u32,
-        });
-
-        // Process this file
-        let result = decrypt_single_file(&password, input_path, &output_dir).await;
-
-        match result {
-            Ok(output_path) => {
-                results.push(FileResult {
-                    input_path: input_path.clone(),
-                    output_path: Some(output_path),
-                    success: true,
-                    error: None,
-                });
-            }
-            Err(e) => {
-                log::error!("Failed to decrypt {}: {}", input_path, e);
-                results.push(FileResult {
-                    input_path: input_path.clone(),
-                    output_path: None,
-                    success: false,
-                    error: Some(e.to_string()),
-                });
-            }
-        }
-    }
-
-    // Emit completion
-    let _ = app.emit(BATCH_PROGRESS_EVENT, BatchProgress {
-        current_file: String::new(),
-        file_index: total_files,
-        total_files,
-        stage: "complete".to_string(),
-        percent: 100,
-    });
-
-    let success_count = results.iter().filter(|r| r.success).count();
-    let failed_count = results.len() - success_count;
-
-    log::info!("Batch decryption complete: {} succeeded, {} failed", success_count, failed_count);
-
-    Ok(BatchResult {
-        files: results,
-        success_count,
-        failed_count,
-    })
+    batch_decrypt_impl(&input_paths, &output_dir, &password, &mut emit_progress)
 }
 
 /// Decrypt a single file (internal helper)
-async fn decrypt_single_file(
+fn decrypt_single_file(
     password: &Password,
     input_path: &str,
     output_dir: &str,
@@ -348,4 +383,138 @@ async fn decrypt_single_file(
     atomic_write(&output_path, &plaintext)?;
 
     Ok(output_path.to_string_lossy().to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::commands::file_utils::MAX_BATCH_FILES;
+    use std::path::Path;
+    use tempfile::tempdir;
+
+    fn write_input_file(dir: &Path, name: &str, content: &[u8]) -> String {
+        let path = dir.join(name);
+        fs::write(&path, content).unwrap();
+        path.to_string_lossy().to_string()
+    }
+
+    #[test]
+    fn test_batch_encrypt_multiple_files() {
+        let input_dir = tempdir().unwrap();
+        let output_dir = tempdir().unwrap();
+        let input_paths = vec![
+            write_input_file(input_dir.path(), "file1.txt", b"alpha"),
+            write_input_file(input_dir.path(), "file2.txt", b"beta"),
+        ];
+        let output_dir_str = output_dir.path().to_string_lossy().to_string();
+        let mut no_progress = |_progress: BatchProgress| {};
+
+        let result = batch_encrypt_impl(&input_paths, &output_dir_str, "password123", &mut no_progress)
+            .unwrap();
+
+        assert_eq!(result.success_count, 2);
+        assert_eq!(result.failed_count, 0);
+        for file_result in result.files {
+            assert!(file_result.success);
+            let output_path = file_result.output_path.unwrap();
+            assert!(Path::new(&output_path).exists());
+        }
+    }
+
+    #[test]
+    fn test_batch_encrypt_partial_failure() {
+        let input_dir = tempdir().unwrap();
+        let output_dir = tempdir().unwrap();
+        let valid_path = write_input_file(input_dir.path(), "file1.txt", b"alpha");
+        let missing_path = input_dir
+            .path()
+            .join("missing.txt")
+            .to_string_lossy()
+            .to_string();
+        let input_paths = vec![valid_path, missing_path];
+        let output_dir_str = output_dir.path().to_string_lossy().to_string();
+        let mut no_progress = |_progress: BatchProgress| {};
+
+        let result = batch_encrypt_impl(&input_paths, &output_dir_str, "password123", &mut no_progress)
+            .unwrap();
+
+        assert_eq!(result.success_count, 1);
+        assert_eq!(result.failed_count, 1);
+        assert!(result.files.iter().any(|file| file.success));
+        assert!(result.files.iter().any(|file| !file.success));
+    }
+
+    #[test]
+    fn test_batch_encrypt_empty_list() {
+        let output_dir = tempdir().unwrap();
+        let input_paths: Vec<String> = Vec::new();
+        let mut no_progress = |_progress: BatchProgress| {};
+
+        let result =
+            batch_encrypt_impl(&input_paths, output_dir.path().to_str().unwrap(), "password123", &mut no_progress);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_batch_encrypt_nonexistent_output_dir() {
+        let input_dir = tempdir().unwrap();
+        let output_dir = tempdir().unwrap();
+        let missing_output = output_dir.path().join("missing");
+        let input_paths = vec![write_input_file(input_dir.path(), "file1.txt", b"alpha")];
+        let mut no_progress = |_progress: BatchProgress| {};
+
+        let result = batch_encrypt_impl(
+            &input_paths,
+            missing_output.to_str().unwrap(),
+            "password123",
+            &mut no_progress,
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_batch_decrypt_wrong_password() {
+        let input_dir = tempdir().unwrap();
+        let encrypt_dir = tempdir().unwrap();
+        let decrypt_dir = tempdir().unwrap();
+        let input_path = write_input_file(input_dir.path(), "file1.txt", b"alpha");
+        let encrypted_path = encrypt_single_file(
+            &Password::new("correct_password".to_string()),
+            &input_path,
+            encrypt_dir.path().to_str().unwrap(),
+        )
+        .unwrap();
+        let input_paths = vec![encrypted_path];
+        let mut no_progress = |_progress: BatchProgress| {};
+
+        let result = batch_decrypt_impl(
+            &input_paths,
+            decrypt_dir.path().to_str().unwrap(),
+            "wrong_password",
+            &mut no_progress,
+        )
+        .unwrap();
+
+        assert_eq!(result.success_count, 0);
+        assert_eq!(result.failed_count, 1);
+        assert!(result.files.iter().all(|file| !file.success));
+    }
+
+    #[test]
+    fn test_batch_file_count_limit() {
+        let output_dir = tempdir().unwrap();
+        let input_paths = vec!["missing".to_string(); MAX_BATCH_FILES + 1];
+        let mut no_progress = |_progress: BatchProgress| {};
+
+        let result = batch_encrypt_impl(
+            &input_paths,
+            output_dir.path().to_str().unwrap(),
+            "password123",
+            &mut no_progress,
+        );
+
+        assert!(result.is_err());
+    }
 }

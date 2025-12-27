@@ -63,11 +63,15 @@ const SALT_LENGTH: usize = 16;
 /// - Takes ~100-300ms on modern CPUs (this is intentional for security)
 ///
 /// # Example
-/// ```
+/// ```no_run
+/// use filecypter_lib::crypto::{derive_key, generate_salt, Password};
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let password = Password::new("my_password".to_string());
 /// let salt = generate_salt()?;
-/// let key = derive_key(&password, &salt)?;
+/// let _key = derive_key(&password, &salt)?;
 /// // key is now a 32-byte encryption key
+/// # Ok(())
+/// # }
 /// ```
 pub fn derive_key(password: &Password, salt: &[u8]) -> CryptoResult<SecureBytes> {
     // Create Argon2 parameters with our security settings
@@ -120,9 +124,13 @@ pub fn derive_key(password: &Password, salt: &[u8]) -> CryptoResult<SecureBytes>
 /// - Salts don't need to be secret, only unique
 ///
 /// # Example
-/// ```
-/// let salt = generate_salt()?;
+/// ```no_run
+/// use filecypter_lib::crypto::generate_salt;
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let _salt = generate_salt()?;
 /// // Use this salt with derive_key()
+/// # Ok(())
+/// # }
 /// ```
 pub fn generate_salt() -> CryptoResult<Vec<u8>> {
     let mut salt = vec![0u8; SALT_LENGTH];

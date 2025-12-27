@@ -5,7 +5,7 @@
 
 // Declare modules
 mod commands;
-mod crypto;
+pub mod crypto;
 mod error;
 pub mod events;
 pub mod security;

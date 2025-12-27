@@ -61,13 +61,14 @@ impl EncryptedFile {
     /// `[VERSION][SALT_LEN][SALT][NONCE][CIPHERTEXT+TAG]`
     ///
     /// # Example
-    /// ```
+    /// ```no_run
+    /// use filecypter_lib::crypto::EncryptedFile;
     /// let encrypted = EncryptedFile {
     ///     salt: vec![1, 2, 3],
     ///     nonce: vec![4; 12],
     ///     ciphertext: vec![5; 32],
     /// };
-    /// let bytes = encrypted.serialize();
+    /// let _bytes = encrypted.serialize();
     /// // bytes now contains the full file format
     /// ```
     pub fn serialize(&self) -> Vec<u8> {
@@ -116,9 +117,13 @@ impl EncryptedFile {
     /// - `InvalidVersion` if the version byte doesn't match
     ///
     /// # Example
-    /// ```
+    /// ```no_run
+    /// use filecypter_lib::crypto::EncryptedFile;
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let file_bytes = std::fs::read("file.encrypted")?;
-    /// let encrypted = EncryptedFile::deserialize(&file_bytes)?;
+    /// let _encrypted = EncryptedFile::deserialize(&file_bytes)?;
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn deserialize(data: &[u8]) -> CryptoResult<Self> {
         // Minimum size check: version(1) + salt_len(4) + nonce(12) + tag(16)

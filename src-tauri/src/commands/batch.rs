@@ -100,6 +100,7 @@ fn batch_encrypt_impl<F>(
     input_paths: &[String],
     output_dir: &str,
     password: &str,
+    allow_overwrite: bool,
     emit_progress: &mut F,
 ) -> CryptoResult<BatchResult>
 where
@@ -132,7 +133,7 @@ where
     for (index, input_path) in input_paths.iter().enumerate() {
         emit_batch_progress(emit_progress, input_path, index, total_files, "encrypting");
 
-        let result = encrypt_single_file(&password, input_path, output_dir);
+        let result = encrypt_single_file(&password, input_path, output_dir, allow_overwrite);
 
         match result {
             Ok(output_path) => {
@@ -177,6 +178,7 @@ fn batch_decrypt_impl<F>(
     input_paths: &[String],
     output_dir: &str,
     password: &str,
+    allow_overwrite: bool,
     emit_progress: &mut F,
 ) -> CryptoResult<BatchResult>
 where
@@ -209,7 +211,7 @@ where
     for (index, input_path) in input_paths.iter().enumerate() {
         emit_batch_progress(emit_progress, input_path, index, total_files, "decrypting");
 
-        let result = decrypt_single_file(&password, input_path, output_dir);
+        let result = decrypt_single_file(&password, input_path, output_dir, allow_overwrite);
 
         match result {
             Ok(output_path) => {
@@ -260,6 +262,7 @@ where
 /// * `input_paths` - List of file paths to encrypt
 /// * `output_dir` - Directory where encrypted files will be saved
 /// * `password` - Password for encryption (used for all files)
+/// * `allow_overwrite` - Allow overwriting existing files (default: false)
 ///
 /// # Returns
 /// BatchResult with success/failure status for each file
@@ -269,6 +272,7 @@ pub async fn batch_encrypt(
     input_paths: Vec<String>,
     output_dir: String,
     password: String,
+    allow_overwrite: Option<bool>,
 ) -> CryptoResult<BatchResult> {
     log::info!(
         "Batch encrypting {} files to {}",
@@ -280,7 +284,15 @@ pub async fn batch_encrypt(
         let _ = app.emit(BATCH_PROGRESS_EVENT, progress);
     };
 
-    batch_encrypt_impl(&input_paths, &output_dir, &password, &mut emit_progress)
+    let allow_overwrite = allow_overwrite.unwrap_or(false);
+
+    batch_encrypt_impl(
+        &input_paths,
+        &output_dir,
+        &password,
+        allow_overwrite,
+        &mut emit_progress,
+    )
 }
 
 /// Encrypt a single file (internal helper)
@@ -288,6 +300,7 @@ fn encrypt_single_file(
     password: &Password,
     input_path: &str,
     output_dir: &str,
+    allow_overwrite: bool,
 ) -> CryptoResult<String> {
     // Validate input path (check for symlinks)
     let validated_path = validate_input_path(input_path)
@@ -322,9 +335,9 @@ fn encrypt_single_file(
         nonce,
         ciphertext,
     };
-    atomic_write(&output_path, &encrypted_file.serialize())?;
+    let resolved_path = atomic_write(&output_path, &encrypted_file.serialize(), allow_overwrite)?;
 
-    Ok(output_path.to_string_lossy().to_string())
+    Ok(resolved_path.to_string_lossy().to_string())
 }
 
 /// Decrypt multiple files with the same password
@@ -334,6 +347,7 @@ fn encrypt_single_file(
 /// * `input_paths` - List of encrypted file paths to decrypt
 /// * `output_dir` - Directory where decrypted files will be saved
 /// * `password` - Password for decryption
+/// * `allow_overwrite` - Allow overwriting existing files (default: false)
 ///
 /// # Returns
 /// BatchResult with success/failure status for each file
@@ -343,6 +357,7 @@ pub async fn batch_decrypt(
     input_paths: Vec<String>,
     output_dir: String,
     password: String,
+    allow_overwrite: Option<bool>,
 ) -> CryptoResult<BatchResult> {
     log::info!(
         "Batch decrypting {} files to {}",
@@ -354,7 +369,15 @@ pub async fn batch_decrypt(
         let _ = app.emit(BATCH_PROGRESS_EVENT, progress);
     };
 
-    batch_decrypt_impl(&input_paths, &output_dir, &password, &mut emit_progress)
+    let allow_overwrite = allow_overwrite.unwrap_or(false);
+
+    batch_decrypt_impl(
+        &input_paths,
+        &output_dir,
+        &password,
+        allow_overwrite,
+        &mut emit_progress,
+    )
 }
 
 /// Decrypt a single file (internal helper)
@@ -362,6 +385,7 @@ fn decrypt_single_file(
     password: &Password,
     input_path: &str,
     output_dir: &str,
+    allow_overwrite: bool,
 ) -> CryptoResult<String> {
     // Validate input path (check for symlinks)
     let validated_path = validate_input_path(input_path)
@@ -398,9 +422,9 @@ fn decrypt_single_file(
     let output_path = Path::new(output_dir).join(&output_filename);
 
     // Write decrypted file atomically with secure permissions
-    atomic_write(&output_path, &plaintext)?;
+    let resolved_path = atomic_write(&output_path, &plaintext, allow_overwrite)?;
 
-    Ok(output_path.to_string_lossy().to_string())
+    Ok(resolved_path.to_string_lossy().to_string())
 }
 
 #[cfg(test)]
@@ -431,6 +455,7 @@ mod tests {
             &input_paths,
             &output_dir_str,
             "password123",
+            false,
             &mut no_progress,
         )
         .unwrap();
@@ -462,6 +487,7 @@ mod tests {
             &input_paths,
             &output_dir_str,
             "password123",
+            false,
             &mut no_progress,
         )
         .unwrap();
@@ -482,6 +508,7 @@ mod tests {
             &input_paths,
             output_dir.path().to_str().unwrap(),
             "password123",
+            false,
             &mut no_progress,
         );
 
@@ -500,6 +527,7 @@ mod tests {
             &input_paths,
             missing_output.to_str().unwrap(),
             "password123",
+            false,
             &mut no_progress,
         );
 
@@ -516,6 +544,7 @@ mod tests {
             &Password::new("correct_password".to_string()),
             &input_path,
             encrypt_dir.path().to_str().unwrap(),
+            false,
         )
         .unwrap();
         let input_paths = vec![encrypted_path];
@@ -525,6 +554,7 @@ mod tests {
             &input_paths,
             decrypt_dir.path().to_str().unwrap(),
             "wrong_password",
+            false,
             &mut no_progress,
         )
         .unwrap();
@@ -544,6 +574,7 @@ mod tests {
             &input_paths,
             output_dir.path().to_str().unwrap(),
             "password123",
+            false,
             &mut no_progress,
         );
 

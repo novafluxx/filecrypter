@@ -34,13 +34,15 @@ export function useTauri() {
    * @param inputPath - Path to the file to encrypt
    * @param outputPath - Path where encrypted file will be saved
    * @param password - User's password
-   * @returns Promise resolving to success message
+   * @param allowOverwrite - Allow overwriting existing files (default: false)
+   * @returns Promise resolving to message + resolved output path
    * @throws Error if encryption fails (wrong path, permission denied, etc.)
    */
   async function encryptFile(
     inputPath: string,
     outputPath: string,
-    password: string
+    password: string,
+    allowOverwrite = false
   ): Promise<CryptoResponse> {
     try {
       // invoke() is Tauri's IPC mechanism - it calls the Rust function
@@ -49,6 +51,7 @@ export function useTauri() {
         inputPath,   // Maps to input_path parameter in Rust
         outputPath,  // Maps to output_path parameter in Rust
         password,    // Maps to password parameter in Rust
+        allowOverwrite,
       });
       return result;
     } catch (error) {
@@ -70,19 +73,22 @@ export function useTauri() {
    * @param inputPath - Path to the encrypted file
    * @param outputPath - Path where decrypted file will be saved
    * @param password - User's password (must match encryption password)
-   * @returns Promise resolving to success message
+   * @param allowOverwrite - Allow overwriting existing files (default: false)
+   * @returns Promise resolving to message + resolved output path
    * @throws Error if decryption fails (wrong password, corrupted file, etc.)
    */
   async function decryptFile(
     inputPath: string,
     outputPath: string,
-    password: string
+    password: string,
+    allowOverwrite = false
   ): Promise<CryptoResponse> {
     try {
       const result = await invoke<CryptoResponse>('decrypt_file', {
         inputPath,
         outputPath,
         password,
+        allowOverwrite,
       });
       return result;
     } catch (error) {
@@ -206,18 +212,21 @@ export function useTauri() {
    * @param inputPaths - Array of file paths to encrypt
    * @param outputDir - Directory where encrypted files will be saved
    * @param password - Password for encryption
+   * @param allowOverwrite - Allow overwriting existing files (default: false)
    * @returns Promise resolving to BatchResult
    */
   async function batchEncrypt(
     inputPaths: string[],
     outputDir: string,
-    password: string
+    password: string,
+    allowOverwrite = false
   ): Promise<BatchResult> {
     try {
       const result = await invoke<BatchResult>('batch_encrypt', {
         inputPaths,
         outputDir,
         password,
+        allowOverwrite,
       });
       return result;
     } catch (error) {
@@ -231,18 +240,21 @@ export function useTauri() {
    * @param inputPaths - Array of encrypted file paths
    * @param outputDir - Directory where decrypted files will be saved
    * @param password - Password for decryption
+   * @param allowOverwrite - Allow overwriting existing files (default: false)
    * @returns Promise resolving to BatchResult
    */
   async function batchDecrypt(
     inputPaths: string[],
     outputDir: string,
-    password: string
+    password: string,
+    allowOverwrite = false
   ): Promise<BatchResult> {
     try {
       const result = await invoke<BatchResult>('batch_decrypt', {
         inputPaths,
         outputDir,
         password,
+        allowOverwrite,
       });
       return result;
     } catch (error) {
@@ -258,18 +270,21 @@ export function useTauri() {
    * @param inputPath - Path to the file to encrypt
    * @param outputPath - Path where encrypted file will be saved
    * @param password - User's password
-   * @returns Promise resolving to success message
+   * @param allowOverwrite - Allow overwriting existing files (default: false)
+   * @returns Promise resolving to message + resolved output path
    */
   async function encryptFileStreamed(
     inputPath: string,
     outputPath: string,
-    password: string
+    password: string,
+    allowOverwrite = false
   ): Promise<CryptoResponse> {
     try {
       const result = await invoke<CryptoResponse>('encrypt_file_streamed', {
         inputPath,
         outputPath,
         password,
+        allowOverwrite,
       });
       return result;
     } catch (error) {
@@ -285,18 +300,21 @@ export function useTauri() {
    * @param inputPath - Path to the encrypted file
    * @param outputPath - Path where decrypted file will be saved
    * @param password - User's password
-   * @returns Promise resolving to success message
+   * @param allowOverwrite - Allow overwriting existing files (default: false)
+   * @returns Promise resolving to message + resolved output path
    */
   async function decryptFileStreamed(
     inputPath: string,
     outputPath: string,
-    password: string
+    password: string,
+    allowOverwrite = false
   ): Promise<CryptoResponse> {
     try {
       const result = await invoke<CryptoResponse>('decrypt_file_streamed', {
         inputPath,
         outputPath,
         password,
+        allowOverwrite,
       });
       return result;
     } catch (error) {

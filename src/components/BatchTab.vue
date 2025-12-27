@@ -27,6 +27,7 @@ const mode = ref<'encrypt' | 'decrypt'>('encrypt');
 const inputPaths = ref<string[]>([]);
 const outputDir = ref('');
 const password = ref('');
+const neverOverwrite = ref(true);
 const isProcessing = ref(false);
 const statusMessage = ref('');
 const statusType = ref<'success' | 'error' | 'info'>('info');
@@ -165,10 +166,22 @@ async function handleBatchOperation() {
   try {
     let result: BatchResult;
 
+    const allowOverwrite = !neverOverwrite.value;
+
     if (mode.value === 'encrypt') {
-      result = await tauri.batchEncrypt(inputPaths.value, outputDir.value, password.value);
+      result = await tauri.batchEncrypt(
+        inputPaths.value,
+        outputDir.value,
+        password.value,
+        allowOverwrite
+      );
     } else {
-      result = await tauri.batchDecrypt(inputPaths.value, outputDir.value, password.value);
+      result = await tauri.batchDecrypt(
+        inputPaths.value,
+        outputDir.value,
+        password.value,
+        allowOverwrite
+      );
     }
 
     batchResult.value = result;
@@ -303,6 +316,21 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
         >
           Browse
         </button>
+      </div>
+    </div>
+
+    <!-- Output Safety Options -->
+    <div class="form-group">
+      <label class="checkbox-row">
+        <input
+          type="checkbox"
+          v-model="neverOverwrite"
+          :disabled="isProcessing"
+        />
+        Never overwrite existing files (auto-rename on conflicts)
+      </label>
+      <div class="hint hint-info">
+        If a filename already exists, we'll save as "name (1)".
       </div>
     </div>
 
@@ -650,6 +678,19 @@ label {
   font-size: 13px;
   font-weight: 600;
   color: var(--accent-primary);
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.checkbox-row input {
+  accent-color: var(--accent-primary);
 }
 
 /* Hints */

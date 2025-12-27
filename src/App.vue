@@ -314,7 +314,7 @@ body {
 
 /* Tab Content Styles */
 .tab-panels {
-  height: 400px;
+  min-height: 460px;
 }
 
 .tab-panel {

@@ -5,11 +5,11 @@
 //
 // Progress events are emitted during processing to update the UI.
 
-use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::{command, AppHandle, Emitter};
 
-use crate::commands::file_utils::validate_input_path;
+use crate::commands::file_utils::{resolve_output_path, validate_input_path};
+use crate::commands::CryptoResponse;
 use crate::crypto::{
     decrypt_file_streaming, encrypt_file_streaming, should_use_streaming, Password,
     DEFAULT_CHUNK_SIZE, STREAMING_THRESHOLD,
@@ -27,16 +27,18 @@ use crate::events::{ProgressEvent, CRYPTO_PROGRESS_EVENT};
 /// * `input_path` - Path to the file to encrypt
 /// * `output_path` - Path where encrypted file will be saved
 /// * `password` - User's password
+/// * `allow_overwrite` - Allow overwriting existing files (default: false)
 ///
 /// # Returns
-/// Success message or error
+/// Success response containing the message and resolved output path
 #[command]
 pub async fn encrypt_file_streamed(
     app: AppHandle,
     input_path: String,
     output_path: String,
     password: String,
-) -> CryptoResult<String> {
+    allow_overwrite: Option<bool>,
+) -> CryptoResult<CryptoResponse> {
     log::info!("Streaming encrypt: {}", input_path);
 
     // Emit: Starting
@@ -47,7 +49,8 @@ pub async fn encrypt_file_streamed(
 
     // Validate input path (check for symlinks, canonicalize)
     let validated_input = validate_input_path(&input_path)?;
-    let validated_output = PathBuf::from(&output_path);
+    let allow_overwrite = allow_overwrite.unwrap_or(false);
+    let validated_output = resolve_output_path(&output_path, allow_overwrite)?;
     let password = Password::new(password);
 
     // Create progress callback
@@ -69,17 +72,22 @@ pub async fn encrypt_file_streamed(
     // Perform streaming encryption
     encrypt_file_streaming(
         validated_input,
-        validated_output,
+        &validated_output,
         password.as_str(),
         DEFAULT_CHUNK_SIZE,
         Some(Box::new(progress_callback)),
+        allow_overwrite,
     )?;
 
     // Emit: Complete
     let _ = app.emit(CRYPTO_PROGRESS_EVENT, ProgressEvent::encrypt_complete());
 
+    let output_path = validated_output.to_string_lossy().to_string();
     log::info!("Streaming encryption complete: {}", output_path);
-    Ok(format!("File encrypted successfully: {}", output_path))
+    Ok(CryptoResponse {
+        message: format!("File encrypted successfully: {}", output_path),
+        output_path,
+    })
 }
 
 /// Decrypt a file using streaming decryption
@@ -91,16 +99,18 @@ pub async fn encrypt_file_streamed(
 /// * `input_path` - Path to the encrypted file
 /// * `output_path` - Path where decrypted file will be saved
 /// * `password` - User's password
+/// * `allow_overwrite` - Allow overwriting existing files (default: false)
 ///
 /// # Returns
-/// Success message or error
+/// Success response containing the message and resolved output path
 #[command]
 pub async fn decrypt_file_streamed(
     app: AppHandle,
     input_path: String,
     output_path: String,
     password: String,
-) -> CryptoResult<String> {
+    allow_overwrite: Option<bool>,
+) -> CryptoResult<CryptoResponse> {
     log::info!("Streaming decrypt: {}", input_path);
 
     // Emit: Starting
@@ -111,7 +121,8 @@ pub async fn decrypt_file_streamed(
 
     // Validate input path (check for symlinks, canonicalize)
     let validated_input = validate_input_path(&input_path)?;
-    let validated_output = PathBuf::from(&output_path);
+    let allow_overwrite = allow_overwrite.unwrap_or(false);
+    let validated_output = resolve_output_path(&output_path, allow_overwrite)?;
     let password = Password::new(password);
 
     // Create progress callback
@@ -133,16 +144,21 @@ pub async fn decrypt_file_streamed(
     // Perform streaming decryption
     decrypt_file_streaming(
         validated_input,
-        validated_output,
+        &validated_output,
         password.as_str(),
         Some(Box::new(progress_callback)),
+        allow_overwrite,
     )?;
 
     // Emit: Complete
     let _ = app.emit(CRYPTO_PROGRESS_EVENT, ProgressEvent::decrypt_complete());
 
+    let output_path = validated_output.to_string_lossy().to_string();
     log::info!("Streaming decryption complete: {}", output_path);
-    Ok(format!("File decrypted successfully: {}", output_path))
+    Ok(CryptoResponse {
+        message: format!("File decrypted successfully: {}", output_path),
+        output_path,
+    })
 }
 
 /// Check if a file should use streaming encryption

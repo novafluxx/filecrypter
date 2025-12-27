@@ -17,6 +17,7 @@ use std::fs;
 use tauri::{command, AppHandle, Emitter};
 
 use crate::commands::file_utils::{atomic_write, validate_file_size, validate_input_path};
+use crate::commands::CryptoResponse;
 use crate::crypto::{decrypt, derive_key, EncryptedFile, Password};
 use crate::error::CryptoResult;
 use crate::events::{ProgressEvent, CRYPTO_PROGRESS_EVENT};
@@ -65,9 +66,10 @@ pub fn decrypt_file_impl(
 /// * `input_path` - Path to the encrypted file (.encrypted)
 /// * `output_path` - Path where the decrypted file will be saved
 /// * `password` - User's password (must match the one used for encryption)
+/// * `allow_overwrite` - Allow overwriting existing files (default: false)
 ///
 /// # Returns
-/// A success message string if decryption succeeds
+/// A success response containing the message and resolved output path
 ///
 /// # Errors
 /// Returns `CryptoError` if:
@@ -88,7 +90,8 @@ pub fn decrypt_file_impl(
 /// await invoke('decrypt_file', {
 ///   inputPath: '/path/to/file.txt.encrypted',
 ///   outputPath: '/path/to/file.txt',
-///   password: 'user_password'
+///   password: 'user_password',
+///   allowOverwrite: false
 /// });
 /// ```
 #[command]
@@ -97,7 +100,8 @@ pub async fn decrypt_file(
     input_path: String,
     output_path: String,
     password: String,
-) -> CryptoResult<String> {
+    allow_overwrite: Option<bool>,
+) -> CryptoResult<CryptoResponse> {
     // Log the operation (password is NOT logged)
     log::info!("Decrypting file: {}", input_path);
 
@@ -158,16 +162,22 @@ pub async fn decrypt_file(
     // Emit: Writing file
     let _ = app.emit(CRYPTO_PROGRESS_EVENT, ProgressEvent::writing());
 
-    // Step 5: Write the plaintext to the output file with secure permissions
-    atomic_write(&output_path, &plaintext)?;
+    let allow_overwrite = allow_overwrite.unwrap_or(false);
 
-    log::info!("Decrypted file written to: {}", output_path);
+    // Step 5: Write the plaintext to the output file with secure permissions
+    let resolved_path = atomic_write(&output_path, &plaintext, allow_overwrite)?;
+
+    log::info!("Decrypted file written to: {}", resolved_path.display());
 
     // Emit: Complete
     let _ = app.emit(CRYPTO_PROGRESS_EVENT, ProgressEvent::decrypt_complete());
 
     // Return success message to frontend
-    Ok(format!("File decrypted successfully: {}", output_path))
+    let output_path = resolved_path.to_string_lossy().to_string();
+    Ok(CryptoResponse {
+        message: format!("File decrypted successfully: {}", output_path),
+        output_path,
+    })
 }
 
 #[cfg(test)]

@@ -6,10 +6,12 @@
 /**
  * Response from encryption/decryption operations
  *
- * The Rust backend returns a simple string message on success,
- * or throws an error on failure.
+ * The Rust backend returns a message plus the resolved output path.
  */
-export type CryptoResponse = string;
+export interface CryptoResponse {
+  message: string;
+  output_path: string;
+}
 
 /**
  * Status message types for UI feedback
@@ -23,6 +25,7 @@ export interface FileOperationState {
   inputPath: string;
   outputPath: string;
   password: string;
+  neverOverwrite: boolean;
   isProcessing: boolean;
   statusMessage: string;
   statusType: StatusType;

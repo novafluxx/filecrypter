@@ -18,7 +18,7 @@
 // BLAKE3("filecypter-chunk-nonce-v1" || base_nonce || chunk_index)
 // For version 3, the header bytes are authenticated as AAD for every chunk.
 
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 
@@ -27,15 +27,14 @@ use aes_gcm::{
     Aes256Gcm, Nonce,
 };
 use rand::{rngs::OsRng, TryRngCore};
+use tempfile::NamedTempFile;
 
 use crate::crypto::kdf::{derive_key, generate_salt};
 use crate::crypto::secure::Password;
 use crate::error::{CryptoError, CryptoResult};
 
-#[cfg(unix)]
-use std::fs::OpenOptions;
-#[cfg(unix)]
-use std::os::unix::fs::OpenOptionsExt;
+#[cfg(windows)]
+use crate::security::set_owner_only_dacl;
 
 /// Default chunk size: 1 MB
 pub const DEFAULT_CHUNK_SIZE: usize = 1024 * 1024;
@@ -72,15 +71,17 @@ pub type ProgressCallback = Box<dyn Fn(u64, u64) + Send + Sync>;
 /// * `password` - User's password
 /// * `chunk_size` - Size of each chunk in bytes (default: 1MB)
 /// * `progress_callback` - Optional callback for progress updates (bytes_processed, total_bytes)
+/// * `allow_overwrite` - Allow overwriting existing files (default: false)
 ///
 /// # Returns
 /// Ok(()) on success, or CryptoError on failure
-pub fn encrypt_file_streaming<P: AsRef<Path>>(
+pub fn encrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
     input_path: P,
-    output_path: P,
+    output_path: Q,
     password: &str,
     chunk_size: usize,
     progress_callback: Option<ProgressCallback>,
+    allow_overwrite: bool,
 ) -> CryptoResult<()> {
     if password.is_empty() {
         return Err(CryptoError::FormatError(
@@ -99,12 +100,12 @@ pub fn encrypt_file_streaming<P: AsRef<Path>>(
     let file_size = input_file.metadata()?.len();
     let mut reader = BufReader::new(input_file);
 
-    // Create output file with secure permissions (0o600 on Unix)
-    // Note: Streaming operations write directly to the final file (not atomic)
-    // because the files are too large for atomic write (which requires temp file).
-    // Incomplete writes will be detected during decryption by authentication failure.
-    let output_file = create_secure_output_file(output_path.as_ref())?;
-    let mut writer = BufWriter::new(output_file);
+    // Create a secure temp file in the output directory.
+    // We only rename to the final output path after the full write completes.
+    let output_path = output_path.as_ref();
+    let output_parent = output_path.parent().unwrap_or_else(|| Path::new("."));
+    let mut temp_file = create_secure_tempfile(output_parent)?;
+    let mut writer = BufWriter::new(temp_file.as_file_mut());
 
     // Generate salt and derive key
     let salt = generate_salt()?;
@@ -206,6 +207,17 @@ pub fn encrypt_file_streaming<P: AsRef<Path>>(
     }
 
     writer.flush()?;
+    drop(writer);
+
+    if allow_overwrite && output_path.exists() {
+        fs::remove_file(output_path).map_err(CryptoError::Io)?;
+    }
+
+    if let Err(err) = temp_file.persist(output_path) {
+        let _ = fs::remove_file(err.file.path());
+        return Err(CryptoError::Io(err.error));
+    }
+
     Ok(())
 }
 
@@ -219,14 +231,16 @@ pub fn encrypt_file_streaming<P: AsRef<Path>>(
 /// * `output_path` - Path where decrypted file will be saved
 /// * `password` - User's password
 /// * `progress_callback` - Optional callback for progress updates
+/// * `allow_overwrite` - Allow overwriting existing files (default: false)
 ///
 /// # Returns
 /// Ok(()) on success, or CryptoError on failure
-pub fn decrypt_file_streaming<P: AsRef<Path>>(
+pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
     input_path: P,
-    output_path: P,
+    output_path: Q,
     password: &str,
     progress_callback: Option<ProgressCallback>,
+    allow_overwrite: bool,
 ) -> CryptoResult<()> {
     if password.is_empty() {
         return Err(CryptoError::FormatError(
@@ -291,9 +305,12 @@ pub fn decrypt_file_streaming<P: AsRef<Path>>(
     let cipher =
         Aes256Gcm::new_from_slice(key.as_slice()).map_err(|_| CryptoError::EncryptionFailed)?;
 
-    // Create output file with secure permissions (0o600 on Unix)
-    let output_file = create_secure_output_file(output_path.as_ref())?;
-    let mut writer = BufWriter::new(output_file);
+    // Create a secure temp file in the output directory.
+    // We only rename to the final output path after the full write completes.
+    let output_path = output_path.as_ref();
+    let output_parent = output_path.parent().unwrap_or_else(|| Path::new("."));
+    let mut temp_file = create_secure_tempfile(output_parent)?;
+    let mut writer = BufWriter::new(temp_file.as_file_mut());
 
     // Process chunks
     let mut bytes_processed: u64 = 0;
@@ -353,6 +370,17 @@ pub fn decrypt_file_streaming<P: AsRef<Path>>(
     }
 
     writer.flush()?;
+    drop(writer);
+
+    if allow_overwrite && output_path.exists() {
+        fs::remove_file(output_path).map_err(CryptoError::Io)?;
+    }
+
+    if let Err(err) = temp_file.persist(output_path) {
+        let _ = fs::remove_file(err.file.path());
+        return Err(CryptoError::Io(err.error));
+    }
+
     Ok(())
 }
 
@@ -391,24 +419,30 @@ fn build_header(
     header
 }
 
-fn create_secure_output_file(path: &Path) -> std::io::Result<File> {
+fn create_secure_tempfile(parent: &Path) -> CryptoResult<NamedTempFile> {
+    let temp_file = NamedTempFile::new_in(parent).map_err(CryptoError::Io)?;
+
     #[cfg(unix)]
     {
-        OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .mode(0o600)
-            .open(path)
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = temp_file
+            .as_file()
+            .metadata()
+            .map_err(CryptoError::Io)?
+            .permissions();
+        perms.set_mode(0o600);
+        fs::set_permissions(temp_file.path(), perms).map_err(CryptoError::Io)?;
     }
 
     #[cfg(windows)]
     {
-        use crate::security::create_secure_file;
-
-        // Create file with restrictive permissions atomically (no TOCTOU vulnerability)
-        create_secure_file(path).map_err(|e| e.into())
+        if let Err(err) = set_owner_only_dacl(temp_file.path()) {
+            let _ = fs::remove_file(temp_file.path());
+            return Err(CryptoError::Io(err.into()));
+        }
     }
+
+    Ok(temp_file)
 }
 
 /// Check if a file should use streaming encryption based on size
@@ -467,6 +501,7 @@ mod tests {
             "test_password",
             1024, // Small chunk size for testing
             None,
+            false,
         )
         .unwrap();
 
@@ -476,7 +511,8 @@ mod tests {
 
         // Decrypt
         let decrypted_path = temp_dir.path().join("decrypted.bin");
-        decrypt_file_streaming(&encrypted_path, &decrypted_path, "test_password", None).unwrap();
+        decrypt_file_streaming(&encrypted_path, &decrypted_path, "test_password", None, false)
+            .unwrap();
 
         // Verify content matches
         let decrypted_content = fs::read(&decrypted_path).unwrap();
@@ -497,6 +533,7 @@ mod tests {
             "test_password",
             1024,
             None,
+            false,
         )
         .unwrap();
 
@@ -505,7 +542,8 @@ mod tests {
         assert!(!encrypted_data.is_empty());
 
         let decrypted_path = temp_dir.path().join("decrypted_empty.bin");
-        decrypt_file_streaming(&encrypted_path, &decrypted_path, "test_password", None).unwrap();
+        decrypt_file_streaming(&encrypted_path, &decrypted_path, "test_password", None, false)
+            .unwrap();
 
         let decrypted_data = fs::read(&decrypted_path).unwrap();
         assert!(decrypted_data.is_empty());
@@ -528,13 +566,19 @@ mod tests {
             "correct_password",
             1024,
             None,
+            false,
         )
         .unwrap();
 
         // Try to decrypt with wrong password
         let decrypted_path = temp_dir.path().join("decrypted.bin");
-        let result =
-            decrypt_file_streaming(&encrypted_path, &decrypted_path, "wrong_password", None);
+        let result = decrypt_file_streaming(
+            &encrypted_path,
+            &decrypted_path,
+            "wrong_password",
+            None,
+            false,
+        );
 
         assert!(result.is_err());
         assert!(matches!(result, Err(CryptoError::InvalidPassword)));
@@ -551,6 +595,7 @@ mod tests {
             "",
             DEFAULT_CHUNK_SIZE,
             None,
+            false,
         );
 
         assert!(result.is_err());
@@ -579,12 +624,20 @@ mod tests {
             "multi_chunk_test",
             chunk_size,
             None,
+            false,
         )
         .unwrap();
 
         // Decrypt
         let decrypted_path = temp_dir.path().join("decrypted.bin");
-        decrypt_file_streaming(&encrypted_path, &decrypted_path, "multi_chunk_test", None).unwrap();
+        decrypt_file_streaming(
+            &encrypted_path,
+            &decrypted_path,
+            "multi_chunk_test",
+            None,
+            false,
+        )
+        .unwrap();
 
         // Verify
         let decrypted_content = fs::read(&decrypted_path).unwrap();

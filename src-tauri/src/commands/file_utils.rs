@@ -20,6 +20,56 @@ pub const MAX_IN_MEMORY_SIZE: u64 = 100 * 1024 * 1024;
 /// Maximum number of files in a batch operation
 pub const MAX_BATCH_FILES: usize = 1000;
 
+/// Maximum number of collision attempts when auto-renaming output files
+const MAX_COLLISION_ATTEMPTS: u32 = 1000;
+
+/// Resolve an output path based on overwrite preference.
+///
+/// If `allow_overwrite` is false and the target exists, this returns
+/// a new path with a " (n)" suffix (e.g., "file (1).txt").
+pub fn resolve_output_path<P: AsRef<Path>>(
+    path: P,
+    allow_overwrite: bool,
+) -> CryptoResult<PathBuf> {
+    let path = path.as_ref();
+
+    if allow_overwrite || !path.exists() {
+        return Ok(path.to_path_buf());
+    }
+
+    for index in 1..=MAX_COLLISION_ATTEMPTS {
+        let candidate = build_collision_path(path, index)?;
+        if !candidate.exists() {
+            return Ok(candidate);
+        }
+    }
+
+    Err(CryptoError::InvalidPath(
+        "Unable to find available output filename".to_string(),
+    ))
+}
+
+fn build_collision_path(path: &Path, index: u32) -> CryptoResult<PathBuf> {
+    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    let file_name = path.file_name().ok_or_else(|| {
+        CryptoError::InvalidPath("Output filename is missing".to_string())
+    })?;
+
+    let stem = path
+        .file_stem()
+        .unwrap_or(file_name)
+        .to_string_lossy()
+        .to_string();
+
+    let candidate_name = if let Some(ext) = path.extension() {
+        format!("{} ({}).{}", stem, index, ext.to_string_lossy())
+    } else {
+        format!("{} ({})", stem, index)
+    };
+
+    Ok(parent.join(candidate_name))
+}
+
 /// Write data to a file with secure permissions (owner read/write only)
 ///
 /// On Unix systems, sets file permissions to 0o600.
@@ -59,9 +109,15 @@ pub fn secure_write<P: AsRef<Path>>(path: P, data: &[u8]) -> Result<(), std::io:
 ///
 /// This ensures that the output file is never partially written.
 /// If the process crashes, only the temp file is left behind.
-pub fn atomic_write<P: AsRef<Path>>(path: P, data: &[u8]) -> CryptoResult<()> {
-    let path = path.as_ref();
-    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+/// When `allow_overwrite` is false, collisions are resolved by auto-renaming.
+pub fn atomic_write<P: AsRef<Path>>(
+    path: P,
+    data: &[u8],
+    allow_overwrite: bool,
+) -> CryptoResult<PathBuf> {
+    let requested_path = path.as_ref();
+    let resolved_path = resolve_output_path(requested_path, allow_overwrite)?;
+    let parent = resolved_path.parent().unwrap_or_else(|| Path::new("."));
 
     let mut temp_file = NamedTempFile::new_in(parent).map_err(CryptoError::Io)?;
 
@@ -92,12 +148,26 @@ pub fn atomic_write<P: AsRef<Path>>(path: P, data: &[u8]) -> CryptoResult<()> {
     temp_file.write_all(data).map_err(CryptoError::Io)?;
     temp_file.flush().map_err(CryptoError::Io)?;
 
-    if let Err(e) = temp_file.persist(path) {
-        let _ = fs::remove_file(e.file.path());
-        return Err(CryptoError::Io(e.error));
+    if allow_overwrite && resolved_path.exists() {
+        fs::remove_file(&resolved_path).map_err(CryptoError::Io)?;
     }
 
-    Ok(())
+    match temp_file.persist(&resolved_path) {
+        Ok(_) => Ok(resolved_path),
+        Err(e) => {
+            if !allow_overwrite && e.error.kind() == std::io::ErrorKind::AlreadyExists {
+                let next_path = resolve_output_path(requested_path, false)?;
+                let temp_file = e.file;
+                temp_file
+                    .persist(&next_path)
+                    .map_err(|persist_err| CryptoError::Io(persist_err.error))?;
+                return Ok(next_path);
+            }
+
+            let _ = fs::remove_file(e.file.path());
+            Err(CryptoError::Io(e.error))
+        }
+    }
 }
 
 /// Validate a file path for security
@@ -222,9 +292,9 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let path = temp_dir.path().join("output.bin");
 
-        atomic_write(&path, b"atomic data").unwrap();
+        let written_path = atomic_write(&path, b"atomic data", false).unwrap();
 
-        let content = fs::read(&path).unwrap();
+        let content = fs::read(&written_path).unwrap();
         assert_eq!(content, b"atomic data");
 
         // Temp files should have been persisted/cleaned up; only the final file should remain.
@@ -234,6 +304,23 @@ mod tests {
             .collect();
         files.sort();
         assert_eq!(files, vec!["output.bin".to_string()]);
+    }
+
+    #[test]
+    fn test_atomic_write_collision_renames() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let path = temp_dir.path().join("output.txt");
+
+        atomic_write(&path, b"first", false).unwrap();
+        let second_path = atomic_write(&path, b"second", false).unwrap();
+
+        assert_ne!(path, second_path);
+        assert!(second_path
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .contains("output (1).txt"));
+        assert_eq!(fs::read(second_path).unwrap(), b"second");
     }
 
     #[test]

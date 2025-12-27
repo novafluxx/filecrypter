@@ -10,7 +10,7 @@
 // - This composable can be used in any component
 
 import { ref, computed } from 'vue';
-import type { StatusType } from '../types/crypto';
+import type { CryptoResponse, StatusType } from '../types/crypto';
 import { useTauri } from './useTauri';
 
 /**
@@ -76,6 +76,7 @@ export function useFileOps() {
   const inputPath = ref('');
   const outputPath = ref('');
   const password = ref('');
+  const neverOverwrite = ref(true);
   const isProcessing = ref(false);
   const statusMessage = ref('');
   const statusType = ref<StatusType>('info');
@@ -240,12 +241,24 @@ export function useFileOps() {
 
       // Call Rust backend
       // Uses streaming for large files (>10MB) to avoid memory issues
+      const allowOverwrite = !neverOverwrite.value;
       const result = useStreaming.value
-        ? await encryptFileStreamed(inputPath.value, outputPath.value, password.value)
-        : await encryptFile(inputPath.value, outputPath.value, password.value);
+        ? await encryptFileStreamed(
+            inputPath.value,
+            outputPath.value,
+            password.value,
+            allowOverwrite
+          )
+        : await encryptFile(
+            inputPath.value,
+            outputPath.value,
+            password.value,
+            allowOverwrite
+          );
 
       // Success!
-      showStatus(result, 'success');
+      showStatus(result.message, 'success');
+      outputPath.value = result.output_path;
       clearPassword(); // Clear password for security
 
       return true;
@@ -281,24 +294,36 @@ export function useFileOps() {
       isProcessing.value = true;
       showStatus('Decrypting file... This may take a moment.', 'info', 0);
 
-      let result: string;
+      let result: CryptoResponse;
+      const allowOverwrite = !neverOverwrite.value;
 
       // Try regular decryption first, fall back to streaming if format error
       try {
-        result = await decryptFile(inputPath.value, outputPath.value, password.value);
+        result = await decryptFile(
+          inputPath.value,
+          outputPath.value,
+          password.value,
+          allowOverwrite
+        );
       } catch (error) {
         // If format error indicates streaming format (version 2), try streaming decryption
         const errorMsg = error instanceof Error ? error.message : String(error);
         if (errorMsg.includes('version') || errorMsg.includes('format')) {
           showStatus('Trying streaming decryption...', 'info', 0);
-          result = await decryptFileStreamed(inputPath.value, outputPath.value, password.value);
+          result = await decryptFileStreamed(
+            inputPath.value,
+            outputPath.value,
+            password.value,
+            allowOverwrite
+          );
         } else {
           throw error;
         }
       }
 
       // Success!
-      showStatus(result, 'success');
+      showStatus(result.message, 'success');
+      outputPath.value = result.output_path;
       clearPassword(); // Clear password for security
 
       return true;
@@ -319,6 +344,7 @@ export function useFileOps() {
     inputPath,
     outputPath,
     password,
+    neverOverwrite,
     isProcessing,
     statusMessage,
     statusType,

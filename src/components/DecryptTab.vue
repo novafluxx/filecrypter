@@ -156,6 +156,21 @@ async function handleDecrypt() {
       </div>
     </div>
 
+    <!-- Output Safety Options -->
+    <div class="form-group">
+      <label class="checkbox-row">
+        <input
+          type="checkbox"
+          v-model="fileOps.neverOverwrite.value"
+          :disabled="fileOps.isProcessing.value"
+        />
+        Never overwrite existing files (auto-rename on conflicts)
+      </label>
+      <div class="hint hint-info">
+        If the output name already exists, we'll save as "name (1)".
+      </div>
+    </div>
+
     <!-- Password Input Section -->
     <div class="form-group">
       <label for="decrypt-password">Password:</label>
@@ -340,6 +355,19 @@ label {
   background-color: var(--info-bg);
   color: var(--info-text);
   border: 1px solid var(--info-border);
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.checkbox-row input {
+  accent-color: var(--accent-primary);
 }
 
 .status-message {

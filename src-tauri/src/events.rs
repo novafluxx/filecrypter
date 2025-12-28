@@ -50,7 +50,7 @@ impl ProgressEvent {
     ///
     /// # Example
     /// ```no_run
-    /// use filecypter_lib::events::ProgressEvent;
+    /// use filecrypter_lib::events::ProgressEvent;
     /// let _event = ProgressEvent::new("deriving_key", 20, "Deriving encryption key...");
     /// ```
     pub fn new(stage: &str, percent: u32, message: &str) -> Self {

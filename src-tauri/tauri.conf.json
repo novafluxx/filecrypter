@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "filecypter",
+  "productName": "FileCrypter",
   "version": "0.1.0",
   "identifier": "com.novafluxx.dev",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "FileCypter",
+        "title": "FileCrypter",
         "width": 700,
         "height": 900,
         "resizable": false,

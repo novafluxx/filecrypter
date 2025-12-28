@@ -1,4 +1,4 @@
-// lib.rs - FileCypter Main Library
+// lib.rs - FileCrypter Main Library
 //
 // This is the main entry point for the Tauri application.
 // It registers all commands and plugins, then starts the app.

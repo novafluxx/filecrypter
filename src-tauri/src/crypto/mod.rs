@@ -1,6 +1,6 @@
 // crypto/mod.rs - Cryptography Module
 //
-// This module provides all cryptographic operations for FileCypter.
+// This module provides all cryptographic operations for FileCrypter.
 // It exports a clean API for file encryption and decryption.
 
 mod cipher;

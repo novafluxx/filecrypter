@@ -64,7 +64,7 @@ const SALT_LENGTH: usize = 16;
 ///
 /// # Example
 /// ```no_run
-/// use filecypter_lib::crypto::{derive_key, generate_salt, Password};
+/// use filecrypter_lib::crypto::{derive_key, generate_salt, Password};
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let password = Password::new("my_password".to_string());
 /// let salt = generate_salt()?;
@@ -123,7 +123,7 @@ pub fn derive_key(password: &Password, salt: &[u8]) -> CryptoResult<SecureBytes>
 ///
 /// # Example
 /// ```no_run
-/// use filecypter_lib::crypto::generate_salt;
+/// use filecrypter_lib::crypto::generate_salt;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let _salt = generate_salt()?;
 /// // Use this salt with derive_key()

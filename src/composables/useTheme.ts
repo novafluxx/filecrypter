@@ -16,7 +16,7 @@ import { ref, watch, onMounted } from 'vue';
 export type Theme = 'light' | 'dark';
 
 /** localStorage key for persisting theme preference */
-const STORAGE_KEY = 'filecypter-theme';
+const STORAGE_KEY = 'filecrypter-theme';
 
 /**
  * Composable for managing application theme

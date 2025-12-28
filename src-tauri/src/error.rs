@@ -1,4 +1,4 @@
-// error.rs - Custom error types for FileCypter
+// error.rs - Custom error types for FileCrypter
 //
 // This module defines all error types used throughout the application.
 // Using thiserror makes error definitions clean and implements std::error::Error automatically.

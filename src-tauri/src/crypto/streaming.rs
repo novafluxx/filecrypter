@@ -15,7 +15,7 @@
 // [CHUNK_1_LEN_LE:4] [CHUNK_1_CIPHERTEXT+TAG] [CHUNK_2_LEN_LE:4] [CHUNK_2_CIPHERTEXT+TAG] ...
 //
 // Each chunk's nonce is derived via:
-// BLAKE3("filecypter-chunk-nonce-v1" || base_nonce || chunk_index)
+// BLAKE3("filecrypter-chunk-nonce-v1" || base_nonce || chunk_index)
 // For version 3, the header bytes are authenticated as AAD for every chunk.
 
 use std::fs::{self, File};
@@ -392,7 +392,7 @@ fn derive_chunk_nonce(base_nonce: &[u8; NONCE_SIZE], chunk_index: u64) -> [u8; N
     // Use BLAKE3 to derive unique nonces for each chunk
     // This provides cryptographic separation between chunk nonces
     let mut hasher = blake3::Hasher::new();
-    hasher.update(b"filecypter-chunk-nonce-v1"); // Domain separation
+    hasher.update(b"filecrypter-chunk-nonce-v1"); // Domain separation
     hasher.update(base_nonce);
     hasher.update(&chunk_index.to_le_bytes());
 

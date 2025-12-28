@@ -62,7 +62,7 @@ impl EncryptedFile {
     ///
     /// # Example
     /// ```no_run
-    /// use filecypter_lib::crypto::EncryptedFile;
+    /// use filecrypter_lib::crypto::EncryptedFile;
     /// let encrypted = EncryptedFile {
     ///     salt: vec![1, 2, 3],
     ///     nonce: vec![4; 12],
@@ -118,7 +118,7 @@ impl EncryptedFile {
     ///
     /// # Example
     /// ```no_run
-    /// use filecypter_lib::crypto::EncryptedFile;
+    /// use filecrypter_lib::crypto::EncryptedFile;
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let file_bytes = std::fs::read("file.encrypted")?;
     /// let _encrypted = EncryptedFile::deserialize(&file_bytes)?;

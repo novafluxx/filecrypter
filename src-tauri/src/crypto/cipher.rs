@@ -55,7 +55,7 @@ const NONCE_SIZE: usize = 12;
 ///
 /// # Example
 /// ```no_run
-/// use filecypter_lib::crypto::{encrypt, SecureBytes};
+/// use filecrypter_lib::crypto::{encrypt, SecureBytes};
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let key = SecureBytes::new(vec![0u8; 32]);
 /// let plaintext = b"Hello, World!";
@@ -124,7 +124,7 @@ pub fn encrypt(key: &SecureBytes, plaintext: &[u8]) -> CryptoResult<(Vec<u8>, Ve
 ///
 /// # Example
 /// ```no_run
-/// use filecypter_lib::crypto::{decrypt, SecureBytes};
+/// use filecrypter_lib::crypto::{decrypt, SecureBytes};
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let key = SecureBytes::new(vec![0u8; 32]);
 /// let nonce = vec![1u8; 12];
@@ -168,7 +168,7 @@ mod tests {
     #[test]
     fn test_encrypt_decrypt_roundtrip() {
         let key = SecureBytes::new(vec![42u8; 32]);
-        let plaintext = b"Hello, FileCypter! This is a test message.";
+        let plaintext = b"Hello, FileCrypter! This is a test message.";
 
         // Encrypt
         let (nonce, ciphertext) = encrypt(&key, plaintext).unwrap();

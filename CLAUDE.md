@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-FileCypter is a cross-platform desktop file encryption application built with Tauri. It uses Vue 3 for the frontend and Rust for the cryptographic backend, providing secure password-based file encryption using industry-standard algorithms.
+FileCrypter is a cross-platform desktop file encryption application built with Tauri. It uses Vue 3 for the frontend and Rust for the cryptographic backend, providing secure password-based file encryption using industry-standard algorithms.
 
 ## Tech Stack
 

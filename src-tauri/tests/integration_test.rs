@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use filecypter_lib::crypto::{
+use filecrypter_lib::crypto::{
     decrypt, decrypt_file_streaming, derive_key, encrypt, encrypt_file_streaming, generate_salt,
     EncryptedFile, Password, DEFAULT_CHUNK_SIZE,
 };

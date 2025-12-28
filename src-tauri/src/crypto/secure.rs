@@ -18,7 +18,7 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 ///
 /// # Example
 /// ```no_run
-/// use filecypter_lib::crypto::SecureBytes;
+/// use filecrypter_lib::crypto::SecureBytes;
 /// let _key = SecureBytes::new(vec![1, 2, 3, 4]);
 /// // key.0 is automatically zeroed when key goes out of scope
 /// ```
@@ -75,7 +75,7 @@ impl std::fmt::Debug for SecureBytes {
 ///
 /// # Example
 /// ```no_run
-/// use filecypter_lib::crypto::Password;
+/// use filecrypter_lib::crypto::Password;
 /// let password = Password::new("my_secret".to_string());
 /// let _bytes = password.as_bytes(); // Access for cryptographic operations
 /// // password is automatically zeroed when it goes out of scope

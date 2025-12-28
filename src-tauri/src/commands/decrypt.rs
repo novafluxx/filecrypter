@@ -281,7 +281,7 @@ mod tests {
     fn test_encrypt_decrypt_roundtrip() {
         // Full roundtrip test
         let original_content =
-            b"Hello, FileCypter! Testing full roundtrip encryption and decryption.";
+            b"Hello, FileCrypter! Testing full roundtrip encryption and decryption.";
         let password = "SecurePassword123!";
 
         // Create original file

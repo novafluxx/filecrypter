@@ -1,6 +1,6 @@
 <!-- App.vue - Main Application Component -->
 <!--
-  This is the root component of the FileCypter application.
+  This is the root component of the FileCrypter application.
 
   Features:
   - Tab-based navigation (Encrypt / Decrypt)
@@ -41,7 +41,7 @@ function switchTab(tab: 'encrypt' | 'decrypt' | 'batch') {
     <!-- Header Section -->
     <header class="app-header">
       <div class="header-row">
-        <h1 class="app-title">FileCypter</h1>
+        <h1 class="app-title">FileCrypter</h1>
         <button
           class="theme-toggle"
           @click="toggleTheme"

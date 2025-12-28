@@ -437,7 +437,11 @@ mod tests {
     fn write_input_file(dir: &Path, name: &str, content: &[u8]) -> String {
         let path = dir.join(name);
         fs::write(&path, content).unwrap();
-        path.to_string_lossy().to_string()
+        // Canonicalize to resolve any symlinks in the temp directory path
+        fs::canonicalize(&path)
+            .unwrap()
+            .to_string_lossy()
+            .to_string()
     }
 
     #[test]
@@ -448,7 +452,11 @@ mod tests {
             write_input_file(input_dir.path(), "file1.txt", b"alpha"),
             write_input_file(input_dir.path(), "file2.txt", b"beta"),
         ];
-        let output_dir_str = output_dir.path().to_string_lossy().to_string();
+        // Canonicalize output directory to resolve symlinks
+        let output_dir_str = fs::canonicalize(output_dir.path())
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
         let mut no_progress = |_progress: BatchProgress| {};
 
         let result = batch_encrypt_impl(
@@ -474,13 +482,18 @@ mod tests {
         let input_dir = tempdir().unwrap();
         let output_dir = tempdir().unwrap();
         let valid_path = write_input_file(input_dir.path(), "file1.txt", b"alpha");
-        let missing_path = input_dir
-            .path()
+        // Canonicalize the directory path for the missing file to avoid symlink issues
+        let missing_path = fs::canonicalize(input_dir.path())
+            .unwrap()
             .join("missing.txt")
             .to_string_lossy()
             .to_string();
         let input_paths = vec![valid_path, missing_path];
-        let output_dir_str = output_dir.path().to_string_lossy().to_string();
+        // Canonicalize output directory to resolve symlinks
+        let output_dir_str = fs::canonicalize(output_dir.path())
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
         let mut no_progress = |_progress: BatchProgress| {};
 
         let result = batch_encrypt_impl(
@@ -519,7 +532,10 @@ mod tests {
     fn test_batch_encrypt_nonexistent_output_dir() {
         let input_dir = tempdir().unwrap();
         let output_dir = tempdir().unwrap();
-        let missing_output = output_dir.path().join("missing");
+        // Canonicalize before creating missing subdirectory path
+        let missing_output = fs::canonicalize(output_dir.path())
+            .unwrap()
+            .join("missing");
         let input_paths = vec![write_input_file(input_dir.path(), "file1.txt", b"alpha")];
         let mut no_progress = |_progress: BatchProgress| {};
 
@@ -540,19 +556,29 @@ mod tests {
         let encrypt_dir = tempdir().unwrap();
         let decrypt_dir = tempdir().unwrap();
         let input_path = write_input_file(input_dir.path(), "file1.txt", b"alpha");
+        // Canonicalize encrypt directory to resolve symlinks
+        let encrypt_dir_canonical = fs::canonicalize(encrypt_dir.path())
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
         let encrypted_path = encrypt_single_file(
             &Password::new("correct_password".to_string()),
             &input_path,
-            encrypt_dir.path().to_str().unwrap(),
+            &encrypt_dir_canonical,
             false,
         )
         .unwrap();
         let input_paths = vec![encrypted_path];
         let mut no_progress = |_progress: BatchProgress| {};
+        // Canonicalize decrypt directory to resolve symlinks
+        let decrypt_dir_canonical = fs::canonicalize(decrypt_dir.path())
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
 
         let result = batch_decrypt_impl(
             &input_paths,
-            decrypt_dir.path().to_str().unwrap(),
+            &decrypt_dir_canonical,
             "wrong_password",
             false,
             &mut no_progress,

@@ -19,11 +19,15 @@ import { useFileOps } from '../composables/useFileOps';
 import { useTauri } from '../composables/useTauri';
 import { useProgress } from '../composables/useProgress';
 import { useDragDrop } from '../composables/useDragDrop';
+import { usePasswordVisibility } from '../composables/usePasswordVisibility';
 import ProgressBar from './ProgressBar.vue';
 
 // Initialize composables
 const fileOps = useFileOps();
 const tauri = useTauri();
+
+// Password visibility toggle
+const { isPasswordVisible, togglePasswordVisibility } = usePasswordVisibility();
 
 // Progress tracking for decryption operation
 const { progress, isActive: showProgress, startListening, stopListening } = useProgress();
@@ -143,7 +147,7 @@ async function handleDecrypt() {
           type="text"
           :value="fileOps.outputPath.value"
           readonly
-          placeholder="Auto-suggested..."
+          placeholder="Will auto-generate from encrypted filename..."
           class="file-input"
         />
         <button
@@ -166,28 +170,48 @@ async function handleDecrypt() {
         />
         Never overwrite existing files (auto-rename on conflicts)
       </label>
-      <div class="hint hint-info">
+      <p class="hint-text">
         If the output name already exists, we'll save as "name (1)".
-      </div>
+      </p>
     </div>
 
     <!-- Password Input Section -->
-    <div class="form-group">
+    <div class="form-group password-section">
       <label for="decrypt-password">Password:</label>
-      <input
-        id="decrypt-password"
-        type="password"
-        :value="fileOps.password.value"
-        @input="fileOps.setPassword(($event.target as HTMLInputElement).value)"
-        placeholder="Enter decryption password"
-        autocomplete="current-password"
-        class="password-input"
-        :disabled="fileOps.isProcessing.value"
-      />
-      <!-- Info hint -->
-      <div v-if="fileOps.password.value.length === 0" class="hint hint-info">
-        Enter the password used to encrypt this file
+      <div class="password-input-wrapper">
+        <input
+          id="decrypt-password"
+          :type="isPasswordVisible ? 'text' : 'password'"
+          :value="fileOps.password.value"
+          @input="fileOps.setPassword(($event.target as HTMLInputElement).value)"
+          placeholder="Enter decryption password"
+          autocomplete="current-password"
+          class="password-input"
+          :disabled="fileOps.isProcessing.value"
+        />
+        <button
+          type="button"
+          class="password-toggle-btn"
+          @click="togglePasswordVisibility"
+          :disabled="fileOps.isProcessing.value"
+          :aria-label="isPasswordVisible ? 'Hide password' : 'Show password'"
+        >
+          <!-- Eye icon (show) -->
+          <svg v-if="!isPasswordVisible" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+          <!-- Eye-off icon (hide) -->
+          <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+            <line x1="1" y1="1" x2="23" y2="23"></line>
+          </svg>
+        </button>
       </div>
+      <!-- Info hint -->
+      <p v-if="fileOps.password.value.length === 0" class="hint-text">
+        Enter the password used to encrypt this file
+      </p>
     </div>
 
     <!-- Decrypt Button -->
@@ -222,9 +246,9 @@ async function handleDecrypt() {
 /* Shared styles with EncryptTab - could be extracted to global styles */
 
 .tab-content {
-  padding: 24px 0;
+  padding: 8px 0;
   position: relative;
-  min-height: 300px;
+  min-height: 200px;
 }
 
 /* Drag-and-drop styles */
@@ -251,7 +275,7 @@ async function handleDecrypt() {
 }
 
 .form-group {
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 
 label {
@@ -289,6 +313,9 @@ label {
 .file-input {
   background-color: var(--input-bg);
   cursor: default;
+  border: 2px dashed var(--border-color);
+  min-height: 44px;
+  padding: 12px;
 }
 
 .password-input:disabled,
@@ -337,6 +364,7 @@ label {
   background-color: var(--accent-secondary);
   color: white;
   font-size: 16px;
+  font-weight: 600;
   margin-top: 8px;
 }
 
@@ -351,10 +379,11 @@ label {
   border-radius: 4px;
 }
 
-.hint-info {
-  background-color: var(--info-bg);
-  color: var(--info-text);
-  border: 1px solid var(--info-border);
+.hint-text {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
 }
 
 .checkbox-row {
@@ -368,6 +397,51 @@ label {
 
 .checkbox-row input {
   accent-color: var(--accent-primary);
+}
+
+/* Password visibility toggle */
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-input-wrapper .password-input {
+  padding-right: 44px;
+}
+
+.password-toggle-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  padding: 6px;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.password-toggle-btn:hover:not(:disabled) {
+  color: var(--accent-primary);
+  background: var(--bg-tertiary);
+}
+
+.password-toggle-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Password section spacing */
+.password-section {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
 }
 
 .status-message {

@@ -110,14 +110,6 @@ function switchTab(tab: 'encrypt' | 'decrypt' | 'batch') {
         <BatchTab />
       </div>
     </div>
-
-    <!-- Footer (optional) -->
-    <footer class="app-footer">
-      <p class="footer-text">
-        Built with Tauri, Rust, and Vue 3 |
-        AES-256-GCM + Argon2id
-      </p>
-    </footer>
   </div>
 </template>
 
@@ -135,9 +127,9 @@ function switchTab(tab: 'encrypt' | 'decrypt' | 'batch') {
   --text-secondary: #666;
   --text-muted: #999;
   --border-color: #e0e0e0;
-  --accent-primary: #4a90e2;
-  --accent-secondary: #7b68ee;
-  --accent-hover: #3a7bc8;
+  --accent-primary: #374151;
+  --accent-secondary: #f97316;
+  --accent-hover: #1f2937;
 
   /* Status colors */
   --success-bg: #d4edda;
@@ -168,9 +160,9 @@ function switchTab(tab: 'encrypt' | 'decrypt' | 'batch') {
   --text-secondary: #a0a0a0;
   --text-muted: #707070;
   --border-color: #2a2a4a;
-  --accent-primary: #5a9cf2;
-  --accent-secondary: #8b78ff;
-  --accent-hover: #4a8ce2;
+  --accent-primary: #4b5563;
+  --accent-secondary: #fb923c;
+  --accent-hover: #6b7280;
 
   /* Status colors - dark variants */
   --success-bg: #1e4a2e;
@@ -215,7 +207,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 20px;
+  padding: 8px;
 }
 </style>
 
@@ -224,18 +216,18 @@ body {
 
 .app-container {
   width: 100%;
-  max-width: 600px;
+  max-width: 650px;
   background: var(--bg-secondary);
   border-radius: 12px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-  padding: 32px;
+  padding: 16px;
   transition: background-color 0.3s;
 }
 
 /* Header Styles */
 .app-header {
   text-align: center;
-  margin-bottom: 32px;
+  margin-bottom: 12px;
 }
 
 .header-row {
@@ -282,7 +274,7 @@ body {
 .tabs {
   display: flex;
   gap: 8px;
-  margin-bottom: 24px;
+  margin-bottom: 12px;
   border-bottom: 2px solid var(--border-color);
 }
 
@@ -314,7 +306,7 @@ body {
 
 /* Tab Content Styles */
 .tab-panels {
-  min-height: 460px;
+  min-height: 280px;
 }
 
 .tab-panel {
@@ -332,23 +324,10 @@ body {
   }
 }
 
-/* Footer Styles */
-.app-footer {
-  margin-top: 32px;
-  padding-top: 20px;
-  border-top: 1px solid var(--border-color);
-  text-align: center;
-}
-
-.footer-text {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
 /* Responsive Design */
 @media (max-width: 640px) {
   .app-container {
-    padding: 24px;
+    padding: 16px;
   }
 
   .app-title {

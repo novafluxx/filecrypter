@@ -20,6 +20,7 @@ FileCrypter is a cross-platform desktop file encryption application built with T
 bun install                    # Install dependencies
 bun run dev                    # Start Vite dev server (port 5173)
 bun run build                  # Build frontend with TypeScript checking
+bun run preview                # Preview production build
 ```
 
 ### Tauri Development
@@ -33,6 +34,7 @@ bun run tauri:build            # Build production executable
 cd src-tauri
 cargo test                     # Run all tests
 cargo test --lib               # Run library tests only
+cargo test <test_name>         # Run specific test
 cargo clippy                   # Run linter
 ```
 
@@ -41,11 +43,21 @@ cargo clippy                   # Run linter
 ### Frontend Structure (Vue 3 Composition API)
 
 - **src/main.ts**: Application entry point
-- **src/App.vue**: Root component with tab navigation
-- **src/components/**: Tab components (EncryptTab.vue, DecryptTab.vue)
+- **src/App.vue**: Root component with tab navigation (Encrypt, Decrypt, Batch)
+- **src/components/**: UI components
+  - `EncryptTab.vue`: Single file encryption interface
+  - `DecryptTab.vue`: Single file decryption interface
+  - `BatchTab.vue`: Batch encryption/decryption interface
+  - `ProgressBar.vue`: Progress indicator for batch operations
+  - `PasswordStrengthMeter.vue`: Visual password strength feedback
 - **src/composables/**: Reusable logic
-  - `useFileOps.ts`: State management for encryption/decryption workflows
-  - `useTauri.ts`: Wrapper for Tauri IPC commands
+  - `useFileOps.ts`: Core file operation state management
+  - `useTauri.ts`: Type-safe Tauri IPC command wrappers
+  - `useProgress.ts`: Progress tracking for batch operations
+  - `usePasswordStrength.ts`: Password strength calculation
+  - `useDragDrop.ts`: Drag-and-drop file handling
+  - `useTheme.ts`: Dark/light theme management
+  - `usePasswordVisibility.ts`: Password field toggle logic
 - **src/types/**: TypeScript type definitions
 
 ### Backend Structure (Rust)
@@ -53,16 +65,25 @@ cargo clippy                   # Run linter
 ```
 src-tauri/src/
 ├── lib.rs                  # Main entry point, registers commands
+├── main.rs                 # Desktop binary entry
 ├── commands/               # Tauri IPC command handlers
-│   ├── mod.rs             # Exports encrypt_file, decrypt_file
-│   ├── encrypt.rs         # File encryption workflow
-│   └── decrypt.rs         # File decryption workflow
+│   ├── mod.rs             # Exports all commands
+│   ├── encrypt.rs         # Single file encryption (in-memory)
+│   ├── decrypt.rs         # Single file decryption (in-memory)
+│   ├── batch.rs           # Batch encrypt/decrypt operations
+│   ├── streaming.rs       # Streaming encrypt/decrypt for large files
+│   └── file_utils.rs      # File system utilities
 ├── crypto/                # Cryptographic implementations
 │   ├── mod.rs             # Module exports
 │   ├── cipher.rs          # AES-256-GCM encryption/decryption
 │   ├── kdf.rs             # Argon2id key derivation
 │   ├── format.rs          # Binary file format serialization
-│   └── secure.rs          # Password and SecureBytes wrappers (zeroization)
+│   ├── secure.rs          # Password and SecureBytes wrappers (zeroization)
+│   └── streaming.rs       # Chunked encryption for large files
+├── security/              # Platform-specific security
+│   ├── mod.rs             # Security module exports
+│   └── windows_acl.rs     # Windows ACL protection for temp files
+├── events.rs              # Event system for progress updates
 └── error.rs               # Custom error types
 ```
 
@@ -85,17 +106,33 @@ src-tauri/src/
 [VERSION:1byte][SALT_LEN:4bytes][SALT:variable][NONCE:12bytes][CIPHERTEXT+TAG:variable]
 ```
 
+**Streaming Encryption (src-tauri/src/crypto/streaming.rs)**
+- Auto-selected for files >10 MB (configurable via `STREAMING_THRESHOLD`)
+- Processes files in 1 MB chunks (configurable via `DEFAULT_CHUNK_SIZE`)
+- Uses temporary files during encryption/decryption
+- On Windows, temp files are protected with ACLs to prevent other processes from reading them
+- Reduces memory usage for large files
+
 ### IPC Communication
 
 Frontend calls Rust backend via Tauri's `invoke()`:
 ```typescript
 // Frontend (src/composables/useTauri.ts)
 await invoke('encrypt_file', { inputPath, outputPath, password })
+await invoke('encrypt_file_streamed', { inputPath, outputPath, password })
+await invoke('batch_encrypt', { inputPaths, outputDir, password })
 
-// Backend (src-tauri/src/commands/encrypt.rs)
+// Backend (src-tauri/src/commands/)
 #[command]
 pub async fn encrypt_file(input_path: String, output_path: String, password: String)
 ```
+
+**Available Commands:**
+- `encrypt_file` / `decrypt_file`: In-memory operations for files <10MB
+- `encrypt_file_streamed` / `decrypt_file_streamed`: Chunked operations for large files
+- `batch_encrypt` / `batch_decrypt`: Process multiple files with progress events
+- `check_use_streaming`: Determine if file should use streaming based on size
+- `get_streaming_threshold`: Get the current streaming threshold (10MB)
 
 ### Security Practices
 
@@ -103,6 +140,8 @@ pub async fn encrypt_file(input_path: String, output_path: String, password: Str
 - **Unique Salts**: Each encryption generates a new random salt, ensuring different keys for same password
 - **Authentication**: AES-GCM provides both encryption and authentication (detects tampering)
 - **Error Messages**: Generic error messages prevent information leakage (wrong password → "Invalid password or corrupted file")
+- **Temp File Security**: On Windows, temp files use ACLs to restrict access to current user only
+- **Memory Safety**: Sensitive data (keys, passwords) is zeroized after use
 
 ## Working with Tauri
 
@@ -110,6 +149,7 @@ pub async fn encrypt_file(input_path: String, output_path: String, password: Str
 - Tauri expects this fixed port (configured in vite.config.ts)
 - File dialogs use `@tauri-apps/plugin-dialog` (not native browser dialogs)
 - All file I/O happens in Rust backend for security
+- Events flow from Rust → Frontend for progress updates during batch operations
 
 ## Testing
 
@@ -119,9 +159,22 @@ pub async fn encrypt_file(input_path: String, output_path: String, password: Str
 
 ## File Operations
 
-Files are loaded entirely into memory during encryption/decryption. For large files (>100MB), consider implementing streaming encryption by modifying:
-- `src-tauri/src/commands/encrypt.rs` (currently uses `fs::read()`)
-- `src-tauri/src/commands/decrypt.rs` (currently uses `fs::read()`)
+The app automatically chooses between two encryption modes:
+
+1. **In-memory mode** (files <10MB): Entire file is loaded into memory, encrypted, and written out
+   - Commands: `encrypt_file`, `decrypt_file`
+   - Used in `EncryptTab.vue` and `DecryptTab.vue`
+
+2. **Streaming mode** (files ≥10MB): File is processed in 1MB chunks
+   - Commands: `encrypt_file_streamed`, `decrypt_file_streamed`
+   - Automatically selected based on file size
+   - Reduces memory footprint for large files
+
+3. **Batch mode**: Multiple files encrypted/decrypted sequentially
+   - Commands: `batch_encrypt`, `batch_decrypt`
+   - Emits progress events to frontend for UI updates
+   - Enforces per-file size limit of 100MB for batch operations
+   - Used in `BatchTab.vue`
 
 ## Common Modifications
 
@@ -129,8 +182,12 @@ Files are loaded entirely into memory during encryption/decryption. For large fi
 
 **Changing Key Derivation Parameters**: Update constants in `src-tauri/src/crypto/kdf.rs` (MEMORY_COST, TIME_COST, PARALLELISM)
 
+**Changing Streaming Threshold**: Update `STREAMING_THRESHOLD` constant in `src-tauri/src/crypto/streaming.rs`
+
 **Adding New Tauri Commands**:
 1. Create handler in `src-tauri/src/commands/`
 2. Export in `src-tauri/src/commands/mod.rs`
 3. Register in `src-tauri/src/lib.rs` `invoke_handler![]`
 4. Call from frontend via `invoke('command_name', {...})`
+
+**Emitting Progress Events**: Use `emit_progress` from `src-tauri/src/events.rs` to send updates to frontend

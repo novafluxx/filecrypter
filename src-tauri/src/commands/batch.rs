@@ -533,9 +533,7 @@ mod tests {
         let input_dir = tempdir().unwrap();
         let output_dir = tempdir().unwrap();
         // Canonicalize before creating missing subdirectory path
-        let missing_output = fs::canonicalize(output_dir.path())
-            .unwrap()
-            .join("missing");
+        let missing_output = fs::canonicalize(output_dir.path()).unwrap().join("missing");
         let input_paths = vec![write_input_file(input_dir.path(), "file1.txt", b"alpha")];
         let mut no_progress = |_progress: BatchProgress| {};
 

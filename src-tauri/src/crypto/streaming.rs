@@ -511,8 +511,14 @@ mod tests {
 
         // Decrypt
         let decrypted_path = temp_dir.path().join("decrypted.bin");
-        decrypt_file_streaming(&encrypted_path, &decrypted_path, "test_password", None, false)
-            .unwrap();
+        decrypt_file_streaming(
+            &encrypted_path,
+            &decrypted_path,
+            "test_password",
+            None,
+            false,
+        )
+        .unwrap();
 
         // Verify content matches
         let decrypted_content = fs::read(&decrypted_path).unwrap();
@@ -542,8 +548,14 @@ mod tests {
         assert!(!encrypted_data.is_empty());
 
         let decrypted_path = temp_dir.path().join("decrypted_empty.bin");
-        decrypt_file_streaming(&encrypted_path, &decrypted_path, "test_password", None, false)
-            .unwrap();
+        decrypt_file_streaming(
+            &encrypted_path,
+            &decrypted_path,
+            "test_password",
+            None,
+            false,
+        )
+        .unwrap();
 
         let decrypted_data = fs::read(&decrypted_path).unwrap();
         assert!(decrypted_data.is_empty());

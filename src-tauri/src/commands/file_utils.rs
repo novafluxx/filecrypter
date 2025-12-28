@@ -51,9 +51,9 @@ pub fn resolve_output_path<P: AsRef<Path>>(
 
 fn build_collision_path(path: &Path, index: u32) -> CryptoResult<PathBuf> {
     let parent = path.parent().unwrap_or_else(|| Path::new("."));
-    let file_name = path.file_name().ok_or_else(|| {
-        CryptoError::InvalidPath("Output filename is missing".to_string())
-    })?;
+    let file_name = path
+        .file_name()
+        .ok_or_else(|| CryptoError::InvalidPath("Output filename is missing".to_string()))?;
 
     let stem = path
         .file_stem()

@@ -19,6 +19,7 @@
 // - Nonce is stored before ciphertext (standard practice)
 // - Authentication tag is appended to ciphertext by AES-GCM
 
+use crate::crypto::kdf::SALT_LENGTH;
 use crate::error::{CryptoError, CryptoResult};
 
 /// Current file format version
@@ -153,11 +154,12 @@ impl EncryptedFile {
         let salt_len = u32::from_be_bytes(salt_len_bytes) as usize;
         pos += 4;
 
-        // Validate salt length is reasonable (prevent allocation attacks)
-        if salt_len > 1024 {
+        // Validate salt length must be exactly 16 bytes for security consistency
+        // This ensures all encrypted files use the standard salt length
+        if salt_len != SALT_LENGTH {
             return Err(CryptoError::FormatError(format!(
-                "Salt length too large ({} bytes)",
-                salt_len
+                "Invalid salt length: expected {} bytes, got {}",
+                SALT_LENGTH, salt_len
             )));
         }
 
@@ -280,15 +282,34 @@ mod tests {
     }
 
     #[test]
-    fn test_deserialize_massive_salt_length() {
+    fn test_deserialize_invalid_salt_length() {
         let mut data = vec![0; 1000];
         data[0] = VERSION;
-        // Set salt length to unreasonably large value
-        data[1..5].copy_from_slice(&(100000u32).to_be_bytes());
 
+        // Test various invalid salt lengths
+        // Too large
+        data[1..5].copy_from_slice(&(100000u32).to_be_bytes());
         let result = EncryptedFile::deserialize(&data);
         assert!(result.is_err());
         assert!(matches!(result, Err(CryptoError::FormatError(_))));
+
+        // Too small (8 bytes instead of 16)
+        data[1..5].copy_from_slice(&(8u32).to_be_bytes());
+        let result = EncryptedFile::deserialize(&data);
+        assert!(result.is_err());
+        let err_msg = format!("{}", result.unwrap_err());
+        assert!(err_msg.contains("Invalid salt length"));
+        assert!(err_msg.contains("expected 16 bytes"));
+
+        // Zero bytes
+        data[1..5].copy_from_slice(&(0u32).to_be_bytes());
+        let result = EncryptedFile::deserialize(&data);
+        assert!(result.is_err());
+        assert!(matches!(result, Err(CryptoError::FormatError(_))));
+
+        // Valid length should work (if rest of data is valid)
+        data[1..5].copy_from_slice(&(16u32).to_be_bytes());
+        // Note: This will still fail due to other validation, but salt length check passes
     }
 
     #[test]

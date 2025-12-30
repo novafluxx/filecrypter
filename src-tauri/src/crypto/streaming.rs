@@ -55,6 +55,7 @@ const TAG_SIZE: usize = 16;
 const MAX_CHUNKS: u64 = 10_000_000;
 
 /// Expected salt size for Argon2 (16 bytes = 128 bits)
+/// This is consistent across all encryption modes (in-memory and streaming)
 const EXPECTED_SALT_SIZE: usize = 16;
 
 /// Progress callback type for streaming operations
@@ -78,7 +79,7 @@ pub type ProgressCallback = Box<dyn Fn(u64, u64) + Send + Sync>;
 pub fn encrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
     input_path: P,
     output_path: Q,
-    password: &str,
+    password: &Password,
     chunk_size: usize,
     progress_callback: Option<ProgressCallback>,
     allow_overwrite: bool,
@@ -109,8 +110,7 @@ pub fn encrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
 
     // Generate salt and derive key
     let salt = generate_salt()?;
-    let password = Password::new(password.to_string());
-    let key = derive_key(&password, &salt)?;
+    let key = derive_key(password, &salt)?;
     let cipher =
         Aes256Gcm::new_from_slice(key.as_slice()).map_err(|_| CryptoError::EncryptionFailed)?;
 
@@ -238,7 +238,7 @@ pub fn encrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
 pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
     input_path: P,
     output_path: Q,
-    password: &str,
+    password: &Password,
     progress_callback: Option<ProgressCallback>,
     allow_overwrite: bool,
 ) -> CryptoResult<()> {
@@ -268,7 +268,10 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
     let salt_len = u32::from_le_bytes(salt_len_bytes) as usize;
 
     if salt_len != EXPECTED_SALT_SIZE {
-        return Err(CryptoError::FormatError("Invalid salt size".to_string()));
+        return Err(CryptoError::FormatError(format!(
+            "Invalid salt length: expected {} bytes, got {}",
+            EXPECTED_SALT_SIZE, salt_len
+        )));
     }
 
     let mut salt = vec![0u8; salt_len];
@@ -300,8 +303,7 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
     };
 
     // Derive key
-    let password = Password::new(password.to_string());
-    let key = derive_key(&password, &salt)?;
+    let key = derive_key(password, &salt)?;
     let cipher =
         Aes256Gcm::new_from_slice(key.as_slice()).map_err(|_| CryptoError::EncryptionFailed)?;
 
@@ -495,10 +497,11 @@ mod tests {
 
         // Encrypt
         let encrypted_path = temp_dir.path().join("encrypted.bin");
+        let password = Password::new("test_password".to_string());
         encrypt_file_streaming(
             input_file.path(),
             &encrypted_path,
-            "test_password",
+            &password,
             1024, // Small chunk size for testing
             None,
             false,
@@ -514,7 +517,7 @@ mod tests {
         decrypt_file_streaming(
             &encrypted_path,
             &decrypted_path,
-            "test_password",
+            &password,
             None,
             false,
         )
@@ -533,10 +536,11 @@ mod tests {
         let input_file = NamedTempFile::new().unwrap(); // Empty by default
 
         let encrypted_path = temp_dir.path().join("encrypted_empty.bin");
+        let password = Password::new("test_password".to_string());
         encrypt_file_streaming(
             input_file.path(),
             &encrypted_path,
-            "test_password",
+            &password,
             1024,
             None,
             false,
@@ -551,7 +555,7 @@ mod tests {
         decrypt_file_streaming(
             &encrypted_path,
             &decrypted_path,
-            "test_password",
+            &password,
             None,
             false,
         )
@@ -572,10 +576,11 @@ mod tests {
         fs::write(input_file.path(), content).unwrap();
 
         let encrypted_path = temp_dir.path().join("encrypted.bin");
+        let correct_password = Password::new("correct_password".to_string());
         encrypt_file_streaming(
             input_file.path(),
             &encrypted_path,
-            "correct_password",
+            &correct_password,
             1024,
             None,
             false,
@@ -584,10 +589,11 @@ mod tests {
 
         // Try to decrypt with wrong password
         let decrypted_path = temp_dir.path().join("decrypted.bin");
+        let wrong_password = Password::new("wrong_password".to_string());
         let result = decrypt_file_streaming(
             &encrypted_path,
             &decrypted_path,
-            "wrong_password",
+            &wrong_password,
             None,
             false,
         );
@@ -601,10 +607,11 @@ mod tests {
         let input_file = NamedTempFile::new().unwrap();
         let output_file = NamedTempFile::new().unwrap();
 
+        let empty_password = Password::new("".to_string());
         let result = encrypt_file_streaming(
             input_file.path(),
             output_file.path(),
-            "",
+            &empty_password,
             DEFAULT_CHUNK_SIZE,
             None,
             false,
@@ -630,10 +637,11 @@ mod tests {
 
         // Encrypt
         let encrypted_path = temp_dir.path().join("encrypted.bin");
+        let password = Password::new("multi_chunk_test".to_string());
         encrypt_file_streaming(
             input_file.path(),
             &encrypted_path,
-            "multi_chunk_test",
+            &password,
             chunk_size,
             None,
             false,
@@ -645,7 +653,7 @@ mod tests {
         decrypt_file_streaming(
             &encrypted_path,
             &decrypted_path,
-            "multi_chunk_test",
+            &password,
             None,
             false,
         )

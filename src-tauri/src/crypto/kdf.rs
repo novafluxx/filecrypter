@@ -43,7 +43,8 @@ const PARALLELISM: u32 = 4;
 const KEY_LENGTH: usize = 32;
 
 /// Salt length in bytes (16 bytes = 128 bits is standard)
-const SALT_LENGTH: usize = 16;
+/// This is public to allow consistent validation across all encryption modes
+pub const SALT_LENGTH: usize = 16;
 
 /// Derive a cryptographic key from a password using Argon2id
 ///
@@ -74,6 +75,16 @@ const SALT_LENGTH: usize = 16;
 /// # }
 /// ```
 pub fn derive_key(password: &Password, salt: &[u8]) -> CryptoResult<SecureBytes> {
+    // Validate salt length - must be exactly 16 bytes for security consistency
+    // This ensures compatibility across all encryption modes (in-memory and streaming)
+    if salt.len() != SALT_LENGTH {
+        return Err(CryptoError::FormatError(format!(
+            "Invalid salt length: expected {} bytes, got {}",
+            SALT_LENGTH,
+            salt.len()
+        )));
+    }
+
     // Create Argon2 parameters with our security settings
     let params = Params::new(
         MEMORY_COST,      // Memory cost (KiB)
@@ -248,5 +259,40 @@ mod tests {
             "Key derivation suspiciously fast"
         );
         assert!(duration.as_secs() < 5, "Key derivation too slow");
+    }
+
+    #[test]
+    fn test_derive_key_invalid_salt_length() {
+        let password = Password::new("test".to_string());
+
+        // Too short
+        let short_salt = vec![0u8; 8];
+        let result = derive_key(&password, &short_salt);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Invalid salt length"));
+
+        // Too long
+        let long_salt = vec![0u8; 32];
+        let result = derive_key(&password, &long_salt);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Invalid salt length"));
+
+        // Empty
+        let result = derive_key(&password, &[]);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Invalid salt length"));
+
+        // Valid length should work
+        let valid_salt = vec![0u8; SALT_LENGTH];
+        assert!(derive_key(&password, &valid_salt).is_ok());
     }
 }

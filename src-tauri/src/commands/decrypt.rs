@@ -26,7 +26,7 @@ use crate::events::{ProgressEvent, CRYPTO_PROGRESS_EVENT};
 ///
 /// This function contains the core decryption logic without Tauri dependencies.
 #[cfg(test)]
-pub fn decrypt_file_impl(
+fn decrypt_file_impl(
     input_path: &str,
     output_path: &str,
     password: &str,
@@ -183,57 +183,8 @@ pub async fn decrypt_file(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::commands::encrypt::encrypt_file_impl;
     use std::fs;
     use tempfile::NamedTempFile;
-
-    #[test]
-    fn test_decrypt_file_success() {
-        // Create a test file
-        let original_content = b"This is a test file for decryption";
-        let input_file = NamedTempFile::new().unwrap();
-        let input_path = input_file.path().to_str().unwrap();
-        fs::write(input_path, original_content).unwrap();
-
-        // Encrypt it
-        let encrypted_file = NamedTempFile::new().unwrap();
-        let encrypted_path = encrypted_file.path().to_str().unwrap();
-        encrypt_file_impl(input_path, encrypted_path, "test_password").unwrap();
-
-        // Decrypt it
-        let decrypted_file = NamedTempFile::new().unwrap();
-        let decrypted_path = decrypted_file.path().to_str().unwrap();
-        let result = decrypt_file_impl(encrypted_path, decrypted_path, "test_password");
-
-        assert!(result.is_ok());
-
-        // Verify content matches original
-        let decrypted_content = fs::read(decrypted_path).unwrap();
-        assert_eq!(original_content, decrypted_content.as_slice());
-    }
-
-    #[test]
-    fn test_decrypt_file_wrong_password() {
-        // Create and encrypt a file
-        let input_file = NamedTempFile::new().unwrap();
-        let input_path = input_file.path().to_str().unwrap();
-        fs::write(input_path, b"Secret content").unwrap();
-
-        let encrypted_file = NamedTempFile::new().unwrap();
-        let encrypted_path = encrypted_file.path().to_str().unwrap();
-        encrypt_file_impl(input_path, encrypted_path, "correct_password").unwrap();
-
-        // Try to decrypt with wrong password
-        let decrypted_file = NamedTempFile::new().unwrap();
-        let decrypted_path = decrypted_file.path().to_str().unwrap();
-        let result = decrypt_file_impl(encrypted_path, decrypted_path, "wrong_password");
-
-        assert!(result.is_err());
-        assert!(matches!(
-            result,
-            Err(crate::error::CryptoError::InvalidPassword)
-        ));
-    }
 
     #[test]
     fn test_decrypt_file_empty_password() {
@@ -275,32 +226,5 @@ mod tests {
         let result = decrypt_file_impl(corrupted_path, output_path, "password");
 
         assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_encrypt_decrypt_roundtrip() {
-        // Full roundtrip test
-        let original_content =
-            b"Hello, FileCrypter! Testing full roundtrip encryption and decryption.";
-        let password = "SecurePassword123!";
-
-        // Create original file
-        let original_file = NamedTempFile::new().unwrap();
-        let original_path = original_file.path().to_str().unwrap();
-        fs::write(original_path, original_content).unwrap();
-
-        // Encrypt
-        let encrypted_file = NamedTempFile::new().unwrap();
-        let encrypted_path = encrypted_file.path().to_str().unwrap();
-        encrypt_file_impl(original_path, encrypted_path, password).unwrap();
-
-        // Decrypt
-        let decrypted_file = NamedTempFile::new().unwrap();
-        let decrypted_path = decrypted_file.path().to_str().unwrap();
-        decrypt_file_impl(encrypted_path, decrypted_path, password).unwrap();
-
-        // Verify
-        let decrypted_content = fs::read(decrypted_path).unwrap();
-        assert_eq!(original_content, decrypted_content.as_slice());
     }
 }

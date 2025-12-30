@@ -27,7 +27,7 @@ use crate::events::{ProgressEvent, CRYPTO_PROGRESS_EVENT};
 ///
 /// This function contains the core encryption logic without Tauri dependencies.
 #[cfg(test)]
-pub fn encrypt_file_impl(
+fn encrypt_file_impl(
     input_path: &str,
     output_path: &str,
     password: &str,

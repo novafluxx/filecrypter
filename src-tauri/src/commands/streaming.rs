@@ -73,7 +73,7 @@ pub async fn encrypt_file_streamed(
     encrypt_file_streaming(
         validated_input,
         &validated_output,
-        password.as_str(),
+        &password,
         DEFAULT_CHUNK_SIZE,
         Some(Box::new(progress_callback)),
         allow_overwrite,
@@ -145,7 +145,7 @@ pub async fn decrypt_file_streamed(
     decrypt_file_streaming(
         validated_input,
         &validated_output,
-        password.as_str(),
+        &password,
         Some(Box::new(progress_callback)),
         allow_overwrite,
     )?;

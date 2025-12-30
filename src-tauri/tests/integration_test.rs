@@ -80,17 +80,18 @@ fn test_streaming_roundtrip_on_disk() {
     let encrypted_path = dir.path().join("encrypted.stream");
     let decrypted_path = dir.path().join("decrypted.bin");
 
+    let password = Password::new("password123".to_string());
     encrypt_file_streaming(
         &input_path,
         &encrypted_path,
-        "password123",
+        &password,
         DEFAULT_CHUNK_SIZE,
         None,
         false,
     )
     .unwrap();
 
-    decrypt_file_streaming(&encrypted_path, &decrypted_path, "password123", None, false).unwrap();
+    decrypt_file_streaming(&encrypted_path, &decrypted_path, &password, None, false).unwrap();
 
     let decrypted = fs::read(&decrypted_path).unwrap();
     assert_eq!(decrypted, content);

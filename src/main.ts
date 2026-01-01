@@ -8,6 +8,7 @@
 
 import { createApp } from 'vue';
 import App from './App.vue';
+import './shared.css';
 
 // Create the Vue application instance
 // App.vue is the root component

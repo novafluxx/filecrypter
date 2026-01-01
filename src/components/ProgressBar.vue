@@ -40,22 +40,22 @@ const barWidth = computed(() => `${Math.min(100, Math.max(0, props.percent))}%`)
 .progress-container {
   margin: 16px 0;
   padding: 12px;
-  background: var(--bg-tertiary);
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
+  background: var(--panel-alt);
+  border-radius: 6px;
+  border: 1px solid var(--border);
 }
 
 .progress-bar-bg {
-  height: 8px;
-  background: var(--border-color);
-  border-radius: 4px;
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
   overflow: hidden;
 }
 
 .progress-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
-  border-radius: 4px;
+  background: var(--accent);
+  border-radius: 3px;
   transition: width 0.3s ease;
 }
 
@@ -67,13 +67,13 @@ const barWidth = computed(() => `${Math.min(100, Math.max(0, props.percent))}%`)
 }
 
 .progress-message {
-  font-size: 13px;
-  color: var(--text-secondary);
+  font-size: 16px;
+  color: var(--muted);
 }
 
 .progress-percent {
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 600;
-  color: var(--accent-primary);
+  color: var(--accent);
 }
 </style>

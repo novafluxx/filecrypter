@@ -70,8 +70,8 @@ const levelDisplay = computed(() =>
 }
 
 .strength-bar-container {
-  height: 4px;
-  background: var(--border-color);
+  height: 3px;
+  background: var(--border);
   border-radius: 2px;
   overflow: hidden;
 }
@@ -83,13 +83,13 @@ const levelDisplay = computed(() =>
 }
 
 .strength-label {
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 500;
   margin-top: 4px;
   display: inline-block;
 }
 
-/* Level-specific colors for the label (kept static for clarity) */
+/* Level-specific colors for the label (kept static for semantic meaning) */
 .strength-label.weak {
   color: #dc3545;
 }
@@ -108,10 +108,11 @@ const levelDisplay = computed(() =>
 
 .strength-feedback {
   margin-top: 6px;
-  padding-left: 18px;
-  font-size: 11px;
-  color: var(--text-secondary);
+  padding-left: 16px;
+  font-size: 15px;
+  color: var(--muted);
   list-style-type: disc;
+  line-height: 1.4;
 }
 
 .strength-feedback li {

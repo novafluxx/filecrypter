@@ -107,19 +107,20 @@ async function handleEncrypt() {
 </script>
 
 <template>
-  <div
-    class="tab-content"
-    :class="{ 'drop-zone-active': isDragging }"
-    @dragover="handleDragOver"
-    @dragleave="handleDragLeave"
-    @drop="handleDrop"
-  >
-    <!-- Drop overlay (shown when dragging file over) -->
-    <div v-if="isDragging" class="drop-overlay">
-      Drop file here to encrypt
-    </div>
+  <div class="tab-content">
+    <div
+      class="content-panel"
+      :class="{ 'drop-zone-active': isDragging }"
+      @dragover="handleDragOver"
+      @dragleave="handleDragLeave"
+      @drop="handleDrop"
+    >
+      <!-- Drop overlay (shown when dragging file over) -->
+      <div v-if="isDragging" class="drop-overlay">
+        Drop file here to encrypt
+      </div>
 
-    <!-- File Input Section -->
+      <!-- File Input Section -->
     <div class="form-group">
       <label for="encrypt-input">File to Encrypt:</label>
       <div class="file-input-group">
@@ -236,248 +237,33 @@ async function handleEncrypt() {
       :message="progress.message"
     />
 
-    <!-- Status Message -->
-    <div
-      v-if="fileOps.statusMessage.value"
-      class="status-message"
-      :class="`status-${fileOps.statusType.value}`"
-    >
-      {{ fileOps.statusMessage.value }}
+      <!-- Status Message -->
+      <div
+        v-if="fileOps.statusMessage.value"
+        class="status-message"
+        :class="`status-${fileOps.statusType.value}`"
+      >
+        {{ fileOps.statusMessage.value }}
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-/* Component-specific styles */
-/* These styles are scoped to this component only */
+/* Component-specific styles - shared styles are in src/shared.css */
 
 .tab-content {
-  padding: 8px 0;
+  padding: 16px;
+  max-width: 800px;
+  margin: 0 auto;
   position: relative;
-  min-height: 200px;
 }
 
-/* Drag-and-drop styles */
-.drop-zone-active {
-  outline: 2px dashed #4a90e2;
-  outline-offset: -2px;
-  background-color: rgba(74, 144, 226, 0.05);
+.content-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
   border-radius: 8px;
-}
-
-.drop-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(74, 144, 226, 0.1);
-  border-radius: 8px;
-  font-size: 18px;
-  font-weight: 500;
-  color: #4a90e2;
-  z-index: 10;
-  pointer-events: none;
-}
-
-.form-group {
-  margin-bottom: 12px;
-}
-
-label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: 500;
-  color: var(--text-primary);
-  font-size: 14px;
-}
-
-.file-input-group {
-  display: flex;
-  gap: 8px;
-}
-
-.file-input,
-.password-input {
-  flex: 1;
-  padding: 10px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  font-size: 14px;
-  font-family: inherit;
-  transition: border-color 0.2s, background-color 0.2s;
-  background-color: var(--bg-secondary);
-  color: var(--text-primary);
-}
-
-.file-input:focus,
-.password-input:focus {
-  outline: none;
-  border-color: var(--accent-primary);
-}
-
-.file-input {
-  background-color: var(--input-bg);
-  cursor: default;
-  border: 2px dashed var(--border-color);
-  min-height: 44px;
-  padding: 12px;
-}
-
-.password-input:disabled,
-.file-input:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-family: inherit;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-primary {
-  background-color: var(--accent-primary);
-  color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background-color: var(--accent-hover);
-}
-
-.btn-secondary {
-  background-color: var(--btn-secondary-bg);
-  color: white;
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background-color: var(--btn-secondary-hover);
-}
-
-.btn-action {
-  width: 100%;
-  padding: 14px;
-  background-color: var(--accent-secondary);
-  color: white;
-  font-size: 16px;
-  font-weight: 600;
-  margin-top: 8px;
-}
-
-.btn-action:hover:not(:disabled) {
-  filter: brightness(0.9);
-}
-
-.hint {
-  margin-top: 6px;
-  font-size: 12px;
-  padding: 6px 10px;
-  border-radius: 4px;
-}
-
-.hint-text {
-  margin-top: 4px;
-  font-size: 12px;
-  color: var(--text-muted);
-  font-style: italic;
-}
-
-.hint-warning {
-  background-color: var(--warning-bg);
-  color: var(--warning-text);
-  border: 1px solid var(--warning-border);
-}
-
-.checkbox-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 500;
-  font-size: 13px;
-  color: var(--text-primary);
-}
-
-.checkbox-row input {
-  accent-color: var(--accent-primary);
-}
-
-/* Password visibility toggle */
-.password-input-wrapper {
+  padding: 16px;
   position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.password-input-wrapper .password-input {
-  padding-right: 44px;
-}
-
-.password-toggle-btn {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: transparent;
-  border: none;
-  padding: 6px;
-  cursor: pointer;
-  color: var(--text-muted);
-  transition: color 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-}
-
-.password-toggle-btn:hover:not(:disabled) {
-  color: var(--accent-primary);
-  background: var(--bg-tertiary);
-}
-
-.password-toggle-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Password section spacing */
-.password-section {
-  margin-top: 16px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border-color);
-}
-
-.status-message {
-  margin-top: 16px;
-  padding: 12px;
-  border-radius: 6px;
-  font-size: 14px;
-}
-
-.status-success {
-  background-color: var(--success-bg);
-  color: var(--success-text);
-  border: 1px solid var(--success-border);
-}
-
-.status-error {
-  background-color: var(--error-bg);
-  color: var(--error-text);
-  border: 1px solid var(--error-border);
-}
-
-.status-info {
-  background-color: var(--info-bg);
-  color: var(--info-text);
-  border: 1px solid var(--info-border);
 }
 </style>

@@ -38,35 +38,32 @@ function switchTab(tab: 'encrypt' | 'decrypt' | 'batch') {
 
 <template>
   <div class="app-container">
-    <!-- Header Section -->
-    <header class="app-header">
-      <div class="header-row">
-        <h1 class="app-title">FileCrypter</h1>
-        <button
-          class="theme-toggle"
-          @click="toggleTheme"
-          :title="theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'"
-        >
-          <!-- Sun icon for dark mode (click to go light) -->
-          <svg v-if="theme === 'dark'" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="5"></circle>
-            <line x1="12" y1="1" x2="12" y2="3"></line>
-            <line x1="12" y1="21" x2="12" y2="23"></line>
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-            <line x1="1" y1="12" x2="3" y2="12"></line>
-            <line x1="21" y1="12" x2="23" y2="12"></line>
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-          </svg>
-          <!-- Moon icon for light mode (click to go dark) -->
-          <svg v-else xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-          </svg>
-        </button>
-      </div>
-      <p class="app-subtitle">Secure File Encryption</p>
-    </header>
+    <!-- Toolbar -->
+    <div class="app-toolbar">
+      <h1 class="app-title">FileCrypter</h1>
+      <button
+        class="theme-toggle"
+        @click="toggleTheme"
+        :title="theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'"
+      >
+        <!-- Sun icon for dark mode (click to go light) -->
+        <svg v-if="theme === 'dark'" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5"></circle>
+          <line x1="12" y1="1" x2="12" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="23"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="1" y1="12" x2="3" y2="12"></line>
+          <line x1="21" y1="12" x2="23" y2="12"></line>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+        <!-- Moon icon for light mode (click to go dark) -->
+        <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
+    </div>
 
     <!-- Tab Navigation -->
     <div class="tabs">
@@ -117,19 +114,17 @@ function switchTab(tab: 'encrypt' | 'decrypt' | 'batch') {
 /* Global styles */
 /* These apply to the entire application */
 
-/* CSS Variables for theming */
+/* CSS Variables for theming - Desktop-first simplified system */
 :root {
-  /* Light theme (default) */
-  --bg-primary: #f5f7fa;
-  --bg-secondary: white;
-  --bg-tertiary: #f9f9f9;
-  --text-primary: #333;
-  --text-secondary: #666;
-  --text-muted: #999;
-  --border-color: #e0e0e0;
-  --accent-primary: #374151;
-  --accent-secondary: #f97316;
-  --accent-hover: #1f2937;
+  /* Core variables - Light theme */
+  --bg: #f5f5f5;              /* Window background */
+  --panel: #ffffff;            /* Primary panels */
+  --panel-alt: #fafafa;        /* Hover states, secondary panels */
+  --field: #ffffff;            /* Input backgrounds */
+  --border: #e0e0e0;          /* All borders */
+  --text: #1f1f1f;            /* Primary text */
+  --muted: #737373;           /* Secondary text, disabled */
+  --accent: #0066cc;          /* Interactive elements */
 
   /* Status colors */
   --success-bg: #d4edda;
@@ -144,25 +139,18 @@ function switchTab(tab: 'encrypt' | 'decrypt' | 'batch') {
   --warning-bg: #fff3cd;
   --warning-text: #856404;
   --warning-border: #ffeaa7;
-
-  /* Component colors */
-  --input-bg: #f9f9f9;
-  --btn-secondary-bg: #6c757d;
-  --btn-secondary-hover: #5a6268;
 }
 
 [data-theme="dark"] {
-  /* Dark theme overrides */
-  --bg-primary: #1a1a2e;
-  --bg-secondary: #16213e;
-  --bg-tertiary: #1f1f3a;
-  --text-primary: #e0e0e0;
-  --text-secondary: #a0a0a0;
-  --text-muted: #707070;
-  --border-color: #2a2a4a;
-  --accent-primary: #4b5563;
-  --accent-secondary: #fb923c;
-  --accent-hover: #6b7280;
+  /* Core variables - Dark theme */
+  --bg: #1e1e1e;
+  --panel: #2a2a2a;
+  --panel-alt: #323232;
+  --field: #2a2a2a;
+  --border: #404040;
+  --text: #e0e0e0;
+  --muted: #909090;
+  --accent: #4a9eff;
 
   /* Status colors - dark variants */
   --success-bg: #1e4a2e;
@@ -177,11 +165,6 @@ function switchTab(tab: 'encrypt' | 'decrypt' | 'batch') {
   --warning-bg: #4a3a1e;
   --warning-text: #f0d080;
   --warning-border: #5a4a2a;
-
-  /* Component colors */
-  --input-bg: #1f1f3a;
-  --btn-secondary-bg: #4a4a6a;
-  --btn-secondary-hover: #5a5a7a;
 }
 
 * {
@@ -191,152 +174,141 @@ function switchTab(tab: 'encrypt' | 'decrypt' | 'batch') {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: system-ui, -apple-system, 'Segoe UI', 'Roboto', 'Ubuntu',
+    'Cantarell', 'Noto Sans', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  line-height: 1.6;
+  background-color: var(--bg);
+  color: var(--text);
+  font-size: 19px;
+  line-height: 1.5;
   transition: background-color 0.3s, color 0.3s;
 }
 
 #app {
   height: 100vh;
   display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 8px;
+  flex-direction: column;
+  overflow: hidden;
 }
 </style>
 
 <style scoped>
-/* Component-specific styles */
+/* Desktop-first layout styles */
 
 .app-container {
-  width: 100%;
-  max-width: 650px;
-  background: var(--bg-secondary);
-  border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-  padding: 16px;
-  transition: background-color 0.3s;
-}
-
-/* Header Styles */
-.app-header {
-  text-align: center;
-  margin-bottom: 12px;
-}
-
-.header-row {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+/* Toolbar Styles */
+.app-toolbar {
+  display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
+  justify-content: space-between;
+  height: 48px;
+  padding: 0 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
 .app-title {
-  font-size: 32px;
-  font-weight: 700;
-  color: var(--accent-primary);
-  letter-spacing: -0.5px;
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0;
+  margin: 0;
 }
 
 .theme-toggle {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   border: none;
-  border-radius: 8px;
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s;
 }
 
 .theme-toggle:hover {
-  background: var(--border-color);
-  color: var(--accent-primary);
+  background: var(--panel-alt);
+  color: var(--text);
 }
 
-.app-subtitle {
-  font-size: 16px;
-  color: var(--text-secondary);
-  font-weight: 400;
+.theme-toggle:active {
+  background: var(--border);
 }
 
-/* Tab Navigation Styles */
+/* Desktop Tab Navigation */
 .tabs {
   display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-  border-bottom: 2px solid var(--border-color);
+  gap: 0;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+  flex-shrink: 0;
 }
 
 .tab-button {
-  flex: 1;
-  padding: 12px 24px;
-  background: none;
+  padding: 8px 16px;
+  background: transparent;
   border: none;
-  border-bottom: 3px solid transparent;
+  border-bottom: 2px solid transparent;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 500;
-  color: var(--text-secondary);
-  transition: all 0.2s ease;
+  color: var(--muted);
+  transition: all 0.15s;
   font-family: inherit;
-  position: relative;
-  bottom: -2px;
 }
 
-.tab-button:hover {
-  color: var(--accent-primary);
-  background-color: var(--bg-tertiary);
+.tab-button:hover:not(.active) {
+  color: var(--text);
+  background: var(--panel-alt);
 }
 
 .tab-button.active {
-  color: var(--accent-primary);
-  border-bottom-color: var(--accent-primary);
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  background: transparent;
 }
 
-/* Tab Content Styles */
+.tab-button:active {
+  background: var(--border);
+}
+
+.tab-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Tab Content Area */
 .tab-panels {
-  min-height: 280px;
+  flex: 1;
+  overflow-y: auto;
+  background: var(--bg);
 }
 
 .tab-panel {
-  animation: fadeIn 0.2s ease-in;
+  animation: fadeIn 0.15s ease-out;
 }
 
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(4px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-/* Responsive Design */
-@media (max-width: 640px) {
-  .app-container {
-    padding: 16px;
-  }
-
-  .app-title {
-    font-size: 28px;
-  }
-
-  .tab-button {
-    font-size: 14px;
-    padding: 10px 16px;
   }
 }
 </style>

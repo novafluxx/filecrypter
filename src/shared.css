@@ -1,0 +1,255 @@
+/* shared.css - Shared Component Styles for FileCrypter */
+/* Desktop-first styling with 8px grid system */
+
+/* === FORM LAYOUTS === */
+
+.form-group {
+  margin-bottom: 12px;
+}
+
+label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: var(--text);
+  font-size: 17px;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  font-size: 17px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.checkbox-row input {
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* === INPUT GROUPS === */
+
+.file-input-group {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.file-input,
+.password-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 19px;
+  font-family: inherit;
+  transition: border-color 0.15s, background-color 0.15s;
+  background-color: var(--field);
+  color: var(--text);
+}
+
+.file-input:focus,
+.password-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.file-input {
+  background-color: var(--field);
+  cursor: default;
+  border-style: dashed;
+  border-width: 2px;
+  min-height: 36px;
+  padding: 8px 12px;
+}
+
+.file-input:disabled,
+.password-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: var(--panel-alt);
+}
+
+/* === PASSWORD INPUT === */
+
+.password-section {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-input-wrapper .password-input {
+  padding-right: 44px;
+}
+
+.password-toggle-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  padding: 6px;
+  cursor: pointer;
+  color: var(--muted);
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.password-toggle-btn:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--panel-alt);
+}
+
+.password-toggle-btn:active {
+  background: var(--border);
+}
+
+.password-toggle-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* === BUTTONS === */
+
+.btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  font-size: 19px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background-color: var(--accent);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.btn-primary:active:not(:disabled) {
+  filter: brightness(0.95);
+  transform: translateY(1px);
+}
+
+.btn-secondary {
+  background-color: var(--panel-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: var(--border);
+}
+
+.btn-secondary:active:not(:disabled) {
+  background-color: var(--border);
+  filter: brightness(0.95);
+  transform: translateY(1px);
+}
+
+.btn-action {
+  width: 100%;
+  padding: 12px;
+  background-color: var(--accent);
+  color: white;
+  font-size: 19px;
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+.btn-action:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.btn-action:active:not(:disabled) {
+  filter: brightness(0.95);
+  transform: translateY(1px);
+}
+
+/* === STATUS MESSAGES === */
+
+.status-message {
+  margin-top: 16px;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 17px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-success {
+  background-color: var(--success-bg);
+  color: var(--success-text);
+  border: 1px solid var(--success-border);
+}
+
+.status-error {
+  background-color: var(--error-bg);
+  color: var(--error-text);
+  border: 1px solid var(--error-border);
+}
+
+.status-info {
+  background-color: var(--info-bg);
+  color: var(--info-text);
+  border: 1px solid var(--info-border);
+}
+
+/* === HINTS === */
+
+.hint-text {
+  margin-top: 4px;
+  font-size: 15px;
+  color: var(--muted);
+  font-style: italic;
+  line-height: 1.4;
+}
+
+/* === DRAG & DROP === */
+
+.drop-zone-active {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+  background-color: rgba(0, 102, 204, 0.05);
+}
+
+.drop-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 102, 204, 0.1);
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--accent);
+  z-index: 10;
+  pointer-events: none;
+  border-radius: 8px;
+}

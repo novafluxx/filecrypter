@@ -228,8 +228,9 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
 
 <template>
   <div class="tab-content">
-    <!-- Mode Toggle -->
-    <div class="mode-toggle">
+    <div class="content-panel">
+      <!-- Mode Toggle -->
+      <div class="mode-toggle">
       <button
         class="mode-btn"
         :class="{ active: mode === 'encrypt' }"
@@ -413,131 +414,95 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
       </div>
     </div>
 
-    <!-- Status Message -->
-    <div
-      v-if="statusMessage"
-      class="status-message"
-      :class="`status-${statusType}`"
-    >
-      {{ statusMessage }}
+      <!-- Status Message -->
+      <div
+        v-if="statusMessage"
+        class="status-message"
+        :class="`status-${statusType}`"
+      >
+        {{ statusMessage }}
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+/* Component-specific styles - shared styles are in src/shared.css */
+
 .tab-content {
-  padding: 8px 0;
+  padding: 16px;
+  max-width: 800px;
+  margin: 0 auto;
   position: relative;
-  min-height: 200px;
 }
 
-/* Mode Toggle */
+.content-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  position: relative;
+}
+
+/* Mode Toggle (unique to BatchTab) */
 .mode-toggle {
   display: flex;
-  gap: 8px;
-  margin-bottom: 20px;
+  gap: 4px;
+  margin-bottom: 16px;
   padding: 4px;
-  background: var(--bg-tertiary);
-  border-radius: 8px;
+  background: var(--panel-alt);
+  border-radius: 4px;
+  border: 1px solid var(--border);
 }
 
 .mode-btn {
   flex: 1;
-  padding: 10px 16px;
+  padding: 6px 12px;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   background: transparent;
-  color: var(--text-secondary);
-  font-size: 14px;
+  color: var(--muted);
+  font-size: 17px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s;
   font-family: inherit;
 }
 
-.mode-btn:hover:not(:disabled) {
-  color: var(--text-primary);
+.mode-btn:hover:not(:disabled):not(.active) {
+  color: var(--text);
+  background: var(--border);
 }
 
 .mode-btn.active {
-  background: var(--accent-primary);
+  background: var(--accent);
   color: white;
 }
 
 .mode-btn:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
-/* Form Groups */
-.form-group {
-  margin-bottom: 12px;
-}
-
-label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: 500;
-  color: var(--text-primary);
-  font-size: 14px;
-}
-
-.file-input-group {
-  display: flex;
-  gap: 8px;
-}
-
+/* File Count Display */
 .file-count-display {
   flex: 1;
-  padding: 10px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  font-size: 14px;
-  background-color: var(--input-bg);
-  color: var(--text-secondary);
-}
-
-.file-input,
-.password-input {
-  flex: 1;
-  padding: 10px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  font-size: 14px;
-  font-family: inherit;
-  transition: border-color 0.2s, background-color 0.2s;
-  background-color: var(--bg-secondary);
-  color: var(--text-primary);
-}
-
-.file-input:focus,
-.password-input:focus {
-  outline: none;
-  border-color: var(--accent-primary);
-}
-
-.file-input {
-  background-color: var(--input-bg);
-  cursor: default;
-  border: 2px dashed var(--border-color);
-  min-height: 44px;
-  padding: 12px;
-}
-
-.password-input:disabled,
-.file-input:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 19px;
+  background-color: var(--field);
+  color: var(--muted);
 }
 
 /* File List */
 .file-list {
   margin-top: 12px;
-  max-height: 150px;
+  max-height: 180px;
   overflow-y: auto;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel-alt);
 }
 
 .file-item {
@@ -545,12 +510,17 @@ label {
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  border-bottom: 1px solid var(--border-color);
-  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+  font-size: 16px;
+  transition: background-color 0.15s;
 }
 
 .file-item:last-child {
   border-bottom: none;
+}
+
+.file-item:hover {
+  background-color: var(--panel);
 }
 
 .file-item.file-success {
@@ -566,31 +536,32 @@ label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--text-primary);
+  color: var(--text);
 }
 
 .file-error-msg {
   font-size: 11px;
   color: var(--error-text);
-  max-width: 150px;
+  max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .remove-btn {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   border: none;
   border-radius: 4px;
   background: transparent;
-  color: var(--text-muted);
-  font-size: 16px;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
+  transition: all 0.15s;
 }
 
 .remove-btn:hover {
@@ -604,85 +575,39 @@ label {
   padding: 8px;
   border: none;
   background: transparent;
-  color: var(--accent-primary);
-  font-size: 12px;
+  color: var(--accent);
+  font-size: 16px;
+  font-weight: 500;
   cursor: pointer;
   text-align: center;
+  transition: all 0.15s;
 }
 
 .btn-link:hover {
   text-decoration: underline;
+  background: var(--panel);
 }
 
-/* Buttons */
-.btn {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-family: inherit;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-primary {
-  background-color: var(--accent-primary);
-  color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background-color: var(--accent-hover);
-}
-
-.btn-secondary {
-  background-color: var(--btn-secondary-bg);
-  color: white;
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background-color: var(--btn-secondary-hover);
-}
-
-.btn-action {
-  width: 100%;
-  padding: 14px;
-  background-color: var(--accent-secondary);
-  color: white;
-  font-size: 16px;
-  font-weight: 600;
-  margin-top: 8px;
-}
-
-.btn-action:hover:not(:disabled) {
-  filter: brightness(0.9);
-}
-
-/* Progress */
+/* Progress Container (unique to BatchTab) */
 .progress-container {
   margin: 16px 0;
   padding: 12px;
-  background: var(--bg-tertiary);
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
+  background: var(--panel-alt);
+  border-radius: 6px;
+  border: 1px solid var(--border);
 }
 
 .progress-bar-bg {
-  height: 8px;
-  background: var(--border-color);
-  border-radius: 4px;
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
   overflow: hidden;
 }
 
 .progress-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
-  border-radius: 4px;
+  background: var(--accent);
+  border-radius: 3px;
   transition: width 0.3s ease;
 }
 
@@ -694,8 +619,8 @@ label {
 }
 
 .progress-message {
-  font-size: 13px;
-  color: var(--text-secondary);
+  font-size: 16px;
+  color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -703,107 +628,8 @@ label {
 }
 
 .progress-percent {
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 600;
-  color: var(--accent-primary);
-}
-
-.checkbox-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 500;
-  font-size: 13px;
-  color: var(--text-primary);
-}
-
-.checkbox-row input {
-  accent-color: var(--accent-primary);
-}
-
-/* Hints */
-.hint {
-  margin-top: 6px;
-  font-size: 12px;
-  padding: 6px 10px;
-  border-radius: 4px;
-}
-
-.hint-text {
-  margin-top: 4px;
-  font-size: 12px;
-  color: var(--text-muted);
-  font-style: italic;
-}
-
-/* Password visibility toggle */
-.password-input-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.password-input-wrapper .password-input {
-  padding-right: 44px;
-}
-
-.password-toggle-btn {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: transparent;
-  border: none;
-  padding: 6px;
-  cursor: pointer;
-  color: var(--text-muted);
-  transition: color 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-}
-
-.password-toggle-btn:hover:not(:disabled) {
-  color: var(--accent-primary);
-  background: var(--bg-tertiary);
-}
-
-.password-toggle-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Password section spacing */
-.password-section {
-  margin-top: 16px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border-color);
-}
-
-/* Status Message */
-.status-message {
-  margin-top: 16px;
-  padding: 12px;
-  border-radius: 6px;
-  font-size: 14px;
-}
-
-.status-success {
-  background-color: var(--success-bg);
-  color: var(--success-text);
-  border: 1px solid var(--success-border);
-}
-
-.status-error {
-  background-color: var(--error-bg);
-  color: var(--error-text);
-  border: 1px solid var(--error-border);
-}
-
-.status-info {
-  background-color: var(--info-bg);
-  color: var(--info-text);
-  border: 1px solid var(--info-border);
+  color: var(--accent);
 }
 </style>

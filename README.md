@@ -47,10 +47,9 @@ bun run build
 bun run tauri:build
 ```
 
-Preview the production build:
-```bash
-bun run preview
-```
+Platform note:
+- `bun run tauri:build` builds bundles for the host OS only (Linux builds on Linux, Windows builds on Windows, macOS builds on macOS).
+- Cross-building for other OSes typically requires building on that OS with its toolchain/SDK.
 
 ## Testing & Linting
 Run Rust tests (unit + integration):

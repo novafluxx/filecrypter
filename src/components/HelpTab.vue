@@ -9,11 +9,6 @@
 import { marked } from 'marked';
 import helpMarkdown from '../../README_USER.md?raw';
 
-marked.setOptions({
-  mangle: false,
-  headerIds: false,
-});
-
 const helpHtml = marked.parse(helpMarkdown) as string;
 </script>
 

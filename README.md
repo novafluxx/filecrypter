@@ -2,6 +2,9 @@
 
 FileCrypter is a cross-platform desktop app for encrypting and decrypting files. The UI is built with Vue 3 and the cryptographic operations live in a Rust/Tauri backend.
 
+## End-User Guide
+See `README_USER.md` for end-user instructions (how to encrypt/decrypt, batch mode, troubleshooting).
+
 ## Features
 - Password-based encryption using AES-256-GCM.
 - Argon2id key derivation with per-file salt and nonce.

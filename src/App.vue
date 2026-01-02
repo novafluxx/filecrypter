@@ -3,7 +3,7 @@
   This is the root component of the FileCrypter application.
 
   Features:
-  - Tab-based navigation (Encrypt / Decrypt)
+  - Tab-based navigation (Encrypt / Decrypt / Batch / Help)
   - Responsive layout
   - Clean, modern design
   - Header with branding
@@ -18,10 +18,11 @@ import { ref } from 'vue';
 import EncryptTab from './components/EncryptTab.vue';
 import DecryptTab from './components/DecryptTab.vue';
 import BatchTab from './components/BatchTab.vue';
+import HelpTab from './components/HelpTab.vue';
 import { useTheme } from './composables/useTheme';
 
-// Active tab state: 'encrypt', 'decrypt', or 'batch'
-const activeTab = ref<'encrypt' | 'decrypt' | 'batch'>('encrypt');
+// Active tab state: 'encrypt', 'decrypt', 'batch', or 'help'
+const activeTab = ref<'encrypt' | 'decrypt' | 'batch' | 'help'>('encrypt');
 
 // Theme management
 const { theme, toggleTheme } = useTheme();
@@ -29,11 +30,12 @@ const { theme, toggleTheme } = useTheme();
 /**
  * Switch between tabs
  *
- * @param tab - Tab to activate ('encrypt', 'decrypt', or 'batch')
+ * @param tab - Tab to activate ('encrypt', 'decrypt', 'batch', or 'help')
  */
-function switchTab(tab: 'encrypt' | 'decrypt' | 'batch') {
+function switchTab(tab: 'encrypt' | 'decrypt' | 'batch' | 'help') {
   activeTab.value = tab;
 }
+
 </script>
 
 <template>
@@ -91,6 +93,14 @@ function switchTab(tab: 'encrypt' | 'decrypt' | 'batch') {
       >
         Batch
       </button>
+      <button
+        class="tab-button"
+        :class="{ active: activeTab === 'help' }"
+        @click="switchTab('help')"
+        title="Open the FileCrypter user guide"
+      >
+        Help
+      </button>
     </div>
 
     <!-- Tab Content Area -->
@@ -108,6 +118,11 @@ function switchTab(tab: 'encrypt' | 'decrypt' | 'batch') {
       <!-- Batch Tab Panel -->
       <div v-show="activeTab === 'batch'" class="tab-panel">
         <BatchTab />
+      </div>
+
+      <!-- Help Tab Panel -->
+      <div v-show="activeTab === 'help'" class="tab-panel">
+        <HelpTab />
       </div>
     </div>
   </div>

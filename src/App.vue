@@ -71,6 +71,7 @@ function switchTab(tab: 'encrypt' | 'decrypt' | 'batch') {
         class="tab-button"
         :class="{ active: activeTab === 'encrypt' }"
         @click="switchTab('encrypt')"
+        title="Switch to file encryption"
       >
         Encrypt
       </button>
@@ -78,6 +79,7 @@ function switchTab(tab: 'encrypt' | 'decrypt' | 'batch') {
         class="tab-button"
         :class="{ active: activeTab === 'decrypt' }"
         @click="switchTab('decrypt')"
+        title="Switch to file decryption"
       >
         Decrypt
       </button>
@@ -85,6 +87,7 @@ function switchTab(tab: 'encrypt' | 'decrypt' | 'batch') {
         class="tab-button"
         :class="{ active: activeTab === 'batch' }"
         @click="switchTab('batch')"
+        title="Switch to batch processing"
       >
         Batch
       </button>

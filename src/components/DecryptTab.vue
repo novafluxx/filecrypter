@@ -128,11 +128,13 @@ async function handleDecrypt() {
           readonly
           placeholder="Select or drag a .encrypted file..."
           class="file-input"
+          title="Drag a .encrypted file here or click Browse to select one"
         />
         <button
           @click="handleSelectFile"
           class="btn btn-primary"
           :disabled="fileOps.isProcessing.value"
+          title="Choose an encrypted file to decrypt"
         >
           Browse
         </button>
@@ -150,11 +152,13 @@ async function handleDecrypt() {
           readonly
           placeholder="Will auto-generate from encrypted filename..."
           class="file-input"
+          title="Auto-generated output path; click Change to pick a different location"
         />
         <button
           @click="handleSelectOutput"
           class="btn btn-secondary"
           :disabled="fileOps.isProcessing.value"
+          title="Choose where to save the decrypted file"
         >
           Change
         </button>
@@ -168,6 +172,7 @@ async function handleDecrypt() {
           type="checkbox"
           v-model="fileOps.neverOverwrite.value"
           :disabled="fileOps.isProcessing.value"
+          title="Prevent overwriting by auto-renaming on name conflicts"
         />
         Never overwrite existing files (auto-rename on conflicts)
       </label>
@@ -189,6 +194,7 @@ async function handleDecrypt() {
           autocomplete="current-password"
           class="password-input"
           :disabled="fileOps.isProcessing.value"
+          title="Enter the password used to encrypt this file"
         />
         <button
           type="button"
@@ -196,6 +202,7 @@ async function handleDecrypt() {
           @click="togglePasswordVisibility"
           :disabled="fileOps.isProcessing.value"
           :aria-label="isPasswordVisible ? 'Hide password' : 'Show password'"
+          :title="isPasswordVisible ? 'Hide password' : 'Show password'"
         >
           <!-- Eye icon (show) -->
           <svg v-if="!isPasswordVisible" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -220,6 +227,7 @@ async function handleDecrypt() {
       @click="handleDecrypt"
       class="btn btn-action"
       :disabled="!fileOps.isFormValid.value"
+      title="Start decrypting with the selected file and password"
     >
       <span v-if="fileOps.isProcessing.value">Decrypting...</span>
       <span v-else>Decrypt File</span>

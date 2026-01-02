@@ -236,6 +236,7 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
         :class="{ active: mode === 'encrypt' }"
         @click="switchMode('encrypt')"
         :disabled="isProcessing"
+        title="Batch encrypt multiple files"
       >
         Encrypt
       </button>
@@ -244,6 +245,7 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
         :class="{ active: mode === 'decrypt' }"
         @click="switchMode('decrypt')"
         :disabled="isProcessing"
+        title="Batch decrypt multiple files"
       >
         Decrypt
       </button>
@@ -260,6 +262,7 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
           @click="handleSelectFiles"
           class="btn btn-primary"
           :disabled="isProcessing"
+          title="Choose multiple files to process"
         >
           Browse
         </button>
@@ -297,6 +300,7 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
           v-if="inputPaths.length > 1 && !isProcessing && !batchResult"
           @click="clearFiles"
           class="btn-link"
+          title="Remove all selected files"
         >
           Clear all
         </button>
@@ -313,11 +317,13 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
           readonly
           placeholder="Select output directory..."
           class="file-input"
+          title="Auto-filled output folder; click Browse to pick a different one"
         />
         <button
           @click="handleSelectOutputDir"
           class="btn btn-secondary"
           :disabled="isProcessing"
+          title="Choose the output folder"
         >
           Browse
         </button>
@@ -331,6 +337,7 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
           type="checkbox"
           v-model="neverOverwrite"
           :disabled="isProcessing"
+          title="Prevent overwriting by auto-renaming on name conflicts"
         />
         Never overwrite existing files (auto-rename on conflicts)
       </label>
@@ -350,6 +357,7 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
           :autocomplete="mode === 'encrypt' ? 'new-password' : 'current-password'"
           class="password-input"
           :disabled="isProcessing"
+          :title="mode === 'encrypt' ? 'Enter a strong password (at least 8 characters)' : 'Enter the password used to encrypt these files'"
         />
         <button
           type="button"
@@ -357,6 +365,7 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
           @click="togglePasswordVisibility"
           :disabled="isProcessing"
           :aria-label="isPasswordVisible ? 'Hide password' : 'Show password'"
+          :title="isPasswordVisible ? 'Hide password' : 'Show password'"
         >
           <!-- Eye icon (show) -->
           <svg v-if="!isPasswordVisible" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -387,6 +396,7 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
       @click="handleBatchOperation"
       class="btn btn-action"
       :disabled="!isFormValid"
+      :title="mode === 'encrypt' ? 'Encrypt all selected files' : 'Decrypt all selected files'"
     >
       <span v-if="isProcessing">
         {{ mode === 'encrypt' ? 'Encrypting' : 'Decrypting' }}...

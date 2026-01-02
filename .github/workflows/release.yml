@@ -1,0 +1,64 @@
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version number (example: 0.1.0). Tag will be v<version>."
+        required: true
+
+permissions:
+  contents: write  # needed to push tags + create releases with GITHUB_TOKEN
+
+jobs:
+  build-and-publish:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # required for tagging
+
+      - name: Compute tag
+        id: vars
+        shell: bash
+        run: |
+          echo "tag=v${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+
+      # Create the tag only once (pick one runner so they don't race)
+      - name: Create and push tag
+        if: matrix.platform == 'ubuntu-latest'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Fail if tag already exists
+          if git rev-parse "${{ steps.vars.outputs.tag }}" >/dev/null 2>&1; then
+            echo "Tag already exists: ${{ steps.vars.outputs.tag }}"
+            exit 1
+          fi
+
+          git tag "${{ steps.vars.outputs.tag }}"
+          git push origin "${{ steps.vars.outputs.tag }}"
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install deps
+        run: bun install --frozen-lockfile
+
+      - name: Build & upload to GitHub Release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ steps.vars.outputs.tag }}
+          releaseName: "Release ${{ steps.vars.outputs.tag }}"
+          releaseDraft: true
+          prerelease: false

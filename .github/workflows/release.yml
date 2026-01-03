@@ -197,4 +197,3 @@ jobs:
           releaseBody: "See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/${{ needs.prepare-release.outputs.tag }}/CHANGELOG.md) for details."
           releaseDraft: true
           prerelease: false
-          args: ${{ matrix.platform == 'ubuntu-latest' && '--bundles appimage' || '--bundles nsis' }}

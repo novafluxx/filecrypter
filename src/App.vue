@@ -106,22 +106,22 @@ function switchTab(tab: 'encrypt' | 'decrypt' | 'batch' | 'help') {
     <!-- Tab Content Area -->
     <div class="tab-panels">
       <!-- Encrypt Tab Panel -->
-      <div v-show="activeTab === 'encrypt'" class="tab-panel">
+      <div v-if="activeTab === 'encrypt'" class="tab-panel">
         <EncryptTab />
       </div>
 
       <!-- Decrypt Tab Panel -->
-      <div v-show="activeTab === 'decrypt'" class="tab-panel">
+      <div v-if="activeTab === 'decrypt'" class="tab-panel">
         <DecryptTab />
       </div>
 
       <!-- Batch Tab Panel -->
-      <div v-show="activeTab === 'batch'" class="tab-panel">
+      <div v-if="activeTab === 'batch'" class="tab-panel">
         <BatchTab />
       </div>
 
       <!-- Help Tab Panel -->
-      <div v-show="activeTab === 'help'" class="tab-panel">
+      <div v-if="activeTab === 'help'" class="tab-panel">
         <HelpTab />
       </div>
     </div>

@@ -46,8 +46,5 @@ jobs:
         working-directory: src-tauri
         run: cargo clippy -- -D warnings
 
-      - name: Build frontend
-        run: bun run build
-
       - name: Build Tauri app
         run: bun run tauri:build

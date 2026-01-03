@@ -16,15 +16,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 # Body template for each release
 body = """
 {% if version %}\
-    ## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
 {% else %}\
-    ## [Unreleased]
+## [Unreleased]
 {% endif %}\
+{% set commits = commits | filter(attribute="merge_commit", value=false) %}
 {% for group, commits in commits | group_by(attribute="group") %}
-    ### {{ group | upper_first }}
-    {% for commit in commits %}
-        - {{ commit.message | upper_first }}{% if commit.breaking %} **[BREAKING]**{% endif %} ({{ commit.id | truncate(length=7, end="") }})
-    {%- endfor %}
+### {{ group }}
+{% for commit in commits %}
+- {% if commit.scope %}**{{ commit.scope }}:** {% endif %}{{ commit.message | trim | replace_regex(from="(?s)\\n.*", to="") | trim | upper_first }}{% if commit.breaking %} **[BREAKING]**{% endif %} ({{ commit.id | truncate(length=7, end="") }})
+{%- endfor %}
 {% endfor %}\n
 """
 
@@ -38,21 +39,30 @@ footer = """
 conventional_commits = true
 # Filter out unconventional commits (set to false to include all commits)
 filter_unconventional = false
+# Exclude merge commits from the changelog
+skip_merge_commits = true
 # Sort commits by oldest first
 sort_commits = "oldest"
 
 # Commit parsers to categorize commits
 commit_parsers = [
+  { message = "^Merge pull request", skip = true },
+  { message = "^Merge branch", skip = true },
   { message = "^feat", group = "Features" },
   { message = "^fix", group = "Bug Fixes" },
-  { message = "^doc", group = "Documentation" },
+  { message = "^docs?", group = "Documentation" },
   { message = "^perf", group = "Performance" },
   { message = "^refactor", group = "Refactoring" },
   { message = "^style", group = "Style" },
   { message = "^test", group = "Testing" },
+  { message = "^build", group = "Build" },
+  { message = "^ci", group = "CI" },
+  { message = "^revert", group = "Reverts" },
   { message = "^chore\\(release\\): prepare for", skip = true },
   { message = "^chore\\(release\\): bump version", skip = true },
+  { message = "^chore\\(deps\\):", group = "Dependencies" },
   { message = "^chore", group = "Miscellaneous" },
+  { message = "(dependenc|Dependenc|deps|Deps)", group = "Dependencies" },
   { message = ".*", group = "Other" },
 ]
 
@@ -65,13 +75,15 @@ filter_commits = false
 commit_preprocessors = [
   # Remove issue numbers from commits
   { pattern = '\((\w+\s)?#([0-9]+)\)', replace = "" },
+  # Collapse consecutive spaces in commit subjects
+  { pattern = " +", replace = " " },
 ]
 
 # Regex for tag patterns (only process tags matching this pattern)
-tag_pattern = "v[0-9]*"
+tag_pattern = "v[0-9].*"
 
 # Ignore tags matching this regex
-skip_tags = "v0.0.1-beta"
+skip_tags = ""
 
-# Ignore commits matching this regex
+# Ignore tags matching this regex
 ignore_tags = ""

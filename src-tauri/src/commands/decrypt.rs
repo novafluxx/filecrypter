@@ -13,54 +13,19 @@
 // - Wrong password results in tag verification failure
 // - Any tampering with ciphertext is detected
 
-use std::fs;
+use std::sync::Arc;
 use tauri::{command, AppHandle, Emitter};
 
-use crate::commands::file_utils::{atomic_write, validate_file_size, validate_input_path};
+use crate::commands::file_utils::{resolve_output_path, validate_input_path};
 use crate::commands::CryptoResponse;
-use crate::crypto::{decrypt, derive_key_with_params, EncryptedFile, Password};
+use crate::crypto::{decrypt_file_streaming, Password};
 use crate::error::CryptoResult;
 use crate::events::{ProgressEvent, CRYPTO_PROGRESS_EVENT};
-
-/// Internal decryption implementation (used by tests)
-///
-/// This function contains the core decryption logic without Tauri dependencies.
-#[cfg(test)]
-fn decrypt_file_impl(
-    input_path: &str,
-    output_path: &str,
-    password: &str,
-) -> CryptoResult<String> {
-    // Validate password is not empty
-    if password.is_empty() {
-        return Err(crate::error::CryptoError::FormatError(
-            "Password cannot be empty".to_string(),
-        ));
-    }
-
-    // Step 1: Read the encrypted file from disk
-    let encrypted_data = fs::read(input_path)?;
-
-    // Step 2: Parse the encrypted file format
-    let encrypted_file = EncryptedFile::deserialize(&encrypted_data)?;
-
-    // Step 3: Derive decryption key from password + salt
-    let password = Password::new(password.to_string());
-    let key = derive_key_with_params(&password, &encrypted_file.salt, &encrypted_file.kdf_params)?;
-
-    // Step 4: Decrypt the ciphertext with AES-256-GCM
-    let plaintext = decrypt(&key, &encrypted_file.nonce, &encrypted_file.ciphertext)?;
-
-    // Step 5: Write the plaintext to the output file
-    fs::write(output_path, plaintext)?;
-
-    Ok(format!("File decrypted successfully: {}", output_path))
-}
 
 /// Decrypt an encrypted file with password
 ///
 /// This Tauri command decrypts a file that was encrypted with `encrypt_file`.
-/// It verifies the authentication tag to ensure the file hasn't been tampered with.
+/// All files are decrypted using streaming (chunked) decryption for consistent behavior.
 ///
 /// # Arguments
 /// * `input_path` - Path to the encrypted file (.encrypted)
@@ -74,14 +39,14 @@ fn decrypt_file_impl(
 /// # Errors
 /// Returns `CryptoError` if:
 /// - Input file cannot be read or doesn't exist
-/// - File format is invalid or corrupted
+/// - File format is invalid or corrupted (Version 4 format expected)
 /// - Wrong password (authentication tag verification fails)
 /// - File has been tampered with (tag mismatch)
 /// - Output file cannot be written
 ///
 /// # Security Notes
 /// - Password is wrapped in `Password` type and zeroized after use
-/// - Authentication tag is automatically verified by AES-GCM
+/// - Authentication tag is automatically verified by AES-GCM for each chunk
 /// - Timing-safe comparison prevents timing attacks
 /// - Salt is read from the encrypted file (not secret)
 ///
@@ -105,75 +70,44 @@ pub async fn decrypt_file(
     // Log the operation (password is NOT logged)
     log::info!("Decrypting file: {}", input_path);
 
-    // Validate password is not empty
-    if password.is_empty() {
-        return Err(crate::error::CryptoError::FormatError(
-            "Password cannot be empty".to_string(),
-        ));
-    }
-
-    // Emit: Reading file
+    // Emit progress
     let _ = app.emit(CRYPTO_PROGRESS_EVENT, ProgressEvent::reading());
-
-    // Validate input path (check for symlinks, canonicalize)
-    let validated_input = validate_input_path(&input_path)?;
-
-    // Validate file size for in-memory operation
-    validate_file_size(&input_path)?;
-
-    // Step 1: Read the encrypted file from disk
-    let encrypted_data = fs::read(&validated_input)?;
-
-    log::info!("Read {} bytes from encrypted file", encrypted_data.len());
-
-    // Step 2: Parse the encrypted file format
-    // This extracts: salt, nonce, and ciphertext (with tag)
-    // Validates file format version and structure
-    let encrypted_file = EncryptedFile::deserialize(&encrypted_data)?;
-
-    log::info!(
-        "Parsed encrypted file: salt={} bytes, nonce={} bytes, ciphertext={} bytes",
-        encrypted_file.salt.len(),
-        encrypted_file.nonce.len(),
-        encrypted_file.ciphertext.len()
-    );
-
-    // Emit: Deriving key (the slow step)
     let _ = app.emit(CRYPTO_PROGRESS_EVENT, ProgressEvent::deriving_key());
 
-    // Step 3: Derive decryption key from password + salt
-    // The salt is read from the file (it was stored during encryption)
-    // This must produce the same key as during encryption if password is correct
-    let password = Password::new(password);
-    let key = derive_key_with_params(&password, &encrypted_file.salt, &encrypted_file.kdf_params)?;
-
-    log::info!("Decryption key derived successfully");
-
-    // Emit: Decrypting
-    let _ = app.emit(CRYPTO_PROGRESS_EVENT, ProgressEvent::decrypting());
-
-    // Step 4: Decrypt the ciphertext with AES-256-GCM
-    // This automatically verifies the authentication tag
-    // If the tag doesn't match (wrong password or tampered data), this will fail
-    let plaintext = decrypt(&key, &encrypted_file.nonce, &encrypted_file.ciphertext)?;
-
-    log::info!("Decryption successful: {} bytes decrypted", plaintext.len());
-
-    // Emit: Writing file
-    let _ = app.emit(CRYPTO_PROGRESS_EVENT, ProgressEvent::writing());
-
+    // Validate input
+    let validated_input = validate_input_path(&input_path)?;
     let allow_overwrite = allow_overwrite.unwrap_or(false);
+    let validated_output = resolve_output_path(&output_path, allow_overwrite)?;
+    let password = Password::new(password);
 
-    // Step 5: Write the plaintext to the output file with secure permissions
-    let resolved_path = atomic_write(&output_path, &plaintext, allow_overwrite)?;
+    // Progress callback for streaming
+    let app_handle = Arc::new(app.clone());
+    let progress_callback = move |bytes_processed: u64, total_bytes: u64| {
+        let percent = if total_bytes > 0 {
+            ((bytes_processed as f64 / total_bytes as f64) * 100.0) as u32
+        } else {
+            0
+        }
+        .min(99);
 
-    log::info!("Decrypted file written to: {}", resolved_path.display());
+        let _ = app_handle.emit(
+            CRYPTO_PROGRESS_EVENT,
+            ProgressEvent::new("decrypting", percent, "Decrypting file..."),
+        );
+    };
 
-    // Emit: Complete
+    // Use streaming for all files
+    decrypt_file_streaming(
+        validated_input,
+        &validated_output,
+        &password,
+        Some(Box::new(progress_callback)),
+        allow_overwrite,
+    )?;
+
     let _ = app.emit(CRYPTO_PROGRESS_EVENT, ProgressEvent::decrypt_complete());
 
-    // Return success message to frontend
-    let output_path = resolved_path.to_string_lossy().to_string();
+    let output_path = validated_output.to_string_lossy().to_string();
     Ok(CryptoResponse {
         message: format!("File decrypted successfully: {}", output_path),
         output_path,
@@ -183,31 +117,76 @@ pub async fn decrypt_file(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::crypto::{encrypt_file_streaming, DEFAULT_CHUNK_SIZE};
     use std::fs;
     use tempfile::NamedTempFile;
 
     #[test]
-    fn test_decrypt_file_empty_password() {
+    fn test_decrypt_file_streaming_success() {
+        // Create and encrypt a file first
+        let temp_dir = tempfile::tempdir().unwrap();
         let input_file = NamedTempFile::new().unwrap();
-        let output_file = NamedTempFile::new().unwrap();
+        fs::write(input_file.path(), b"Test decryption content").unwrap();
 
-        let result = decrypt_file_impl(
-            input_file.path().to_str().unwrap(),
-            output_file.path().to_str().unwrap(),
-            "",
+        let encrypted_path = temp_dir.path().join("encrypted.bin");
+        let password = Password::new("test_password".to_string());
+
+        encrypt_file_streaming(
+            input_file.path(),
+            &encrypted_path,
+            &password,
+            DEFAULT_CHUNK_SIZE,
+            None,
+            false,
+        )
+        .unwrap();
+
+        // Now decrypt it
+        let decrypted_path = temp_dir.path().join("decrypted.txt");
+        let result = decrypt_file_streaming(
+            &encrypted_path,
+            &decrypted_path,
+            &password,
+            None,
+            false,
         );
 
-        assert!(result.is_err());
+        assert!(result.is_ok());
+
+        // Verify decrypted content matches original
+        let decrypted_content = fs::read(&decrypted_path).unwrap();
+        assert_eq!(decrypted_content, b"Test decryption content");
     }
 
     #[test]
-    fn test_decrypt_file_nonexistent_input() {
-        let output_file = NamedTempFile::new().unwrap();
+    fn test_decrypt_file_wrong_password() {
+        // Create and encrypt a file
+        let temp_dir = tempfile::tempdir().unwrap();
+        let input_file = NamedTempFile::new().unwrap();
+        fs::write(input_file.path(), b"Secret content").unwrap();
 
-        let result = decrypt_file_impl(
-            "/nonexistent/encrypted.file",
-            output_file.path().to_str().unwrap(),
-            "password",
+        let encrypted_path = temp_dir.path().join("encrypted.bin");
+        let password = Password::new("correct_password".to_string());
+
+        encrypt_file_streaming(
+            input_file.path(),
+            &encrypted_path,
+            &password,
+            DEFAULT_CHUNK_SIZE,
+            None,
+            false,
+        )
+        .unwrap();
+
+        // Try to decrypt with wrong password
+        let decrypted_path = temp_dir.path().join("decrypted.txt");
+        let wrong_password = Password::new("wrong_password".to_string());
+        let result = decrypt_file_streaming(
+            &encrypted_path,
+            &decrypted_path,
+            &wrong_password,
+            None,
+            false,
         );
 
         assert!(result.is_err());
@@ -217,13 +196,19 @@ mod tests {
     fn test_decrypt_corrupted_file() {
         // Create a corrupted "encrypted" file
         let corrupted_file = NamedTempFile::new().unwrap();
-        let corrupted_path = corrupted_file.path().to_str().unwrap();
-        fs::write(corrupted_path, b"This is not a valid encrypted file").unwrap();
+        fs::write(corrupted_file.path(), b"This is not a valid encrypted file").unwrap();
 
-        let output_file = NamedTempFile::new().unwrap();
-        let output_path = output_file.path().to_str().unwrap();
+        let temp_dir = tempfile::tempdir().unwrap();
+        let output_path = temp_dir.path().join("decrypted.txt");
+        let password = Password::new("password".to_string());
 
-        let result = decrypt_file_impl(corrupted_path, output_path, "password");
+        let result = decrypt_file_streaming(
+            corrupted_file.path(),
+            &output_path,
+            &password,
+            None,
+            false,
+        );
 
         assert!(result.is_err());
     }

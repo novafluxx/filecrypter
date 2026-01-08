@@ -14,9 +14,6 @@ use tempfile::NamedTempFile;
 
 use crate::error::{CryptoError, CryptoResult};
 
-/// Maximum file size for in-memory operations (100 MB)
-pub const MAX_IN_MEMORY_SIZE: u64 = 100 * 1024 * 1024;
-
 /// Maximum number of files in a batch operation
 pub const MAX_BATCH_FILES: usize = 1000;
 
@@ -110,6 +107,7 @@ pub fn secure_write<P: AsRef<Path>>(path: P, data: &[u8]) -> Result<(), std::io:
 /// This ensures that the output file is never partially written.
 /// If the process crashes, only the temp file is left behind.
 /// When `allow_overwrite` is false, collisions are resolved by auto-renaming.
+#[allow(dead_code)]
 pub fn atomic_write<P: AsRef<Path>>(
     path: P,
     data: &[u8],
@@ -238,24 +236,6 @@ fn validate_no_symlinks(path: &Path) -> CryptoResult<()> {
     Ok(())
 }
 
-/// Validate file size for in-memory operations
-///
-/// Returns an error if the file is too large to process in memory.
-pub fn validate_file_size<P: AsRef<Path>>(path: P) -> CryptoResult<u64> {
-    let metadata = fs::metadata(path.as_ref())?;
-    let size = metadata.len();
-
-    if size > MAX_IN_MEMORY_SIZE {
-        return Err(CryptoError::FileTooLarge(format!(
-            "File is {} MB, maximum for in-memory encryption is {} MB. Use streaming API for large files.",
-            size / (1024 * 1024),
-            MAX_IN_MEMORY_SIZE / (1024 * 1024)
-        )));
-    }
-
-    Ok(size)
-}
-
 /// Validate batch file count
 ///
 /// Returns an error if too many files are selected.
@@ -272,7 +252,6 @@ pub fn validate_batch_count(count: usize) -> CryptoResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::NamedTempFile;
 
     #[test]
     fn test_secure_write() {
@@ -330,16 +309,6 @@ mod tests {
             .to_string_lossy()
             .contains("output (1).txt"));
         assert_eq!(fs::read(second_path).unwrap(), b"second");
-    }
-
-    #[test]
-    fn test_validate_file_size() {
-        let temp_file = NamedTempFile::new().unwrap();
-        let path = temp_file.path().to_str().unwrap();
-
-        // Small file should pass
-        fs::write(path, b"small content").unwrap();
-        assert!(validate_file_size(path).is_ok());
     }
 
     #[test]

@@ -8,17 +8,11 @@
 // Progress events are emitted for each file being processed.
 
 use serde::Serialize;
-use std::fs;
 use std::path::Path;
 use tauri::{command, AppHandle, Emitter};
 
-use crate::commands::file_utils::{
-    atomic_write, validate_batch_count, validate_file_size, validate_input_path,
-};
-use crate::crypto::{
-    decrypt, derive_key_with_params, encrypt, generate_salt_with_len, EncryptedFile, KdfParams,
-    Password,
-};
+use crate::commands::file_utils::{validate_batch_count, validate_input_path};
+use crate::crypto::{decrypt_file_streaming, encrypt_file_streaming, Password, DEFAULT_CHUNK_SIZE};
 use crate::error::{CryptoError, CryptoResult};
 
 /// Progress event for batch operations
@@ -309,23 +303,6 @@ fn encrypt_single_file(
     let validated_path = validate_input_path(input_path)
         .map_err(|e| CryptoError::FormatError(format!("File '{}': {}", input_path, e)))?;
 
-    // Validate file size for in-memory operation
-    validate_file_size(&validated_path)
-        .map_err(|e| CryptoError::FormatError(format!("File '{}': {}", input_path, e)))?;
-
-    // Read input file
-    let plaintext = fs::read(&validated_path)?;
-
-    // Generate unique salt for this file
-    let kdf_params = KdfParams::default();
-    let salt = generate_salt_with_len(kdf_params.salt_length as usize)?;
-
-    // Derive key (this is intentionally slow for security)
-    let key = derive_key_with_params(password, &salt, &kdf_params)?;
-
-    // Encrypt
-    let (nonce, ciphertext) = encrypt(&key, &plaintext)?;
-
     // Create output path
     let input_filename = validated_path
         .file_name()
@@ -333,16 +310,17 @@ fn encrypt_single_file(
     let output_filename = format!("{}.encrypted", input_filename.to_string_lossy());
     let output_path = Path::new(output_dir).join(&output_filename);
 
-    // Serialize and write atomically with secure permissions
-    let encrypted_file = EncryptedFile {
-        kdf_params,
-        salt,
-        nonce,
-        ciphertext,
-    };
-    let resolved_path = atomic_write(&output_path, &encrypted_file.serialize(), allow_overwrite)?;
+    // Use streaming encryption for all files
+    encrypt_file_streaming(
+        validated_path,
+        &output_path,
+        password,
+        DEFAULT_CHUNK_SIZE,
+        None, // No progress callback - batch has its own progress tracking
+        allow_overwrite,
+    )?;
 
-    Ok(resolved_path.to_string_lossy().to_string())
+    Ok(output_path.to_string_lossy().to_string())
 }
 
 /// Decrypt multiple files with the same password
@@ -396,22 +374,6 @@ fn decrypt_single_file(
     let validated_path = validate_input_path(input_path)
         .map_err(|e| CryptoError::FormatError(format!("File '{}': {}", input_path, e)))?;
 
-    // Validate file size for in-memory operation
-    validate_file_size(&validated_path)
-        .map_err(|e| CryptoError::FormatError(format!("File '{}': {}", input_path, e)))?;
-
-    // Read encrypted file
-    let encrypted_data = fs::read(&validated_path)?;
-
-    // Parse format
-    let encrypted_file = EncryptedFile::deserialize(&encrypted_data)?;
-
-    // Derive key using salt from file
-    let key = derive_key_with_params(password, &encrypted_file.salt, &encrypted_file.kdf_params)?;
-
-    // Decrypt
-    let plaintext = decrypt(&key, &encrypted_file.nonce, &encrypted_file.ciphertext)?;
-
     // Create output path (remove .encrypted extension if present)
     let input_filename = validated_path
         .file_name()
@@ -426,16 +388,23 @@ fn decrypt_single_file(
 
     let output_path = Path::new(output_dir).join(&output_filename);
 
-    // Write decrypted file atomically with secure permissions
-    let resolved_path = atomic_write(&output_path, &plaintext, allow_overwrite)?;
+    // Use streaming decryption for all files
+    decrypt_file_streaming(
+        &validated_path,
+        &output_path,
+        password,
+        None, // No progress callback - batch has its own progress tracking
+        allow_overwrite,
+    )?;
 
-    Ok(resolved_path.to_string_lossy().to_string())
+    Ok(output_path.to_string_lossy().to_string())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::commands::file_utils::MAX_BATCH_FILES;
+    use std::fs;
     use std::path::Path;
     use tempfile::tempdir;
 

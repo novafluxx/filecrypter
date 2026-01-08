@@ -14,68 +14,20 @@
 // - Returns a success message or error
 // - Async function allows long-running operations without blocking UI
 
-use std::fs;
+use std::sync::Arc;
 use tauri::{command, AppHandle, Emitter};
 
-use crate::commands::file_utils::{atomic_write, validate_file_size, validate_input_path};
+use crate::commands::file_utils::{resolve_output_path, validate_input_path};
 use crate::commands::CryptoResponse;
-use crate::crypto::{
-    derive_key_with_params, encrypt, generate_salt_with_len, EncryptedFile, KdfParams, Password,
-};
+use crate::crypto::{encrypt_file_streaming, Password, DEFAULT_CHUNK_SIZE};
 use crate::error::CryptoResult;
 use crate::events::{ProgressEvent, CRYPTO_PROGRESS_EVENT};
-
-/// Internal encryption implementation (used by tests)
-///
-/// This function contains the core encryption logic without Tauri dependencies.
-#[cfg(test)]
-fn encrypt_file_impl(
-    input_path: &str,
-    output_path: &str,
-    password: &str,
-) -> CryptoResult<String> {
-    // Validate password is not empty
-    if password.is_empty() {
-        return Err(crate::error::CryptoError::FormatError(
-            "Password cannot be empty".to_string(),
-        ));
-    }
-
-    // Step 1: Read the plaintext file into memory
-    let plaintext = fs::read(input_path)?;
-
-    // Step 2: Generate a random salt for key derivation
-    let kdf_params = KdfParams::default();
-    let salt = generate_salt_with_len(kdf_params.salt_length as usize)?;
-
-    // Step 3: Derive encryption key from password + salt
-    let password = Password::new(password.to_string());
-    let key = derive_key_with_params(&password, &salt, &kdf_params)?;
-
-    // Step 4: Encrypt the file content with AES-256-GCM
-    let (nonce, ciphertext) = encrypt(&key, &plaintext)?;
-
-    // Step 5: Create the encrypted file structure with all metadata
-    let encrypted_file = EncryptedFile {
-        kdf_params,
-        salt,
-        nonce,
-        ciphertext,
-    };
-
-    // Step 6: Serialize to binary format
-    let output_data = encrypted_file.serialize();
-
-    // Step 7: Write encrypted file to disk
-    fs::write(output_path, output_data)?;
-
-    Ok(format!("File encrypted successfully: {}", output_path))
-}
 
 /// Encrypt a file with password protection
 ///
 /// This Tauri command encrypts a file using AES-256-GCM with a password-derived key.
-/// The encrypted file includes all metadata needed for decryption (salt, nonce).
+/// All files are encrypted using streaming (chunked) encryption for consistent behavior
+/// and optimal memory usage.
 ///
 /// # Arguments
 /// * `app` - Tauri AppHandle for emitting progress events
@@ -97,8 +49,8 @@ fn encrypt_file_impl(
 /// # Security Notes
 /// - Password is wrapped in `Password` type and zeroized after key derivation
 /// - Unique salt is generated for each encryption
-/// - Nonce is randomly generated (never reused)
-/// - File is read entirely into memory (suitable for files <100MB)
+/// - Nonce is randomly generated per chunk (never reused)
+/// - Files are processed in 1MB chunks, regardless of size
 ///
 /// # Frontend Usage
 /// ```typescript
@@ -120,69 +72,45 @@ pub async fn encrypt_file(
     // Log the operation (password is NOT logged)
     log::info!("Encrypting file: {}", input_path);
 
-    // Emit progress events during encryption
+    // Emit progress events
     let _ = app.emit(CRYPTO_PROGRESS_EVENT, ProgressEvent::reading());
-
-    // Validate password is not empty
-    if password.is_empty() {
-        return Err(crate::error::CryptoError::FormatError(
-            "Password cannot be empty".to_string(),
-        ));
-    }
+    let _ = app.emit(CRYPTO_PROGRESS_EVENT, ProgressEvent::deriving_key());
 
     // Validate input path (check for symlinks, canonicalize)
     let validated_input = validate_input_path(&input_path)?;
-
-    // Validate file size for in-memory operation
-    validate_file_size(&input_path)?;
-
-    // Read plaintext
-    let plaintext = fs::read(&validated_input)?;
-    log::info!("Read {} bytes from input file", plaintext.len());
-
-    // Emit: Deriving key (the slow step)
-    let _ = app.emit(CRYPTO_PROGRESS_EVENT, ProgressEvent::deriving_key());
-
-    // Generate salt and derive key
-    let kdf_params = KdfParams::default();
-    let salt = generate_salt_with_len(kdf_params.salt_length as usize)?;
+    let allow_overwrite = allow_overwrite.unwrap_or(false);
+    let validated_output = resolve_output_path(&output_path, allow_overwrite)?;
     let password = Password::new(password);
-    let key = derive_key_with_params(&password, &salt, &kdf_params)?;
-    log::info!("Key derived successfully");
 
-    // Emit: Encrypting
-    let _ = app.emit(CRYPTO_PROGRESS_EVENT, ProgressEvent::encrypting());
+    // Progress callback for streaming
+    let app_handle = Arc::new(app.clone());
+    let progress_callback = move |bytes_processed: u64, total_bytes: u64| {
+        let percent = if total_bytes > 0 {
+            ((bytes_processed as f64 / total_bytes as f64) * 100.0) as u32
+        } else {
+            0
+        }
+        .min(99);
 
-    // Encrypt the file content
-    let (nonce, ciphertext) = encrypt(&key, &plaintext)?;
-    log::info!(
-        "Encryption complete: {} bytes -> {} bytes (including tag)",
-        plaintext.len(),
-        ciphertext.len()
-    );
-
-    // Create the encrypted file structure
-    let encrypted_file = EncryptedFile {
-        kdf_params,
-        salt,
-        nonce,
-        ciphertext,
+        let _ = app_handle.emit(
+            CRYPTO_PROGRESS_EVENT,
+            ProgressEvent::new("encrypting", percent, "Encrypting file..."),
+        );
     };
 
-    // Emit: Writing file
-    let _ = app.emit(CRYPTO_PROGRESS_EVENT, ProgressEvent::writing());
+    // Use streaming for all files
+    encrypt_file_streaming(
+        validated_input,
+        &validated_output,
+        &password,
+        DEFAULT_CHUNK_SIZE,
+        Some(Box::new(progress_callback)),
+        allow_overwrite,
+    )?;
 
-    let allow_overwrite = allow_overwrite.unwrap_or(false);
-
-    // Write encrypted file to disk with secure permissions and atomic write
-    let output_data = encrypted_file.serialize();
-    let resolved_path = atomic_write(&output_path, &output_data, allow_overwrite)?;
-    log::info!("Encrypted file written to: {}", resolved_path.display());
-
-    // Emit: Complete
     let _ = app.emit(CRYPTO_PROGRESS_EVENT, ProgressEvent::encrypt_complete());
 
-    let output_path = resolved_path.to_string_lossy().to_string();
+    let output_path = validated_output.to_string_lossy().to_string();
     Ok(CryptoResponse {
         message: format!("File encrypted successfully: {}", output_path),
         output_path,
@@ -192,57 +120,75 @@ pub async fn encrypt_file(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::crypto::decrypt_file_streaming;
     use std::fs;
     use tempfile::NamedTempFile;
 
     #[test]
-    fn test_encrypt_file_success() {
+    fn test_encrypt_file_streaming_success() {
         // Create a temporary input file
         let input_file = NamedTempFile::new().unwrap();
-        let input_path = input_file.path().to_str().unwrap();
-        fs::write(input_path, b"Test content").unwrap();
+        let input_path = input_file.path();
+        fs::write(input_path, b"Test content for streaming").unwrap();
 
         // Create output path
-        let output_file = NamedTempFile::new().unwrap();
-        let output_path = output_file.path().to_str().unwrap();
+        let temp_dir = tempfile::tempdir().unwrap();
+        let output_path = temp_dir.path().join("encrypted.bin");
 
-        // Encrypt using implementation function
-        let result = encrypt_file_impl(input_path, output_path, "test_password");
+        // Encrypt using streaming
+        let password = Password::new("test_password".to_string());
+        let result = encrypt_file_streaming(
+            input_path,
+            &output_path,
+            &password,
+            DEFAULT_CHUNK_SIZE,
+            None,
+            false,
+        );
 
         assert!(result.is_ok());
 
         // Verify output file was created
-        let output_data = fs::read(output_path).unwrap();
+        let output_data = fs::read(&output_path).unwrap();
         assert!(!output_data.is_empty());
 
+        // Verify it's Version 4 format
+        assert_eq!(output_data[0], 4);
+
         // Verify it's not the same as input (it's encrypted)
-        assert_ne!(output_data, b"Test content");
+        assert_ne!(output_data, b"Test content for streaming");
+
+        // Verify we can decrypt it
+        let decrypted_path = temp_dir.path().join("decrypted.txt");
+        decrypt_file_streaming(&output_path, &decrypted_path, &password, None, false).unwrap();
+        let decrypted_content = fs::read(&decrypted_path).unwrap();
+        assert_eq!(decrypted_content, b"Test content for streaming");
     }
 
     #[test]
-    fn test_encrypt_file_empty_password() {
+    fn test_encrypt_file_streaming_small_file() {
+        // Test that streaming works correctly for very small files
         let input_file = NamedTempFile::new().unwrap();
-        let output_file = NamedTempFile::new().unwrap();
+        let input_path = input_file.path();
+        fs::write(input_path, b"tiny").unwrap();
 
-        let result = encrypt_file_impl(
-            input_file.path().to_str().unwrap(),
-            output_file.path().to_str().unwrap(),
-            "",
+        let temp_dir = tempfile::tempdir().unwrap();
+        let output_path = temp_dir.path().join("encrypted.bin");
+
+        let password = Password::new("test_password".to_string());
+        let result = encrypt_file_streaming(
+            input_path,
+            &output_path,
+            &password,
+            DEFAULT_CHUNK_SIZE,
+            None,
+            false,
         );
 
-        assert!(result.is_err());
-    }
+        assert!(result.is_ok());
 
-    #[test]
-    fn test_encrypt_file_nonexistent_input() {
-        let output_file = NamedTempFile::new().unwrap();
-
-        let result = encrypt_file_impl(
-            "/nonexistent/file.txt",
-            output_file.path().to_str().unwrap(),
-            "password",
-        );
-
-        assert!(result.is_err());
+        // Verify Version 4 format
+        let output_data = fs::read(&output_path).unwrap();
+        assert_eq!(output_data[0], 4);
     }
 }

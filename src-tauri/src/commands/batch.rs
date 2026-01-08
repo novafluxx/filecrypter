@@ -11,7 +11,7 @@ use serde::Serialize;
 use std::path::Path;
 use tauri::{command, AppHandle, Emitter};
 
-use crate::commands::file_utils::{validate_batch_count, validate_input_path};
+use crate::commands::file_utils::{resolve_output_path, validate_batch_count, validate_input_path};
 use crate::crypto::{decrypt_file_streaming, encrypt_file_streaming, Password, DEFAULT_CHUNK_SIZE};
 use crate::error::{CryptoError, CryptoResult};
 
@@ -309,18 +309,19 @@ fn encrypt_single_file(
         .ok_or_else(|| CryptoError::FormatError("Invalid input path".to_string()))?;
     let output_filename = format!("{}.encrypted", input_filename.to_string_lossy());
     let output_path = Path::new(output_dir).join(&output_filename);
+    let resolved_output_path = resolve_output_path(&output_path, allow_overwrite)?;
 
     // Use streaming encryption for all files
     encrypt_file_streaming(
         validated_path,
-        &output_path,
+        &resolved_output_path,
         password,
         DEFAULT_CHUNK_SIZE,
         None, // No progress callback - batch has its own progress tracking
         allow_overwrite,
     )?;
 
-    Ok(output_path.to_string_lossy().to_string())
+    Ok(resolved_output_path.to_string_lossy().to_string())
 }
 
 /// Decrypt multiple files with the same password
@@ -387,17 +388,18 @@ fn decrypt_single_file(
     };
 
     let output_path = Path::new(output_dir).join(&output_filename);
+    let resolved_output_path = resolve_output_path(&output_path, allow_overwrite)?;
 
     // Use streaming decryption for all files
     decrypt_file_streaming(
         &validated_path,
-        &output_path,
+        &resolved_output_path,
         password,
         None, // No progress callback - batch has its own progress tracking
         allow_overwrite,
     )?;
 
-    Ok(output_path.to_string_lossy().to_string())
+    Ok(resolved_output_path.to_string_lossy().to_string())
 }
 
 #[cfg(test)]
@@ -449,6 +451,28 @@ mod tests {
             let output_path = file_result.output_path.unwrap();
             assert!(Path::new(&output_path).exists());
         }
+    }
+
+    #[test]
+    fn test_batch_encrypt_auto_renames_on_collision() {
+        let input_dir = tempdir().unwrap();
+        let output_dir = tempdir().unwrap();
+        let input_path = write_input_file(input_dir.path(), "sample.txt", b"alpha");
+        let output_dir_str = fs::canonicalize(output_dir.path())
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
+        let password = Password::new("password123".to_string());
+
+        let first_output = encrypt_single_file(&password, &input_path, &output_dir_str, false)
+            .unwrap();
+        let second_output = encrypt_single_file(&password, &input_path, &output_dir_str, false)
+            .unwrap();
+
+        assert_ne!(first_output, second_output);
+        assert!(Path::new(&first_output).exists());
+        assert!(Path::new(&second_output).exists());
+        assert!(second_output.ends_with("sample.txt (1).encrypted"));
     }
 
     #[test]
@@ -560,6 +584,41 @@ mod tests {
         assert_eq!(result.success_count, 0);
         assert_eq!(result.failed_count, 1);
         assert!(result.files.iter().all(|file| !file.success));
+    }
+
+    #[test]
+    fn test_batch_decrypt_auto_renames_on_collision() {
+        let input_dir = tempdir().unwrap();
+        let encrypt_dir = tempdir().unwrap();
+        let decrypt_dir = tempdir().unwrap();
+        let input_path = write_input_file(input_dir.path(), "sample.txt", b"alpha");
+        let encrypt_dir_canonical = fs::canonicalize(encrypt_dir.path())
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
+        let decrypt_dir_canonical = fs::canonicalize(decrypt_dir.path())
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
+
+        let encrypted_path = encrypt_single_file(
+            &Password::new("password123".to_string()),
+            &input_path,
+            &encrypt_dir_canonical,
+            false,
+        )
+        .unwrap();
+
+        let password = Password::new("password123".to_string());
+        let first_output =
+            decrypt_single_file(&password, &encrypted_path, &decrypt_dir_canonical, false).unwrap();
+        let second_output =
+            decrypt_single_file(&password, &encrypted_path, &decrypt_dir_canonical, false).unwrap();
+
+        assert_ne!(first_output, second_output);
+        assert!(Path::new(&first_output).exists());
+        assert!(Path::new(&second_output).exists());
+        assert!(second_output.ends_with("sample (1).txt"));
     }
 
     #[test]

@@ -9,7 +9,6 @@ mod batch;
 mod decrypt;
 mod encrypt;
 pub mod file_utils;
-mod streaming;
 
 /// Standard response for encrypt/decrypt commands.
 #[derive(Clone, Serialize)]
@@ -22,6 +21,3 @@ pub struct CryptoResponse {
 pub use batch::{batch_decrypt, batch_encrypt};
 pub use decrypt::decrypt_file;
 pub use encrypt::encrypt_file;
-pub use streaming::{
-    check_use_streaming, decrypt_file_streamed, encrypt_file_streamed, get_streaming_threshold,
-};

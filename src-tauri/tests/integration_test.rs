@@ -2,8 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use filecrypter_lib::crypto::{
-    decrypt, decrypt_file_streaming, derive_key_with_params, encrypt, encrypt_file_streaming,
-    generate_salt_with_len, EncryptedFile, KdfParams, Password, DEFAULT_CHUNK_SIZE,
+    decrypt_file_streaming, encrypt_file_streaming, Password, DEFAULT_CHUNK_SIZE,
 };
 use tempfile::tempdir;
 
@@ -14,71 +13,55 @@ fn write_input_file(dir: &Path, name: &str, content: &[u8]) -> PathBuf {
 }
 
 #[test]
-fn test_encrypt_decrypt_roundtrip_on_disk() {
+fn test_streaming_roundtrip_basic() {
     let dir = tempdir().unwrap();
     let input_path = write_input_file(dir.path(), "input.txt", b"secret content");
     let encrypted_path = dir.path().join("encrypted.bin");
     let decrypted_path = dir.path().join("decrypted.txt");
 
-    let kdf_params = KdfParams::default();
-    let salt = generate_salt_with_len(kdf_params.salt_length as usize).unwrap();
     let password = Password::new("password123".to_string());
-    let key = derive_key_with_params(&password, &salt, &kdf_params).unwrap();
-    let plaintext = fs::read(&input_path).unwrap();
-    let (nonce, ciphertext) = encrypt(&key, &plaintext).unwrap();
+    encrypt_file_streaming(
+        &input_path,
+        &encrypted_path,
+        &password,
+        DEFAULT_CHUNK_SIZE,
+        None,
+        false,
+    )
+    .unwrap();
 
-    let encrypted_file = EncryptedFile {
-        kdf_params,
-        salt,
-        nonce,
-        ciphertext,
-    };
-    fs::write(&encrypted_path, encrypted_file.serialize()).unwrap();
-
-    let encrypted_bytes = fs::read(&encrypted_path).unwrap();
-    let parsed = EncryptedFile::deserialize(&encrypted_bytes).unwrap();
-    let password = Password::new("password123".to_string());
-    let key = derive_key_with_params(&password, &parsed.salt, &parsed.kdf_params).unwrap();
-    let decrypted = decrypt(&key, &parsed.nonce, &parsed.ciphertext).unwrap();
-    fs::write(&decrypted_path, &decrypted).unwrap();
+    decrypt_file_streaming(&encrypted_path, &decrypted_path, &password, None, false).unwrap();
 
     let final_bytes = fs::read(&decrypted_path).unwrap();
     assert_eq!(final_bytes, b"secret content");
 }
 
 #[test]
-fn test_encrypt_decrypt_wrong_password_fails() {
+fn test_streaming_wrong_password_fails() {
     let dir = tempdir().unwrap();
     let input_path = write_input_file(dir.path(), "input.txt", b"secret content");
     let encrypted_path = dir.path().join("encrypted.bin");
+    let decrypted_path = dir.path().join("decrypted.txt");
 
-    let kdf_params = KdfParams::default();
-    let salt = generate_salt_with_len(kdf_params.salt_length as usize).unwrap();
     let password = Password::new("password123".to_string());
-    let key = derive_key_with_params(&password, &salt, &kdf_params).unwrap();
-    let plaintext = fs::read(&input_path).unwrap();
-    let (nonce, ciphertext) = encrypt(&key, &plaintext).unwrap();
+    encrypt_file_streaming(
+        &input_path,
+        &encrypted_path,
+        &password,
+        DEFAULT_CHUNK_SIZE,
+        None,
+        false,
+    )
+    .unwrap();
 
-    let encrypted_file = EncryptedFile {
-        kdf_params,
-        salt,
-        nonce,
-        ciphertext,
-    };
-    fs::write(&encrypted_path, encrypted_file.serialize()).unwrap();
-
-    let encrypted_bytes = fs::read(&encrypted_path).unwrap();
-    let parsed = EncryptedFile::deserialize(&encrypted_bytes).unwrap();
     let wrong_password = Password::new("wrong_password".to_string());
-    let wrong_key =
-        derive_key_with_params(&wrong_password, &parsed.salt, &parsed.kdf_params).unwrap();
-    let result = decrypt(&wrong_key, &parsed.nonce, &parsed.ciphertext);
+    let result = decrypt_file_streaming(&encrypted_path, &decrypted_path, &wrong_password, None, false);
 
     assert!(result.is_err());
 }
 
 #[test]
-fn test_streaming_roundtrip_on_disk() {
+fn test_streaming_roundtrip_large_file() {
     let dir = tempdir().unwrap();
     let content = vec![0x5Au8; DEFAULT_CHUNK_SIZE + 128];
     let input_path = write_input_file(dir.path(), "input.bin", &content);

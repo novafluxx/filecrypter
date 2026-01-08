@@ -68,10 +68,9 @@ src-tauri/src/
 ├── main.rs                 # Desktop binary entry
 ├── commands/               # Tauri IPC command handlers
 │   ├── mod.rs             # Exports all commands
-│   ├── encrypt.rs         # Single file encryption (in-memory)
-│   ├── decrypt.rs         # Single file decryption (in-memory)
+│   ├── encrypt.rs         # Single file streaming encryption
+│   ├── decrypt.rs         # Single file streaming decryption
 │   ├── batch.rs           # Batch encrypt/decrypt operations
-│   ├── streaming.rs       # Streaming encrypt/decrypt for large files
 │   └── file_utils.rs      # File system utilities
 ├── crypto/                # Cryptographic implementations
 │   ├── mod.rs             # Module exports
@@ -128,11 +127,8 @@ pub async fn encrypt_file(input_path: String, output_path: String, password: Str
 ```
 
 **Available Commands:**
-- `encrypt_file` / `decrypt_file`: In-memory operations for files <10MB
-- `encrypt_file_streamed` / `decrypt_file_streamed`: Chunked operations for large files
+- `encrypt_file` / `decrypt_file`: Streaming encryption/decryption for all files
 - `batch_encrypt` / `batch_decrypt`: Process multiple files with progress events
-- `check_use_streaming`: Determine if file should use streaming based on size
-- `get_streaming_threshold`: Get the current streaming threshold (10MB)
 
 ### Security Practices
 
@@ -159,30 +155,28 @@ pub async fn encrypt_file(input_path: String, output_path: String, password: Str
 
 ## File Operations
 
-The app automatically chooses between two encryption modes:
+All file operations use streaming (chunked) encryption for consistent behavior and optimal memory usage:
 
-1. **In-memory mode** (files <10MB): Entire file is loaded into memory, encrypted, and written out
+1. **Streaming encryption**: Files are processed in 1MB chunks
    - Commands: `encrypt_file`, `decrypt_file`
+   - Used for all file sizes
+   - Reduces memory footprint for large files
+   - Small files create appropriately-sized chunks
    - Used in `EncryptTab.vue` and `DecryptTab.vue`
 
-2. **Streaming mode** (files ≥10MB): File is processed in 1MB chunks
-   - Commands: `encrypt_file_streamed`, `decrypt_file_streamed`
-   - Automatically selected based on file size
-   - Reduces memory footprint for large files
-
-3. **Batch mode**: Multiple files encrypted/decrypted sequentially
+2. **Batch mode**: Multiple files encrypted/decrypted sequentially
    - Commands: `batch_encrypt`, `batch_decrypt`
    - Emits progress events to frontend for UI updates
-   - Enforces per-file size limit of 100MB for batch operations
+   - No per-file size limit
    - Used in `BatchTab.vue`
 
 ## Common Modifications
 
-**Adding New Crypto Algorithms**: Modify `src-tauri/src/crypto/cipher.rs` and update `VERSION` in `format.rs`
+**Adding New Crypto Algorithms**: Modify `src-tauri/src/crypto/cipher.rs` and update `STREAMING_VERSION` in `src-tauri/src/crypto/streaming.rs`
 
 **Changing Key Derivation Parameters**: Update constants in `src-tauri/src/crypto/kdf.rs` (MEMORY_COST, TIME_COST, PARALLELISM)
 
-**Changing Streaming Threshold**: Update `STREAMING_THRESHOLD` constant in `src-tauri/src/crypto/streaming.rs`
+**Changing Chunk Size**: Update `DEFAULT_CHUNK_SIZE` constant in `src-tauri/src/crypto/streaming.rs`
 
 **Adding New Tauri Commands**:
 1. Create handler in `src-tauri/src/commands/`

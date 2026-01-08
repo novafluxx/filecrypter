@@ -262,94 +262,6 @@ export function useTauri() {
     }
   }
 
-  /**
-   * Encrypt a file using streaming (chunked) encryption
-   *
-   * Use this for large files (>10MB) to avoid loading them entirely into memory.
-   *
-   * @param inputPath - Path to the file to encrypt
-   * @param outputPath - Path where encrypted file will be saved
-   * @param password - User's password
-   * @param allowOverwrite - Allow overwriting existing files (default: false)
-   * @returns Promise resolving to message + resolved output path
-   */
-  async function encryptFileStreamed(
-    inputPath: string,
-    outputPath: string,
-    password: string,
-    allowOverwrite = false
-  ): Promise<CryptoResponse> {
-    try {
-      const result = await invoke<CryptoResponse>('encrypt_file_streamed', {
-        inputPath,
-        outputPath,
-        password,
-        allowOverwrite,
-      });
-      return result;
-    } catch (error) {
-      throw new Error(`Streaming encryption failed: ${error}`);
-    }
-  }
-
-  /**
-   * Decrypt a file using streaming (chunked) decryption
-   *
-   * Use this for files that were encrypted with streaming encryption.
-   *
-   * @param inputPath - Path to the encrypted file
-   * @param outputPath - Path where decrypted file will be saved
-   * @param password - User's password
-   * @param allowOverwrite - Allow overwriting existing files (default: false)
-   * @returns Promise resolving to message + resolved output path
-   */
-  async function decryptFileStreamed(
-    inputPath: string,
-    outputPath: string,
-    password: string,
-    allowOverwrite = false
-  ): Promise<CryptoResponse> {
-    try {
-      const result = await invoke<CryptoResponse>('decrypt_file_streamed', {
-        inputPath,
-        outputPath,
-        password,
-        allowOverwrite,
-      });
-      return result;
-    } catch (error) {
-      throw new Error(`Streaming decryption failed: ${error}`);
-    }
-  }
-
-  /**
-   * Check if a file should use streaming encryption based on size
-   *
-   * @param filePath - Path to check
-   * @returns Promise resolving to true if streaming should be used
-   */
-  async function checkUseStreaming(filePath: string): Promise<boolean> {
-    try {
-      return await invoke<boolean>('check_use_streaming', { filePath });
-    } catch (error) {
-      console.error('Failed to check streaming:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Get the streaming threshold in bytes
-   *
-   * @returns Promise resolving to threshold (default 10MB)
-   */
-  async function getStreamingThreshold(): Promise<number> {
-    try {
-      return await invoke<number>('get_streaming_threshold');
-    } catch (error) {
-      return 10 * 1024 * 1024; // Default 10MB
-    }
-  }
-
   // Return the public API
   return {
     encryptFile,
@@ -360,9 +272,5 @@ export function useTauri() {
     selectDirectory,
     batchEncrypt,
     batchDecrypt,
-    encryptFileStreamed,
-    decryptFileStreamed,
-    checkUseStreaming,
-    getStreamingThreshold,
   };
 }

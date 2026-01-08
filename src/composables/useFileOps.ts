@@ -59,16 +59,7 @@ function sanitizeErrorMessage(error: unknown): string {
  * @returns {Object} Object containing state, validation, and operation methods
  */
 export function useFileOps() {
-  const {
-    encryptFile,
-    decryptFile,
-    encryptFileStreamed,
-    decryptFileStreamed,
-    checkUseStreaming,
-  } = useTauri();
-
-  // Track whether file is large enough for streaming
-  const useStreaming = ref(false);
+  const { encryptFile, decryptFile } = useTauri();
 
   // ========== Reactive State ==========
   // ref() makes primitive values reactive in Vue
@@ -127,9 +118,6 @@ export function useFileOps() {
    */
   async function setInputPath(path: string, isEncrypt: boolean) {
     inputPath.value = path;
-
-    // Check if we should use streaming for this file
-    useStreaming.value = await checkUseStreaming(path);
 
     // Auto-suggest output filename
     if (isEncrypt) {
@@ -236,25 +224,16 @@ export function useFileOps() {
 
     try {
       isProcessing.value = true;
-      const mode = useStreaming.value ? 'Streaming encryption' : 'Encrypting file';
-      showStatus(`${mode}... This may take a moment.`, 'info', 0);
+      showStatus('Encrypting file... This may take a moment.', 'info', 0);
 
-      // Call Rust backend
-      // Uses streaming for large files (>10MB) to avoid memory issues
+      // Call Rust backend (uses streaming for all files)
       const allowOverwrite = !neverOverwrite.value;
-      const result = useStreaming.value
-        ? await encryptFileStreamed(
-            inputPath.value,
-            outputPath.value,
-            password.value,
-            allowOverwrite
-          )
-        : await encryptFile(
-            inputPath.value,
-            outputPath.value,
-            password.value,
-            allowOverwrite
-          );
+      const result = await encryptFile(
+        inputPath.value,
+        outputPath.value,
+        password.value,
+        allowOverwrite
+      );
 
       // Success!
       showStatus(result.message, 'success');
@@ -294,32 +273,13 @@ export function useFileOps() {
       isProcessing.value = true;
       showStatus('Decrypting file... This may take a moment.', 'info', 0);
 
-      let result: CryptoResponse;
       const allowOverwrite = !neverOverwrite.value;
-
-      // Try regular decryption first, fall back to streaming if format error
-      try {
-        result = await decryptFile(
-          inputPath.value,
-          outputPath.value,
-          password.value,
-          allowOverwrite
-        );
-      } catch (error) {
-        // If format error indicates streaming format (version 2), try streaming decryption
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        if (errorMsg.includes('version') || errorMsg.includes('format')) {
-          showStatus('Trying streaming decryption...', 'info', 0);
-          result = await decryptFileStreamed(
-            inputPath.value,
-            outputPath.value,
-            password.value,
-            allowOverwrite
-          );
-        } else {
-          throw error;
-        }
-      }
+      const result = await decryptFile(
+        inputPath.value,
+        outputPath.value,
+        password.value,
+        allowOverwrite
+      );
 
       // Success!
       showStatus(result.message, 'success');
@@ -348,7 +308,6 @@ export function useFileOps() {
     isProcessing,
     statusMessage,
     statusType,
-    useStreaming, // Whether streaming mode will be used (for large files)
 
     // Computed
     isFormValid,

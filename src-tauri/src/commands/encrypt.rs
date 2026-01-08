@@ -19,7 +19,9 @@ use tauri::{command, AppHandle, Emitter};
 
 use crate::commands::file_utils::{atomic_write, validate_file_size, validate_input_path};
 use crate::commands::CryptoResponse;
-use crate::crypto::{derive_key, encrypt, generate_salt, EncryptedFile, Password};
+use crate::crypto::{
+    derive_key_with_params, encrypt, generate_salt_with_len, EncryptedFile, KdfParams, Password,
+};
 use crate::error::CryptoResult;
 use crate::events::{ProgressEvent, CRYPTO_PROGRESS_EVENT};
 
@@ -43,17 +45,19 @@ fn encrypt_file_impl(
     let plaintext = fs::read(input_path)?;
 
     // Step 2: Generate a random salt for key derivation
-    let salt = generate_salt()?;
+    let kdf_params = KdfParams::default();
+    let salt = generate_salt_with_len(kdf_params.salt_length as usize)?;
 
     // Step 3: Derive encryption key from password + salt
     let password = Password::new(password.to_string());
-    let key = derive_key(&password, &salt)?;
+    let key = derive_key_with_params(&password, &salt, &kdf_params)?;
 
     // Step 4: Encrypt the file content with AES-256-GCM
     let (nonce, ciphertext) = encrypt(&key, &plaintext)?;
 
     // Step 5: Create the encrypted file structure with all metadata
     let encrypted_file = EncryptedFile {
+        kdf_params,
         salt,
         nonce,
         ciphertext,
@@ -140,9 +144,10 @@ pub async fn encrypt_file(
     let _ = app.emit(CRYPTO_PROGRESS_EVENT, ProgressEvent::deriving_key());
 
     // Generate salt and derive key
-    let salt = generate_salt()?;
+    let kdf_params = KdfParams::default();
+    let salt = generate_salt_with_len(kdf_params.salt_length as usize)?;
     let password = Password::new(password);
-    let key = derive_key(&password, &salt)?;
+    let key = derive_key_with_params(&password, &salt, &kdf_params)?;
     log::info!("Key derived successfully");
 
     // Emit: Encrypting
@@ -158,6 +163,7 @@ pub async fn encrypt_file(
 
     // Create the encrypted file structure
     let encrypted_file = EncryptedFile {
+        kdf_params,
         salt,
         nonce,
         ciphertext,

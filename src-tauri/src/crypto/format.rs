@@ -3,11 +3,18 @@
 // This module defines the binary file format for encrypted files and provides
 // functions to serialize and deserialize encrypted data.
 //
-// File Format Specification (Version 1):
+// File Format Specification (Version 2):
+// - KDF parameters are stored in the header so each file is self-describing.
+// - Header fields must be validated before use.
 // ┌─────────────────────────────────────────────────────────────────┐
 // │ Byte 0       │ VERSION (1 byte)                                 │
 // │ Bytes 1-4    │ SALT_LENGTH (4 bytes, big-endian u32)            │
-// │ Bytes 5...N  │ SALT (variable length, typically 16 bytes)       │
+// │ Byte 5       │ KDF_ALG (1 byte)                                 │
+// │ Bytes 6-9    │ KDF_MEM_COST (4 bytes, big-endian u32)           │
+// │ Bytes 10-13  │ KDF_TIME_COST (4 bytes, big-endian u32)          │
+// │ Bytes 14-17  │ KDF_PARALLELISM (4 bytes, big-endian u32)        │
+// │ Bytes 18-21  │ KDF_KEY_LEN (4 bytes, big-endian u32)            │
+// │ Bytes 22..N  │ SALT (variable length, typically 16 bytes)       │
 // │ Bytes N+1... │ NONCE (12 bytes for AES-GCM)                     │
 // │ Bytes ...EOF │ CIPHERTEXT + AUTHENTICATION_TAG (variable length)│
 // └─────────────────────────────────────────────────────────────────┘
@@ -19,11 +26,16 @@
 // - Nonce is stored before ciphertext (standard practice)
 // - Authentication tag is appended to ciphertext by AES-GCM
 
-use crate::crypto::kdf::SALT_LENGTH;
+use crate::crypto::kdf::{KdfAlgorithm, KdfParams};
 use crate::error::{CryptoError, CryptoResult};
 
 /// Current file format version
-const VERSION: u8 = 1;
+const VERSION: u8 = 2;
+
+const VERSION_SIZE: usize = 1;
+const SALT_LEN_SIZE: usize = 4;
+const KDF_PARAMS_SIZE: usize = 1 + 4 + 4 + 4 + 4;
+const HEADER_BASE_SIZE: usize = VERSION_SIZE + SALT_LEN_SIZE + KDF_PARAMS_SIZE;
 
 /// Nonce size for AES-GCM (12 bytes = 96 bits is standard)
 const NONCE_SIZE: usize = 12;
@@ -39,6 +51,9 @@ const MIN_TAG_SIZE: usize = 16;
 /// - Ciphertext: The encrypted data plus authentication tag
 #[derive(Debug)]
 pub struct EncryptedFile {
+    /// KDF parameters used to derive the encryption key
+    pub kdf_params: KdfParams,
+
     /// Salt used for key derivation (typically 16 bytes)
     pub salt: Vec<u8>,
 
@@ -59,13 +74,14 @@ impl EncryptedFile {
     /// A byte vector ready to be written to a file
     ///
     /// # Format
-    /// `[VERSION][SALT_LEN][SALT][NONCE][CIPHERTEXT+TAG]`
+    /// `[VERSION][SALT_LEN][KDF_PARAMS][SALT][NONCE][CIPHERTEXT+TAG]`
     ///
     /// # Example
     /// ```no_run
-    /// use filecrypter_lib::crypto::EncryptedFile;
+    /// use filecrypter_lib::crypto::{EncryptedFile, KdfParams};
     /// let encrypted = EncryptedFile {
-    ///     salt: vec![1, 2, 3],
+    ///     kdf_params: KdfParams::default(),
+    ///     salt: vec![1; 16],
     ///     nonce: vec![4; 12],
     ///     ciphertext: vec![5; 32],
     /// };
@@ -75,11 +91,8 @@ impl EncryptedFile {
     pub fn serialize(&self) -> Vec<u8> {
         // Calculate total size needed for the serialized data
         let salt_len = self.salt.len() as u32;
-        let total_size = 1 // version
-            + 4 // salt length field
-            + self.salt.len()
-            + NONCE_SIZE
-            + self.ciphertext.len();
+        debug_assert_eq!(salt_len, self.kdf_params.salt_length);
+        let total_size = HEADER_BASE_SIZE + self.salt.len() + NONCE_SIZE + self.ciphertext.len();
 
         // Pre-allocate the exact size needed (optimization)
         let mut buffer = Vec::with_capacity(total_size);
@@ -90,13 +103,20 @@ impl EncryptedFile {
         // 2. Write salt length as 4-byte big-endian integer
         buffer.extend_from_slice(&salt_len.to_be_bytes());
 
-        // 3. Write salt bytes
+        // 3. Write KDF parameters
+        buffer.push(self.kdf_params.algorithm.to_u8());
+        buffer.extend_from_slice(&self.kdf_params.memory_cost_kib.to_be_bytes());
+        buffer.extend_from_slice(&self.kdf_params.time_cost.to_be_bytes());
+        buffer.extend_from_slice(&self.kdf_params.parallelism.to_be_bytes());
+        buffer.extend_from_slice(&self.kdf_params.key_length.to_be_bytes());
+
+        // 4. Write salt bytes
         buffer.extend_from_slice(&self.salt);
 
-        // 4. Write nonce (always 12 bytes for AES-GCM)
+        // 5. Write nonce (always 12 bytes for AES-GCM)
         buffer.extend_from_slice(&self.nonce);
 
-        // 5. Write ciphertext + authentication tag
+        // 6. Write ciphertext + authentication tag
         buffer.extend_from_slice(&self.ciphertext);
 
         buffer
@@ -127,8 +147,8 @@ impl EncryptedFile {
     /// # }
     /// ```
     pub fn deserialize(data: &[u8]) -> CryptoResult<Self> {
-        // Minimum size check: version(1) + salt_len(4) + nonce(12) + tag(16)
-        let min_size = 1 + 4 + NONCE_SIZE + MIN_TAG_SIZE;
+        // Minimum size check: header + nonce + tag
+        let min_size = HEADER_BASE_SIZE + NONCE_SIZE + MIN_TAG_SIZE;
         if data.len() < min_size {
             return Err(CryptoError::FormatError(format!(
                 "File too small (expected at least {} bytes, got {})",
@@ -154,31 +174,64 @@ impl EncryptedFile {
         let salt_len = u32::from_be_bytes(salt_len_bytes) as usize;
         pos += 4;
 
-        // Validate salt length must be exactly 16 bytes for security consistency
-        // This ensures all encrypted files use the standard salt length
-        if salt_len != SALT_LENGTH {
-            return Err(CryptoError::FormatError(format!(
-                "Invalid salt length: expected {} bytes, got {}",
-                SALT_LENGTH, salt_len
-            )));
-        }
+        // 3. Read KDF parameters
+        let algorithm = KdfAlgorithm::from_u8(data[pos])?;
+        pos += 1;
 
-        // 3. Verify we have enough bytes for salt + nonce + minimal ciphertext
+        let mem_cost = u32::from_be_bytes(
+            data[pos..pos + 4]
+                .try_into()
+                .map_err(|_| CryptoError::FormatError("Failed to read KDF memory cost".to_string()))?,
+        );
+        pos += 4;
+
+        let time_cost = u32::from_be_bytes(
+            data[pos..pos + 4]
+                .try_into()
+                .map_err(|_| CryptoError::FormatError("Failed to read KDF time cost".to_string()))?,
+        );
+        pos += 4;
+
+        let parallelism = u32::from_be_bytes(
+            data[pos..pos + 4].try_into().map_err(|_| {
+                CryptoError::FormatError("Failed to read KDF parallelism".to_string())
+            })?,
+        );
+        pos += 4;
+
+        let key_length = u32::from_be_bytes(
+            data[pos..pos + 4]
+                .try_into()
+                .map_err(|_| CryptoError::FormatError("Failed to read KDF key length".to_string()))?,
+        );
+        pos += 4;
+
+        let kdf_params = KdfParams {
+            algorithm,
+            memory_cost_kib: mem_cost,
+            time_cost,
+            parallelism,
+            key_length,
+            salt_length: salt_len as u32,
+        };
+        kdf_params.validate()?;
+
+        // 4. Verify we have enough bytes for salt + nonce + minimal ciphertext
         if data.len() < pos + salt_len + NONCE_SIZE + MIN_TAG_SIZE {
             return Err(CryptoError::FormatError(
                 "File truncated or corrupted".to_string(),
             ));
         }
 
-        // 4. Read salt
+        // 5. Read salt
         let salt = data[pos..pos + salt_len].to_vec();
         pos += salt_len;
 
-        // 5. Read nonce (always 12 bytes)
+        // 6. Read nonce (always 12 bytes)
         let nonce = data[pos..pos + NONCE_SIZE].to_vec();
         pos += NONCE_SIZE;
 
-        // 6. Read remaining data as ciphertext (includes authentication tag)
+        // 7. Read remaining data as ciphertext (includes authentication tag)
         let ciphertext = data[pos..].to_vec();
 
         // Validate ciphertext has at least the authentication tag
@@ -189,6 +242,7 @@ impl EncryptedFile {
         }
 
         Ok(Self {
+            kdf_params,
             salt,
             nonce,
             ciphertext,
@@ -199,10 +253,12 @@ impl EncryptedFile {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::crypto::kdf::KdfParams;
 
     #[test]
     fn test_serialize_deserialize_roundtrip() {
         let original = EncryptedFile {
+            kdf_params: KdfParams::default(),
             salt: vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
             nonce: vec![1; NONCE_SIZE],
             ciphertext: vec![42; 64], // 64 bytes including tag
@@ -219,7 +275,8 @@ mod tests {
     #[test]
     fn test_serialize_format() {
         let encrypted = EncryptedFile {
-            salt: vec![1, 2],
+            kdf_params: KdfParams::default(),
+            salt: vec![1; 16],
             nonce: vec![3; 12],
             ciphertext: vec![4; 20],
         };
@@ -231,16 +288,22 @@ mod tests {
 
         // Check salt length (big-endian)
         let salt_len = u32::from_be_bytes([bytes[1], bytes[2], bytes[3], bytes[4]]);
-        assert_eq!(salt_len, 2);
+        assert_eq!(salt_len, 16);
 
-        // Check salt starts at byte 5
-        assert_eq!(&bytes[5..7], &[1, 2]);
+        // Check KDF params start at byte 5
+        assert_eq!(bytes[5], KdfParams::default().algorithm.to_u8());
+
+        // Check salt starts after KDF params (17 bytes)
+        let salt_start = HEADER_BASE_SIZE;
+        assert_eq!(&bytes[salt_start..salt_start + 16], &[1u8; 16]);
 
         // Check nonce starts after salt
-        assert_eq!(&bytes[7..19], &[3; 12]);
+        let nonce_start = salt_start + 16;
+        assert_eq!(&bytes[nonce_start..nonce_start + 12], &[3; 12]);
 
         // Check ciphertext starts after nonce
-        assert_eq!(&bytes[19..], &[4; 20]);
+        let cipher_start = nonce_start + 12;
+        assert_eq!(&bytes[cipher_start..], &[4; 20]);
     }
 
     #[test]
@@ -265,6 +328,7 @@ mod tests {
     #[test]
     fn test_deserialize_truncated_file() {
         let encrypted = EncryptedFile {
+            kdf_params: KdfParams::default(),
             salt: vec![1; 16],
             nonce: vec![2; 12],
             ciphertext: vec![3; 32],
@@ -283,8 +347,13 @@ mod tests {
 
     #[test]
     fn test_deserialize_invalid_salt_length() {
-        let mut data = vec![0; 1000];
-        data[0] = VERSION;
+        let encrypted = EncryptedFile {
+            kdf_params: KdfParams::default(),
+            salt: vec![1; 16],
+            nonce: vec![2; 12],
+            ciphertext: vec![3; 32],
+        };
+        let mut data = encrypted.serialize();
 
         // Test various invalid salt lengths
         // Too large
@@ -297,9 +366,6 @@ mod tests {
         data[1..5].copy_from_slice(&(8u32).to_be_bytes());
         let result = EncryptedFile::deserialize(&data);
         assert!(result.is_err());
-        let err_msg = format!("{}", result.unwrap_err());
-        assert!(err_msg.contains("Invalid salt length"));
-        assert!(err_msg.contains("expected 16 bytes"));
 
         // Zero bytes
         data[1..5].copy_from_slice(&(0u32).to_be_bytes());
@@ -315,6 +381,7 @@ mod tests {
     #[test]
     fn test_serialize_size_calculation() {
         let encrypted = EncryptedFile {
+            kdf_params: KdfParams::default(),
             salt: vec![1; 16],
             nonce: vec![2; 12],
             ciphertext: vec![3; 48],
@@ -322,14 +389,15 @@ mod tests {
 
         let bytes = encrypted.serialize();
 
-        // Expected: 1 (version) + 4 (salt_len) + 16 (salt) + 12 (nonce) + 48 (ciphertext)
-        assert_eq!(bytes.len(), 1 + 4 + 16 + 12 + 48);
+        // Expected: header + salt + nonce + ciphertext
+        assert_eq!(bytes.len(), HEADER_BASE_SIZE + 16 + 12 + 48);
     }
 
     #[test]
     fn test_empty_ciphertext_rejected() {
         let data = {
             let encrypted = EncryptedFile {
+                kdf_params: KdfParams::default(),
                 salt: vec![1; 16],
                 nonce: vec![2; 12],
                 ciphertext: vec![3; 10], // Less than MIN_TAG_SIZE

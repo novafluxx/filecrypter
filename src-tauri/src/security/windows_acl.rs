@@ -18,7 +18,8 @@ use windows_acl::helper::{current_user, name_to_sid};
 
 use windows_sys::Win32::Foundation::{LocalFree, INVALID_HANDLE_VALUE};
 use windows_sys::Win32::Security::Authorization::{
-    SetEntriesInAclW, EXPLICIT_ACCESS_W, SET_ACCESS, TRUSTEE_IS_SID, TRUSTEE_W,
+    GetNamedSecurityInfoW, SetEntriesInAclW, SetNamedSecurityInfoW, EXPLICIT_ACCESS_W, SET_ACCESS,
+    TRUSTEE_IS_SID, TRUSTEE_W,
 };
 use windows_sys::Win32::Security::{
     InitializeSecurityDescriptor, SetSecurityDescriptorDacl, ACL as WIN_ACL,
@@ -178,6 +179,71 @@ fn get_last_error() -> u32 {
     unsafe { windows_sys::Win32::Foundation::GetLastError() }
 }
 
+/// Protect the current DACL from inheritance while preserving its entries.
+fn protect_dacl(path: &Path) -> Result<(), DaclError> {
+    let path_wide: Vec<u16> = path
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+
+    unsafe {
+        use windows_sys::Win32::Security::Authorization::SE_FILE_OBJECT;
+
+        let mut dacl: *mut WIN_ACL = std::ptr::null_mut();
+        let mut sd: PSECURITY_DESCRIPTOR = std::ptr::null_mut();
+
+        // DACL states to be aware of:
+        // - Not present: permissions are inherited from the parent object.
+        // - Present but NULL: grants full access to everyone (dangerous).
+        // - Present with ACEs: normal restricted permissions.
+        // We treat a NULL DACL pointer as an error to avoid ever applying or preserving it.
+        let result = GetNamedSecurityInfoW(
+            path_wide.as_ptr(),
+            SE_FILE_OBJECT,
+            DACL_SECURITY_INFORMATION,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            &mut dacl,
+            std::ptr::null_mut(),
+            &mut sd,
+        );
+
+        if result != 0 {
+            return Err(DaclError::WindowsError(result));
+        }
+
+        if dacl.is_null() {
+            if !sd.is_null() {
+                LocalFree(sd as *mut _);
+            }
+            return Err(DaclError::IoError(
+                "Failed to read DACL for protection".to_string(),
+            ));
+        }
+
+        let result = SetNamedSecurityInfoW(
+            path_wide.as_ptr(),
+            SE_FILE_OBJECT,
+            DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            dacl,
+            std::ptr::null_mut(),
+        );
+
+        if !sd.is_null() {
+            LocalFree(sd as *mut _);
+        }
+
+        if result != 0 {
+            return Err(DaclError::WindowsError(result));
+        }
+    }
+
+    Ok(())
+}
+
 /// Set restrictive DACL on an existing file: current user read/write only.
 ///
 /// This mirrors Unix 0o600 permissions by:
@@ -235,33 +301,8 @@ pub fn set_owner_only_dacl<P: AsRef<Path>>(path: P) -> Result<(), DaclError> {
         access_mask,
     )?;
 
-    // Set protected DACL flag to prevent inheritance
-    let path_wide: Vec<u16> = path
-        .as_ref()
-        .as_os_str()
-        .encode_wide()
-        .chain(std::iter::once(0))
-        .collect();
-
-    unsafe {
-        use windows_sys::Win32::Security::Authorization::SetNamedSecurityInfoW;
-        use windows_sys::Win32::Security::Authorization::SE_FILE_OBJECT;
-
-        // Set the DACL as protected (non-inherited)
-        let result = SetNamedSecurityInfoW(
-            path_wide.as_ptr(),
-            SE_FILE_OBJECT,
-            DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
-            std::ptr::null_mut(),
-            std::ptr::null_mut(),
-            std::ptr::null_mut(), // Use existing DACL
-            std::ptr::null_mut(),
-        );
-
-        if result != 0 {
-            return Err(DaclError::WindowsError(result));
-        }
-    }
+    // Protect the DACL from inheritance while preserving its entries.
+    protect_dacl(path.as_ref())?;
 
     Ok(())
 }

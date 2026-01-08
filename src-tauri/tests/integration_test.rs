@@ -2,8 +2,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use filecrypter_lib::crypto::{
-    decrypt, decrypt_file_streaming, derive_key, encrypt, encrypt_file_streaming, generate_salt,
-    EncryptedFile, Password, DEFAULT_CHUNK_SIZE,
+    decrypt, decrypt_file_streaming, derive_key_with_params, encrypt, encrypt_file_streaming,
+    generate_salt_with_len, EncryptedFile, KdfParams, Password, DEFAULT_CHUNK_SIZE,
 };
 use tempfile::tempdir;
 
@@ -20,13 +20,15 @@ fn test_encrypt_decrypt_roundtrip_on_disk() {
     let encrypted_path = dir.path().join("encrypted.bin");
     let decrypted_path = dir.path().join("decrypted.txt");
 
-    let salt = generate_salt().unwrap();
+    let kdf_params = KdfParams::default();
+    let salt = generate_salt_with_len(kdf_params.salt_length as usize).unwrap();
     let password = Password::new("password123".to_string());
-    let key = derive_key(&password, &salt).unwrap();
+    let key = derive_key_with_params(&password, &salt, &kdf_params).unwrap();
     let plaintext = fs::read(&input_path).unwrap();
     let (nonce, ciphertext) = encrypt(&key, &plaintext).unwrap();
 
     let encrypted_file = EncryptedFile {
+        kdf_params,
         salt,
         nonce,
         ciphertext,
@@ -36,7 +38,7 @@ fn test_encrypt_decrypt_roundtrip_on_disk() {
     let encrypted_bytes = fs::read(&encrypted_path).unwrap();
     let parsed = EncryptedFile::deserialize(&encrypted_bytes).unwrap();
     let password = Password::new("password123".to_string());
-    let key = derive_key(&password, &parsed.salt).unwrap();
+    let key = derive_key_with_params(&password, &parsed.salt, &parsed.kdf_params).unwrap();
     let decrypted = decrypt(&key, &parsed.nonce, &parsed.ciphertext).unwrap();
     fs::write(&decrypted_path, &decrypted).unwrap();
 
@@ -50,13 +52,15 @@ fn test_encrypt_decrypt_wrong_password_fails() {
     let input_path = write_input_file(dir.path(), "input.txt", b"secret content");
     let encrypted_path = dir.path().join("encrypted.bin");
 
-    let salt = generate_salt().unwrap();
+    let kdf_params = KdfParams::default();
+    let salt = generate_salt_with_len(kdf_params.salt_length as usize).unwrap();
     let password = Password::new("password123".to_string());
-    let key = derive_key(&password, &salt).unwrap();
+    let key = derive_key_with_params(&password, &salt, &kdf_params).unwrap();
     let plaintext = fs::read(&input_path).unwrap();
     let (nonce, ciphertext) = encrypt(&key, &plaintext).unwrap();
 
     let encrypted_file = EncryptedFile {
+        kdf_params,
         salt,
         nonce,
         ciphertext,
@@ -66,7 +70,8 @@ fn test_encrypt_decrypt_wrong_password_fails() {
     let encrypted_bytes = fs::read(&encrypted_path).unwrap();
     let parsed = EncryptedFile::deserialize(&encrypted_bytes).unwrap();
     let wrong_password = Password::new("wrong_password".to_string());
-    let wrong_key = derive_key(&wrong_password, &parsed.salt).unwrap();
+    let wrong_key =
+        derive_key_with_params(&wrong_password, &parsed.salt, &parsed.kdf_params).unwrap();
     let result = decrypt(&wrong_key, &parsed.nonce, &parsed.ciphertext);
 
     assert!(result.is_err());

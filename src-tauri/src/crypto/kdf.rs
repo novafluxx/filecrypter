@@ -24,6 +24,28 @@ use rand::{rngs::OsRng, TryRngCore};
 use crate::crypto::secure::{Password, SecureBytes};
 use crate::error::{CryptoError, CryptoResult};
 
+/// Supported KDF algorithms for file encryption.
+///
+/// These identifiers are serialized into encrypted file headers to make each file
+/// self-describing. Unknown values must be rejected.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KdfAlgorithm {
+    Argon2id = 1,
+}
+
+impl KdfAlgorithm {
+    pub fn from_u8(value: u8) -> CryptoResult<Self> {
+        match value {
+            1 => Ok(KdfAlgorithm::Argon2id),
+            _ => Err(CryptoError::FormatError("Unsupported KDF algorithm".to_string())),
+        }
+    }
+
+    pub fn to_u8(self) -> u8 {
+        self as u8
+    }
+}
+
 // Argon2 configuration constants
 // These values are based on OWASP recommendations for file encryption (2025)
 
@@ -45,6 +67,90 @@ const KEY_LENGTH: usize = 32;
 /// Salt length in bytes (16 bytes = 128 bits is standard)
 /// This is public to allow consistent validation across all encryption modes
 pub const SALT_LENGTH: usize = 16;
+
+const MIN_MEMORY_COST: u32 = 8 * 1024;
+const MAX_MEMORY_COST: u32 = 256 * 1024;
+const MIN_TIME_COST: u32 = 1;
+const MAX_TIME_COST: u32 = 10;
+const MIN_PARALLELISM: u32 = 1;
+const MAX_PARALLELISM: u32 = 16;
+const MIN_SALT_LENGTH: u32 = 16; // Current default, minimum for security
+const MAX_SALT_LENGTH: u32 = 64; // Allow future flexibility without format changes
+// AES-256 requires a 32-byte key, so the allowed range is fixed for now.
+const MIN_KEY_LENGTH: u32 = 32;
+const MAX_KEY_LENGTH: u32 = 32;
+
+/// KDF parameters stored in encrypted file headers.
+///
+/// These are public, integrity-protected metadata. They must be validated to
+/// prevent malicious inputs from causing excessive CPU/memory usage.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct KdfParams {
+    pub algorithm: KdfAlgorithm,
+    pub memory_cost_kib: u32,
+    pub time_cost: u32,
+    pub parallelism: u32,
+    pub key_length: u32,
+    pub salt_length: u32,
+}
+
+impl Default for KdfParams {
+    fn default() -> Self {
+        Self {
+            algorithm: KdfAlgorithm::Argon2id,
+            memory_cost_kib: MEMORY_COST,
+            time_cost: TIME_COST,
+            parallelism: PARALLELISM,
+            key_length: KEY_LENGTH as u32,
+            salt_length: SALT_LENGTH as u32,
+        }
+    }
+}
+
+impl KdfParams {
+    /// Validate KDF parameters and enforce guardrails.
+    ///
+    /// This rejects values that are too small (weak) or too large (DoS risk),
+    /// and currently pins key length to AES-256 (32 bytes).
+    pub fn validate(&self) -> CryptoResult<()> {
+        match self.algorithm {
+            KdfAlgorithm::Argon2id => {}
+        }
+
+        if self.memory_cost_kib < MIN_MEMORY_COST || self.memory_cost_kib > MAX_MEMORY_COST {
+            return Err(CryptoError::FormatError(format!(
+                "Invalid KDF memory cost: {} KiB (must be {}-{} KiB)",
+                self.memory_cost_kib, MIN_MEMORY_COST, MAX_MEMORY_COST
+            )));
+        }
+        if self.time_cost < MIN_TIME_COST || self.time_cost > MAX_TIME_COST {
+            return Err(CryptoError::FormatError(format!(
+                "Invalid KDF time cost: {} (must be {}-{})",
+                self.time_cost, MIN_TIME_COST, MAX_TIME_COST
+            )));
+        }
+        if self.parallelism < MIN_PARALLELISM || self.parallelism > MAX_PARALLELISM {
+            return Err(CryptoError::FormatError(format!(
+                "Invalid KDF parallelism: {} (must be {}-{})",
+                self.parallelism, MIN_PARALLELISM, MAX_PARALLELISM
+            )));
+        }
+        if self.key_length < MIN_KEY_LENGTH || self.key_length > MAX_KEY_LENGTH {
+            return Err(CryptoError::FormatError(format!(
+                "Invalid KDF key length: {} bytes (must be {}-{})",
+                self.key_length, MIN_KEY_LENGTH, MAX_KEY_LENGTH
+            )));
+        }
+        if self.salt_length < MIN_SALT_LENGTH || self.salt_length > MAX_SALT_LENGTH {
+            return Err(CryptoError::FormatError(format!(
+                "Invalid KDF salt length: {} bytes (must be {}-{})",
+                self.salt_length, MIN_SALT_LENGTH, MAX_SALT_LENGTH
+            )));
+        }
+
+        Ok(())
+    }
+}
 
 /// Derive a cryptographic key from a password using Argon2id
 ///
@@ -75,46 +181,53 @@ pub const SALT_LENGTH: usize = 16;
 /// # }
 /// ```
 pub fn derive_key(password: &Password, salt: &[u8]) -> CryptoResult<SecureBytes> {
-    // Validate salt length - must be exactly 16 bytes for security consistency
-    // This ensures compatibility across all encryption modes (in-memory and streaming)
-    if salt.len() != SALT_LENGTH {
+    derive_key_with_params(password, salt, &KdfParams::default())
+}
+
+/// Derive a key using explicit KDF parameters (stored in the file header).
+///
+/// This allows per-file settings and forward compatibility when defaults change.
+pub fn derive_key_with_params(
+    password: &Password,
+    salt: &[u8],
+    params: &KdfParams,
+) -> CryptoResult<SecureBytes> {
+    params.validate()?;
+
+    // Validate salt length matches the header parameter (not just range).
+    if salt.len() != params.salt_length as usize {
         return Err(CryptoError::FormatError(format!(
             "Invalid salt length: expected {} bytes, got {}",
-            SALT_LENGTH,
+            params.salt_length,
             salt.len()
         )));
     }
 
-    // Create Argon2 parameters with our security settings
-    let params = Params::new(
-        MEMORY_COST,      // Memory cost (KiB)
-        TIME_COST,        // Time cost (iterations)
-        PARALLELISM,      // Parallelism (threads)
-        Some(KEY_LENGTH), // Output length
+    let argon2_params = Params::new(
+        params.memory_cost_kib,
+        params.time_cost,
+        params.parallelism,
+        Some(params.key_length as usize),
     )
     .map_err(|_| CryptoError::EncryptionFailed)?;
 
-    // Initialize Argon2id with our parameters
-    let argon2 = Argon2::new(
-        Algorithm::Argon2id, // Hybrid algorithm (best security)
-        Version::V0x13,      // Latest version (0x13 = 19)
-        params,
-    );
+    let argon2 = match params.algorithm {
+        KdfAlgorithm::Argon2id => Argon2::new(
+            Algorithm::Argon2id,
+            Version::V0x13,
+            argon2_params,
+        ),
+    };
 
-    // Encode the salt as a base64 string (required by argon2 crate API)
     let salt_string = SaltString::encode_b64(salt)
         .map_err(|_| CryptoError::FormatError("Invalid salt".to_string()))?;
 
-    // Perform the key derivation (CPU-intensive operation)
     let password_hash = argon2
         .hash_password(password.as_bytes(), &salt_string)
         .map_err(|_| CryptoError::EncryptionFailed)?;
 
-    // Extract the raw hash bytes (our encryption key)
     let hash = password_hash.hash.ok_or(CryptoError::EncryptionFailed)?;
-
-    // The hash is the derived key - wrap it in SecureBytes for safe handling
-    let key_bytes = hash.as_bytes()[..KEY_LENGTH].to_vec();
+    let key_bytes = hash.as_bytes()[..params.key_length as usize].to_vec();
 
     Ok(SecureBytes::new(key_bytes))
 }
@@ -142,7 +255,12 @@ pub fn derive_key(password: &Password, salt: &[u8]) -> CryptoResult<SecureBytes>
 /// # }
 /// ```
 pub fn generate_salt() -> CryptoResult<Vec<u8>> {
-    let mut salt = vec![0u8; SALT_LENGTH];
+    generate_salt_with_len(SALT_LENGTH)
+}
+
+/// Generate a random salt with a caller-specified length.
+pub fn generate_salt_with_len(len: usize) -> CryptoResult<Vec<u8>> {
+    let mut salt = vec![0u8; len];
 
     // Fill with cryptographically secure random bytes from the OS
     let mut rng = OsRng;
@@ -294,5 +412,39 @@ mod tests {
         // Valid length should work
         let valid_salt = vec![0u8; SALT_LENGTH];
         assert!(derive_key(&password, &valid_salt).is_ok());
+    }
+
+    #[test]
+    fn test_kdf_params_validate_rejects_out_of_bounds() {
+        let mut params = KdfParams::default();
+
+        params.memory_cost_kib = MIN_MEMORY_COST - 1;
+        assert!(params.validate().is_err());
+        params.memory_cost_kib = MAX_MEMORY_COST + 1;
+        assert!(params.validate().is_err());
+        params.memory_cost_kib = MEMORY_COST;
+
+        params.time_cost = MIN_TIME_COST - 1;
+        assert!(params.validate().is_err());
+        params.time_cost = MAX_TIME_COST + 1;
+        assert!(params.validate().is_err());
+        params.time_cost = TIME_COST;
+
+        params.parallelism = MIN_PARALLELISM - 1;
+        assert!(params.validate().is_err());
+        params.parallelism = MAX_PARALLELISM + 1;
+        assert!(params.validate().is_err());
+        params.parallelism = PARALLELISM;
+
+        params.key_length = MIN_KEY_LENGTH - 1;
+        assert!(params.validate().is_err());
+        params.key_length = MAX_KEY_LENGTH + 1;
+        assert!(params.validate().is_err());
+        params.key_length = KEY_LENGTH as u32;
+
+        params.salt_length = MIN_SALT_LENGTH - 1;
+        assert!(params.validate().is_err());
+        params.salt_length = MAX_SALT_LENGTH + 1;
+        assert!(params.validate().is_err());
     }
 }

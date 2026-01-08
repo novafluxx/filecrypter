@@ -190,6 +190,15 @@ pub fn validate_input_path(path: &str) -> CryptoResult<PathBuf> {
     // Check for symlinks in any path component
     validate_no_symlinks(path)?;
 
+    // Reject non-regular files (directories, devices, FIFOs, etc.).
+    // Size limits are enforced by callers (streaming vs in-memory paths).
+    let metadata = fs::metadata(path)?;
+    if !metadata.file_type().is_file() {
+        return Err(CryptoError::InvalidPath(
+            "Input path must be a regular file".to_string(),
+        ));
+    }
+
     // Canonicalize the path
     let canonical = fs::canonicalize(path)?;
     Ok(canonical)
@@ -338,5 +347,12 @@ mod tests {
         assert!(validate_batch_count(100).is_ok());
         assert!(validate_batch_count(1000).is_ok());
         assert!(validate_batch_count(1001).is_err());
+    }
+
+    #[test]
+    fn test_validate_input_path_rejects_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = validate_input_path(dir.path().to_str().unwrap());
+        assert!(matches!(result, Err(CryptoError::InvalidPath(_))));
     }
 }

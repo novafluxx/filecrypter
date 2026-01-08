@@ -347,4 +347,11 @@ mod tests {
         assert!(validate_batch_count(1000).is_ok());
         assert!(validate_batch_count(1001).is_err());
     }
+
+    #[test]
+    fn test_validate_input_path_rejects_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = validate_input_path(dir.path().to_str().unwrap());
+        assert!(matches!(result, Err(CryptoError::InvalidPath(_))));
+    }
 }

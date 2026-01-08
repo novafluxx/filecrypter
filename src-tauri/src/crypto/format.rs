@@ -32,6 +32,11 @@ use crate::error::{CryptoError, CryptoResult};
 /// Current file format version
 const VERSION: u8 = 2;
 
+const VERSION_SIZE: usize = 1;
+const SALT_LEN_SIZE: usize = 4;
+const KDF_PARAMS_SIZE: usize = 1 + 4 + 4 + 4 + 4;
+const HEADER_BASE_SIZE: usize = VERSION_SIZE + SALT_LEN_SIZE + KDF_PARAMS_SIZE;
+
 /// Nonce size for AES-GCM (12 bytes = 96 bits is standard)
 const NONCE_SIZE: usize = 12;
 
@@ -87,16 +92,7 @@ impl EncryptedFile {
         // Calculate total size needed for the serialized data
         let salt_len = self.salt.len() as u32;
         debug_assert_eq!(salt_len, self.kdf_params.salt_length);
-        let total_size = 1 // version
-            + 4 // salt length field
-            + 1 // kdf algorithm
-            + 4 // kdf memory cost
-            + 4 // kdf time cost
-            + 4 // kdf parallelism
-            + 4 // kdf key length
-            + self.salt.len()
-            + NONCE_SIZE
-            + self.ciphertext.len();
+        let total_size = HEADER_BASE_SIZE + self.salt.len() + NONCE_SIZE + self.ciphertext.len();
 
         // Pre-allocate the exact size needed (optimization)
         let mut buffer = Vec::with_capacity(total_size);
@@ -151,8 +147,8 @@ impl EncryptedFile {
     /// # }
     /// ```
     pub fn deserialize(data: &[u8]) -> CryptoResult<Self> {
-        // Minimum size check: version(1) + salt_len(4) + kdf(17) + nonce(12) + tag(16)
-        let min_size = 1 + 4 + 1 + 4 + 4 + 4 + 4 + NONCE_SIZE + MIN_TAG_SIZE;
+        // Minimum size check: header + nonce + tag
+        let min_size = HEADER_BASE_SIZE + NONCE_SIZE + MIN_TAG_SIZE;
         if data.len() < min_size {
             return Err(CryptoError::FormatError(format!(
                 "File too small (expected at least {} bytes, got {})",
@@ -298,7 +294,7 @@ mod tests {
         assert_eq!(bytes[5], KdfParams::default().algorithm.to_u8());
 
         // Check salt starts after KDF params (17 bytes)
-        let salt_start = 1 + 4 + 1 + 4 + 4 + 4 + 4;
+        let salt_start = HEADER_BASE_SIZE;
         assert_eq!(&bytes[salt_start..salt_start + 16], &[1u8; 16]);
 
         // Check nonce starts after salt
@@ -393,8 +389,8 @@ mod tests {
 
         let bytes = encrypted.serialize();
 
-        // Expected: 1 (version) + 4 (salt_len) + 17 (kdf params) + 16 (salt) + 12 (nonce) + 48 (ciphertext)
-        assert_eq!(bytes.len(), 1 + 4 + 17 + 16 + 12 + 48);
+        // Expected: header + salt + nonce + ciphertext
+        assert_eq!(bytes.len(), HEADER_BASE_SIZE + 16 + 12 + 48);
     }
 
     #[test]

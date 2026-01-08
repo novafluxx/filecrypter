@@ -74,8 +74,8 @@ const MIN_TIME_COST: u32 = 1;
 const MAX_TIME_COST: u32 = 10;
 const MIN_PARALLELISM: u32 = 1;
 const MAX_PARALLELISM: u32 = 16;
-const MIN_SALT_LENGTH: u32 = 16;
-const MAX_SALT_LENGTH: u32 = 64;
+const MIN_SALT_LENGTH: u32 = 16; // Current default, minimum for security
+const MAX_SALT_LENGTH: u32 = 64; // Allow future flexibility without format changes
 const MIN_KEY_LENGTH: u32 = 32;
 const MAX_KEY_LENGTH: u32 = 64;
 
@@ -117,24 +117,42 @@ impl KdfParams {
         }
 
         if self.memory_cost_kib < MIN_MEMORY_COST || self.memory_cost_kib > MAX_MEMORY_COST {
-            return Err(CryptoError::FormatError("Invalid KDF memory cost".to_string()));
+            return Err(CryptoError::FormatError(format!(
+                "Invalid KDF memory cost: {} KiB (must be {}-{} KiB)",
+                self.memory_cost_kib, MIN_MEMORY_COST, MAX_MEMORY_COST
+            )));
         }
         if self.time_cost < MIN_TIME_COST || self.time_cost > MAX_TIME_COST {
-            return Err(CryptoError::FormatError("Invalid KDF time cost".to_string()));
+            return Err(CryptoError::FormatError(format!(
+                "Invalid KDF time cost: {} (must be {}-{})",
+                self.time_cost, MIN_TIME_COST, MAX_TIME_COST
+            )));
         }
         if self.parallelism < MIN_PARALLELISM || self.parallelism > MAX_PARALLELISM {
-            return Err(CryptoError::FormatError("Invalid KDF parallelism".to_string()));
+            return Err(CryptoError::FormatError(format!(
+                "Invalid KDF parallelism: {} (must be {}-{})",
+                self.parallelism, MIN_PARALLELISM, MAX_PARALLELISM
+            )));
         }
         if self.key_length < MIN_KEY_LENGTH || self.key_length > MAX_KEY_LENGTH {
-            return Err(CryptoError::FormatError("Invalid KDF key length".to_string()));
+            return Err(CryptoError::FormatError(format!(
+                "Invalid KDF key length: {} bytes (must be {}-{})",
+                self.key_length, MIN_KEY_LENGTH, MAX_KEY_LENGTH
+            )));
         }
         if self.key_length != KEY_LENGTH as u32 {
             return Err(CryptoError::FormatError(
-                "Unsupported KDF key length".to_string(),
+                format!(
+                    "Unsupported KDF key length: {} bytes (AES-256 requires 32)",
+                    self.key_length
+                ),
             ));
         }
         if self.salt_length < MIN_SALT_LENGTH || self.salt_length > MAX_SALT_LENGTH {
-            return Err(CryptoError::FormatError("Invalid KDF salt length".to_string()));
+            return Err(CryptoError::FormatError(format!(
+                "Invalid KDF salt length: {} bytes (must be {}-{})",
+                self.salt_length, MIN_SALT_LENGTH, MAX_SALT_LENGTH
+            )));
         }
 
         Ok(())
@@ -183,6 +201,7 @@ pub fn derive_key_with_params(
 ) -> CryptoResult<SecureBytes> {
     params.validate()?;
 
+    // Validate salt length matches the header parameter (not just range).
     if salt.len() != params.salt_length as usize {
         return Err(CryptoError::FormatError(format!(
             "Invalid salt length: expected {} bytes, got {}",
@@ -400,5 +419,39 @@ mod tests {
         // Valid length should work
         let valid_salt = vec![0u8; SALT_LENGTH];
         assert!(derive_key(&password, &valid_salt).is_ok());
+    }
+
+    #[test]
+    fn test_kdf_params_validate_rejects_out_of_bounds() {
+        let mut params = KdfParams::default();
+
+        params.memory_cost_kib = MIN_MEMORY_COST - 1;
+        assert!(params.validate().is_err());
+        params.memory_cost_kib = MAX_MEMORY_COST + 1;
+        assert!(params.validate().is_err());
+        params.memory_cost_kib = MEMORY_COST;
+
+        params.time_cost = MIN_TIME_COST - 1;
+        assert!(params.validate().is_err());
+        params.time_cost = MAX_TIME_COST + 1;
+        assert!(params.validate().is_err());
+        params.time_cost = TIME_COST;
+
+        params.parallelism = MIN_PARALLELISM - 1;
+        assert!(params.validate().is_err());
+        params.parallelism = MAX_PARALLELISM + 1;
+        assert!(params.validate().is_err());
+        params.parallelism = PARALLELISM;
+
+        params.key_length = MIN_KEY_LENGTH - 1;
+        assert!(params.validate().is_err());
+        params.key_length = MAX_KEY_LENGTH + 1;
+        assert!(params.validate().is_err());
+        params.key_length = KEY_LENGTH as u32;
+
+        params.salt_length = MIN_SALT_LENGTH - 1;
+        assert!(params.validate().is_err());
+        params.salt_length = MAX_SALT_LENGTH + 1;
+        assert!(params.validate().is_err());
     }
 }

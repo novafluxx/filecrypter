@@ -76,8 +76,9 @@ const MIN_PARALLELISM: u32 = 1;
 const MAX_PARALLELISM: u32 = 16;
 const MIN_SALT_LENGTH: u32 = 16; // Current default, minimum for security
 const MAX_SALT_LENGTH: u32 = 64; // Allow future flexibility without format changes
+// AES-256 requires a 32-byte key, so the allowed range is fixed for now.
 const MIN_KEY_LENGTH: u32 = 32;
-const MAX_KEY_LENGTH: u32 = 64;
+const MAX_KEY_LENGTH: u32 = 32;
 
 /// KDF parameters stored in encrypted file headers.
 ///
@@ -139,14 +140,6 @@ impl KdfParams {
                 "Invalid KDF key length: {} bytes (must be {}-{})",
                 self.key_length, MIN_KEY_LENGTH, MAX_KEY_LENGTH
             )));
-        }
-        if self.key_length != KEY_LENGTH as u32 {
-            return Err(CryptoError::FormatError(
-                format!(
-                    "Unsupported KDF key length: {} bytes (AES-256 requires 32)",
-                    self.key_length
-                ),
-            ));
         }
         if self.salt_length < MIN_SALT_LENGTH || self.salt_length > MAX_SALT_LENGTH {
             return Err(CryptoError::FormatError(format!(

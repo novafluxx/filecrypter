@@ -45,6 +45,13 @@ pub const DEFAULT_CHUNK_SIZE: usize = 1024 * 1024;
 /// Maximum allowed chunk size to avoid excessive memory usage during decrypt
 const MAX_CHUNK_SIZE: usize = 16 * 1024 * 1024;
 
+// Header field sizes (kept local to streaming; header layout differs from non-streaming).
+const VERSION_SIZE: usize = 1;
+const SALT_LEN_SIZE: usize = 4;
+const KDF_PARAMS_SIZE: usize = 1 + 4 + 4 + 4 + 4;
+const HEADER_FIXED_SIZE: usize =
+    VERSION_SIZE + SALT_LEN_SIZE + KDF_PARAMS_SIZE + NONCE_SIZE + 4 + 8;
+
 /// Streaming file format version
 pub const STREAMING_VERSION: u8 = 4;
 
@@ -98,7 +105,7 @@ pub fn encrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
 
     if chunk_size > MAX_CHUNK_SIZE {
         return Err(CryptoError::FormatError(format!(
-            "Chunk size too large: {} bytes (max {})",
+            "Chunk size {} bytes exceeds maximum {} bytes",
             chunk_size, MAX_CHUNK_SIZE
         )));
     }
@@ -321,7 +328,7 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
 
     if chunk_size == 0 || chunk_size > MAX_CHUNK_SIZE {
         return Err(CryptoError::FormatError(format!(
-            "Invalid chunk size: {} bytes (max {})",
+            "Invalid chunk size: {} bytes (max {} bytes)",
             chunk_size, MAX_CHUNK_SIZE
         )));
     }
@@ -449,7 +456,7 @@ fn build_header(
     chunk_size: usize,
     total_chunks: u64,
 ) -> Vec<u8> {
-    let mut header = Vec::with_capacity(1 + 4 + 1 + 4 + 4 + 4 + 4 + salt.len() + NONCE_SIZE + 4 + 8);
+    let mut header = Vec::with_capacity(HEADER_FIXED_SIZE + salt.len());
     header.push(version);
     header.extend_from_slice(&(salt.len() as u32).to_le_bytes());
     header.push(kdf_params.algorithm.to_u8());

@@ -193,6 +193,11 @@ fn protect_dacl(path: &Path) -> Result<(), DaclError> {
         let mut dacl: *mut WIN_ACL = std::ptr::null_mut();
         let mut sd: PSECURITY_DESCRIPTOR = std::ptr::null_mut();
 
+        // DACL states to be aware of:
+        // - Not present: permissions are inherited from the parent object.
+        // - Present but NULL: grants full access to everyone (dangerous).
+        // - Present with ACEs: normal restricted permissions.
+        // We treat a NULL DACL pointer as an error to avoid ever applying or preserving it.
         let result = GetNamedSecurityInfoW(
             path_wide.as_ptr(),
             SE_FILE_OBJECT,

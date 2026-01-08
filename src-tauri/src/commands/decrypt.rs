@@ -18,7 +18,7 @@ use tauri::{command, AppHandle, Emitter};
 
 use crate::commands::file_utils::{atomic_write, validate_file_size, validate_input_path};
 use crate::commands::CryptoResponse;
-use crate::crypto::{decrypt, derive_key, EncryptedFile, Password};
+use crate::crypto::{decrypt, derive_key_with_params, EncryptedFile, Password};
 use crate::error::CryptoResult;
 use crate::events::{ProgressEvent, CRYPTO_PROGRESS_EVENT};
 
@@ -46,7 +46,7 @@ fn decrypt_file_impl(
 
     // Step 3: Derive decryption key from password + salt
     let password = Password::new(password.to_string());
-    let key = derive_key(&password, &encrypted_file.salt)?;
+    let key = derive_key_with_params(&password, &encrypted_file.salt, &encrypted_file.kdf_params)?;
 
     // Step 4: Decrypt the ciphertext with AES-256-GCM
     let plaintext = decrypt(&key, &encrypted_file.nonce, &encrypted_file.ciphertext)?;
@@ -145,7 +145,7 @@ pub async fn decrypt_file(
     // The salt is read from the file (it was stored during encryption)
     // This must produce the same key as during encryption if password is correct
     let password = Password::new(password);
-    let key = derive_key(&password, &encrypted_file.salt)?;
+    let key = derive_key_with_params(&password, &encrypted_file.salt, &encrypted_file.kdf_params)?;
 
     log::info!("Decryption key derived successfully");
 

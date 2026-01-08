@@ -190,6 +190,14 @@ pub fn validate_input_path(path: &str) -> CryptoResult<PathBuf> {
     // Check for symlinks in any path component
     validate_no_symlinks(path)?;
 
+    // Reject non-regular files (directories, devices, FIFOs, etc.)
+    let metadata = fs::metadata(path)?;
+    if !metadata.file_type().is_file() {
+        return Err(CryptoError::InvalidPath(
+            "Input path must be a regular file".to_string(),
+        ));
+    }
+
     // Canonicalize the path
     let canonical = fs::canonicalize(path)?;
     Ok(canonical)

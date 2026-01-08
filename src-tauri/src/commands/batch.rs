@@ -15,7 +15,10 @@ use tauri::{command, AppHandle, Emitter};
 use crate::commands::file_utils::{
     atomic_write, validate_batch_count, validate_file_size, validate_input_path,
 };
-use crate::crypto::{decrypt, derive_key, encrypt, generate_salt, EncryptedFile, Password};
+use crate::crypto::{
+    decrypt, derive_key_with_params, encrypt, generate_salt_with_len, EncryptedFile, KdfParams,
+    Password,
+};
 use crate::error::{CryptoError, CryptoResult};
 
 /// Progress event for batch operations
@@ -314,10 +317,11 @@ fn encrypt_single_file(
     let plaintext = fs::read(&validated_path)?;
 
     // Generate unique salt for this file
-    let salt = generate_salt()?;
+    let kdf_params = KdfParams::default();
+    let salt = generate_salt_with_len(kdf_params.salt_length as usize)?;
 
     // Derive key (this is intentionally slow for security)
-    let key = derive_key(password, &salt)?;
+    let key = derive_key_with_params(password, &salt, &kdf_params)?;
 
     // Encrypt
     let (nonce, ciphertext) = encrypt(&key, &plaintext)?;
@@ -331,6 +335,7 @@ fn encrypt_single_file(
 
     // Serialize and write atomically with secure permissions
     let encrypted_file = EncryptedFile {
+        kdf_params,
         salt,
         nonce,
         ciphertext,
@@ -402,7 +407,7 @@ fn decrypt_single_file(
     let encrypted_file = EncryptedFile::deserialize(&encrypted_data)?;
 
     // Derive key using salt from file
-    let key = derive_key(password, &encrypted_file.salt)?;
+    let key = derive_key_with_params(password, &encrypted_file.salt, &encrypted_file.kdf_params)?;
 
     // Decrypt
     let plaintext = decrypt(&key, &encrypted_file.nonce, &encrypted_file.ciphertext)?;

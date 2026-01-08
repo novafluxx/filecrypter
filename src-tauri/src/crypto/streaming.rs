@@ -9,14 +9,17 @@
 // - AES-GCM authentication tag verifies each chunk's integrity
 // - Chunk ordering is enforced by binding chunk_index into the nonce derivation
 //
-// File format (version 3):
+// File format (version 4):
+// - KDF parameters are stored in the header so each file is self-describing.
+// - The header is authenticated as AAD for every chunk.
 // All integer fields are little-endian.
-// [VERSION:1] [SALT_LEN_LE:4] [SALT:N] [BASE_NONCE:12] [CHUNK_SIZE_LE:4] [TOTAL_CHUNKS_LE:8]
+// [VERSION:1] [SALT_LEN_LE:4] [KDF_ALG:1] [KDF_MEM_COST:4] [KDF_TIME_COST:4]
+// [KDF_PARALLELISM:4] [KDF_KEY_LEN:4] [SALT:N] [BASE_NONCE:12] [CHUNK_SIZE_LE:4] [TOTAL_CHUNKS_LE:8]
 // [CHUNK_1_LEN_LE:4] [CHUNK_1_CIPHERTEXT+TAG] [CHUNK_2_LEN_LE:4] [CHUNK_2_CIPHERTEXT+TAG] ...
 //
 // Each chunk's nonce is derived via:
 // BLAKE3("filecrypter-chunk-nonce-v1" || base_nonce || chunk_index)
-// For version 3, the header bytes are authenticated as AAD for every chunk.
+// For version 4, the header bytes are authenticated as AAD for every chunk.
 
 use std::fs::{self, File};
 use std::io::{BufReader, BufWriter, Read, Write};
@@ -29,7 +32,7 @@ use aes_gcm::{
 use rand::{rngs::OsRng, TryRngCore};
 use tempfile::NamedTempFile;
 
-use crate::crypto::kdf::{derive_key, generate_salt};
+use crate::crypto::kdf::{derive_key_with_params, generate_salt_with_len, KdfAlgorithm, KdfParams};
 use crate::crypto::secure::Password;
 use crate::error::{CryptoError, CryptoResult};
 
@@ -39,11 +42,11 @@ use crate::security::set_owner_only_dacl;
 /// Default chunk size: 1 MB
 pub const DEFAULT_CHUNK_SIZE: usize = 1024 * 1024;
 
-/// Streaming file format version (current)
-pub const STREAMING_VERSION: u8 = 3;
+/// Maximum allowed chunk size to avoid excessive memory usage during decrypt
+const MAX_CHUNK_SIZE: usize = 16 * 1024 * 1024;
 
-/// Legacy streaming file format version
-pub const STREAMING_VERSION_V2: u8 = 2;
+/// Streaming file format version
+pub const STREAMING_VERSION: u8 = 4;
 
 /// Nonce size for AES-GCM (96 bits = 12 bytes)
 const NONCE_SIZE: usize = 12;
@@ -54,9 +57,6 @@ const TAG_SIZE: usize = 16;
 /// Maximum allowed chunks (~10TB at 1MB chunks)
 const MAX_CHUNKS: u64 = 10_000_000;
 
-/// Expected salt size for Argon2 (16 bytes = 128 bits)
-/// This is consistent across all encryption modes (in-memory and streaming)
-const EXPECTED_SALT_SIZE: usize = 16;
 
 /// Progress callback type for streaming operations
 pub type ProgressCallback = Box<dyn Fn(u64, u64) + Send + Sync>;
@@ -96,6 +96,13 @@ pub fn encrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
         chunk_size
     };
 
+    if chunk_size > MAX_CHUNK_SIZE {
+        return Err(CryptoError::FormatError(format!(
+            "Chunk size too large: {} bytes (max {})",
+            chunk_size, MAX_CHUNK_SIZE
+        )));
+    }
+
     // Open input file and get size
     let input_file = File::open(input_path.as_ref())?;
     let file_size = input_file.metadata()?.len();
@@ -109,8 +116,9 @@ pub fn encrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
     let mut writer = BufWriter::new(temp_file.as_file_mut());
 
     // Generate salt and derive key
-    let salt = generate_salt()?;
-    let key = derive_key(password, &salt)?;
+    let kdf_params = KdfParams::default();
+    let salt = generate_salt_with_len(kdf_params.salt_length as usize)?;
+    let key = derive_key_with_params(password, &salt, &kdf_params)?;
     let cipher =
         Aes256Gcm::new_from_slice(key.as_slice()).map_err(|_| CryptoError::EncryptionFailed)?;
 
@@ -160,6 +168,7 @@ pub fn encrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
     // Write header
     let header = build_header(
         STREAMING_VERSION,
+        &kdf_params,
         &salt,
         &base_nonce,
         chunk_size,
@@ -256,23 +265,47 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
     // Read and verify version
     let mut version = [0u8; 1];
     reader.read_exact(&mut version)?;
-    if version[0] != STREAMING_VERSION && version[0] != STREAMING_VERSION_V2 {
+    if version[0] != STREAMING_VERSION {
         return Err(CryptoError::FormatError(
             "Unsupported file format".to_string(),
         ));
     }
 
-    // Read salt
+    // Read salt length
     let mut salt_len_bytes = [0u8; 4];
     reader.read_exact(&mut salt_len_bytes)?;
     let salt_len = u32::from_le_bytes(salt_len_bytes) as usize;
 
-    if salt_len != EXPECTED_SALT_SIZE {
-        return Err(CryptoError::FormatError(format!(
-            "Invalid salt length: expected {} bytes, got {}",
-            EXPECTED_SALT_SIZE, salt_len
-        )));
-    }
+    // Read KDF parameters
+    let mut alg_byte = [0u8; 1];
+    reader.read_exact(&mut alg_byte)?;
+    let algorithm = KdfAlgorithm::from_u8(alg_byte[0])?;
+
+    let mut mem_cost_bytes = [0u8; 4];
+    reader.read_exact(&mut mem_cost_bytes)?;
+    let memory_cost_kib = u32::from_le_bytes(mem_cost_bytes);
+
+    let mut time_cost_bytes = [0u8; 4];
+    reader.read_exact(&mut time_cost_bytes)?;
+    let time_cost = u32::from_le_bytes(time_cost_bytes);
+
+    let mut parallelism_bytes = [0u8; 4];
+    reader.read_exact(&mut parallelism_bytes)?;
+    let parallelism = u32::from_le_bytes(parallelism_bytes);
+
+    let mut key_len_bytes = [0u8; 4];
+    reader.read_exact(&mut key_len_bytes)?;
+    let key_length = u32::from_le_bytes(key_len_bytes);
+
+    let kdf_params = KdfParams {
+        algorithm,
+        memory_cost_kib,
+        time_cost,
+        parallelism,
+        key_length,
+        salt_length: salt_len as u32,
+    };
+    kdf_params.validate()?;
 
     let mut salt = vec![0u8; salt_len];
     reader.read_exact(&mut salt)?;
@@ -286,6 +319,13 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
     reader.read_exact(&mut chunk_size_bytes)?;
     let chunk_size = u32::from_le_bytes(chunk_size_bytes) as usize;
 
+    if chunk_size == 0 || chunk_size > MAX_CHUNK_SIZE {
+        return Err(CryptoError::FormatError(format!(
+            "Invalid chunk size: {} bytes (max {})",
+            chunk_size, MAX_CHUNK_SIZE
+        )));
+    }
+
     let mut total_chunks_bytes = [0u8; 8];
     reader.read_exact(&mut total_chunks_bytes)?;
     let total_chunks = u64::from_le_bytes(total_chunks_bytes);
@@ -295,15 +335,18 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
         return Err(CryptoError::FormatError("File too large".to_string()));
     }
 
-    let header = build_header(version[0], &salt, &base_nonce, chunk_size, total_chunks);
-    let header_aad = if version[0] == STREAMING_VERSION {
-        Some(header.as_slice())
-    } else {
-        None
-    };
+    let header = build_header(
+        version[0],
+        &kdf_params,
+        &salt,
+        &base_nonce,
+        chunk_size,
+        total_chunks,
+    );
+    let header_aad = header.as_slice();
 
     // Derive key
-    let key = derive_key(password, &salt)?;
+    let key = derive_key_with_params(password, &salt, &kdf_params)?;
     let cipher =
         Aes256Gcm::new_from_slice(key.as_slice()).map_err(|_| CryptoError::EncryptionFailed)?;
 
@@ -324,7 +367,7 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
         let chunk_len = u32::from_le_bytes(chunk_len_bytes) as usize;
 
         // Strict chunk length validation
-        // For version 3, we know the exact chunk_size from header
+        // For version 4, we know the exact chunk_size from header
         // Maximum valid chunk: chunk_size + TAG_SIZE (no extra tolerance needed)
         let max_valid_chunk = chunk_size + TAG_SIZE;
         if chunk_len > max_valid_chunk {
@@ -343,21 +386,15 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
         let nonce = Nonce::from_slice(&chunk_nonce);
 
         // Decrypt chunk
-        let plaintext = if let Some(aad) = header_aad {
-            cipher
-                .decrypt(
-                    nonce,
-                    Payload {
-                        msg: ciphertext.as_ref(),
-                        aad,
-                    },
-                )
-                .map_err(|_| CryptoError::InvalidPassword)?
-        } else {
-            cipher
-                .decrypt(nonce, ciphertext.as_ref())
-                .map_err(|_| CryptoError::InvalidPassword)?
-        };
+        let plaintext = cipher
+            .decrypt(
+                nonce,
+                Payload {
+                    msg: ciphertext.as_ref(),
+                    aad: header_aad,
+                },
+            )
+            .map_err(|_| CryptoError::InvalidPassword)?;
 
         // Write plaintext
         writer.write_all(&plaintext)?;
@@ -406,14 +443,20 @@ fn derive_chunk_nonce(base_nonce: &[u8; NONCE_SIZE], chunk_index: u64) -> [u8; N
 
 fn build_header(
     version: u8,
+    kdf_params: &KdfParams,
     salt: &[u8],
     base_nonce: &[u8; NONCE_SIZE],
     chunk_size: usize,
     total_chunks: u64,
 ) -> Vec<u8> {
-    let mut header = Vec::with_capacity(1 + 4 + salt.len() + NONCE_SIZE + 4 + 8);
+    let mut header = Vec::with_capacity(1 + 4 + 1 + 4 + 4 + 4 + 4 + salt.len() + NONCE_SIZE + 4 + 8);
     header.push(version);
     header.extend_from_slice(&(salt.len() as u32).to_le_bytes());
+    header.push(kdf_params.algorithm.to_u8());
+    header.extend_from_slice(&kdf_params.memory_cost_kib.to_le_bytes());
+    header.extend_from_slice(&kdf_params.time_cost.to_le_bytes());
+    header.extend_from_slice(&kdf_params.parallelism.to_le_bytes());
+    header.extend_from_slice(&kdf_params.key_length.to_le_bytes());
     header.extend_from_slice(salt);
     header.extend_from_slice(base_nonce);
     header.extend_from_slice(&(chunk_size as u32).to_le_bytes());
@@ -460,6 +503,7 @@ pub const STREAMING_THRESHOLD: u64 = 10 * 1024 * 1024;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::crypto::kdf::KdfParams;
     use std::fs;
     use tempfile::NamedTempFile;
 
@@ -617,6 +661,47 @@ mod tests {
             false,
         );
 
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_streaming_rejects_zero_chunk_size_header() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let encrypted_path = temp_dir.path().join("bad_zero_chunk.bin");
+        let output_path = temp_dir.path().join("out_zero_chunk.bin");
+
+        let kdf_params = KdfParams::default();
+        let salt = vec![0u8; kdf_params.salt_length as usize];
+        let base_nonce = [0u8; NONCE_SIZE];
+        let header = build_header(STREAMING_VERSION, &kdf_params, &salt, &base_nonce, 0, 0);
+        fs::write(&encrypted_path, header).unwrap();
+
+        let password = Password::new("test_password".to_string());
+        let result = decrypt_file_streaming(&encrypted_path, &output_path, &password, None, false);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_streaming_rejects_large_chunk_size_header() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let encrypted_path = temp_dir.path().join("bad_large_chunk.bin");
+        let output_path = temp_dir.path().join("out_large_chunk.bin");
+
+        let kdf_params = KdfParams::default();
+        let salt = vec![0u8; kdf_params.salt_length as usize];
+        let base_nonce = [0u8; NONCE_SIZE];
+        let header = build_header(
+            STREAMING_VERSION,
+            &kdf_params,
+            &salt,
+            &base_nonce,
+            MAX_CHUNK_SIZE + 1,
+            0,
+        );
+        fs::write(&encrypted_path, header).unwrap();
+
+        let password = Password::new("test_password".to_string());
+        let result = decrypt_file_streaming(&encrypted_path, &output_path, &password, None, false);
         assert!(result.is_err());
     }
 

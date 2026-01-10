@@ -1,9 +1,10 @@
 // commands/batch.rs - Batch Encryption/Decryption Commands
 //
 // This module implements batch processing for multiple files.
-// Each file is encrypted/decrypted independently:
-// - A unique salt is generated per encrypted file, so Argon2id key derivation runs per file.
-// - The `Password` wrapper is reused across the batch to avoid repeated allocations.
+// Each file is encrypted/decrypted independently with its own unique encryption key:
+// - A unique salt is generated per file
+// - Argon2id key derivation runs separately for each file, producing different keys
+// - The `Password` wrapper is reused across the batch to avoid repeated allocations
 //
 // Progress events are emitted for each file being processed.
 
@@ -251,8 +252,9 @@ where
 
 /// Encrypt multiple files with the same password
 ///
-/// This command efficiently encrypts multiple files by deriving the key once.
-/// Each file gets its own unique salt for security.
+/// Each file is encrypted independently with its own unique salt, which means
+/// a new encryption key is derived for each file (via Argon2id KDF).
+/// This ensures files encrypted with the same password have different keys.
 ///
 /// # Arguments
 /// * `app` - Tauri app handle for emitting progress events

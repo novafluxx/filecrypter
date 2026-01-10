@@ -130,14 +130,14 @@ pub fn encrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
         Aes256Gcm::new_from_slice(key.as_slice()).map_err(|_| CryptoError::EncryptionFailed)?;
 
     // Generate base nonce using cryptographically secure RNG
-    // Combined with timestamp to prevent nonce reuse even if RNG has low entropy
     let mut base_nonce = [0u8; NONCE_SIZE];
     let mut rng = OsRng;
     rng.try_fill_bytes(&mut base_nonce)
         .map_err(|_| CryptoError::EncryptionFailed)?;
 
-    // Mix in timestamp as additional entropy source
-    // This prevents nonce reuse even if RNG fails or has low entropy
+    // Mix in timestamp as defense-in-depth (belt-and-suspenders approach)
+    // OsRng is cryptographically secure, but this adds extra protection against
+    // potential RNG failures or nonce reuse across system restarts
     let timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_err(|_| CryptoError::EncryptionFailed)?
@@ -150,9 +150,9 @@ pub fn encrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
     }
 
     // Calculate total chunks
-    // Note: Empty files (0 bytes) are represented as 1 chunk with 0 data bytes, so we still
-    // produce a single AEAD tag. This lets decryption validate the password (and header AAD)
-    // even for empty inputs.
+    // Note: Empty files (0 bytes) are represented as 1 chunk with 0 data bytes.
+    // This ensures we still produce an AEAD authentication tag, which allows
+    // password validation even for empty files (wrong password = tag verification fails).
     let total_chunks_u64 = if file_size == 0 {
         1u64
     } else {

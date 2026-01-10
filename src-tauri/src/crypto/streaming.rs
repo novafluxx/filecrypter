@@ -237,6 +237,14 @@ pub fn encrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
     } else {
         STREAMING_VERSION_V4
     };
+    let max_ciphertext_chunk_len = max_ciphertext_len(
+        chunk_size,
+        if use_compression {
+            Some(compression_config.algorithm)
+        } else {
+            None
+        },
+    )?;
 
     // Write header
     let header = build_header(&HeaderParams {
@@ -288,6 +296,15 @@ pub fn encrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
                 },
             )
             .map_err(|_| CryptoError::EncryptionFailed)?;
+
+        if ciphertext.len() > max_ciphertext_chunk_len {
+            return Err(CryptoError::FormatError(format!(
+                "Encrypted chunk length {} exceeds max {} for chunk_size {}",
+                ciphertext.len(),
+                max_ciphertext_chunk_len,
+                chunk_size
+            )));
+        }
 
         // Write chunk: [length:4][ciphertext+tag]
         writer.write_all(&(ciphertext.len() as u32).to_le_bytes())?;
@@ -473,6 +490,14 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
 
     // Process chunks
     let mut bytes_processed: u64 = 0;
+    let max_ciphertext_chunk_len = max_ciphertext_len(
+        chunk_size,
+        if is_v5 {
+            compression_algorithm
+        } else {
+            None
+        },
+    )?;
 
     for chunk_index in 0..total_chunks {
         // Read chunk length
@@ -481,21 +506,10 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
         let chunk_len = u32::from_le_bytes(chunk_len_bytes) as usize;
 
         // Strict chunk length validation
-        // For version 4, we know the exact chunk_size from header
-        // Maximum valid chunk: chunk_size + TAG_SIZE (no extra tolerance needed)
-        // For V5 with compression, chunks can be larger due to incompressible data
-        // but we still limit to a reasonable maximum
-        let max_valid_chunk = if is_v5 {
-            // Compression can increase size for incompressible data
-            // Allow up to 2x chunk_size for safety margin
-            (chunk_size * 2) + TAG_SIZE
-        } else {
-            chunk_size + TAG_SIZE
-        };
-        if chunk_len > max_valid_chunk {
+        if chunk_len > max_ciphertext_chunk_len {
             return Err(CryptoError::FormatError(format!(
                 "Invalid chunk length: {} bytes (max {} for chunk_size {})",
-                chunk_len, max_valid_chunk, chunk_size
+                chunk_len, max_ciphertext_chunk_len, chunk_size
             )));
         }
 
@@ -610,6 +624,19 @@ fn build_header(params: &HeaderParams<'_>) -> Vec<u8> {
     }
 
     header
+}
+
+fn max_ciphertext_len(
+    chunk_size: usize,
+    compression: Option<CompressionAlgorithm>,
+) -> CryptoResult<usize> {
+    let max_payload_len = match compression {
+        Some(CompressionAlgorithm::Zstd) => zstd_safe::compress_bound(chunk_size),
+        _ => chunk_size,
+    };
+    max_payload_len.checked_add(TAG_SIZE).ok_or_else(|| {
+        CryptoError::FormatError("Chunk size too large to compute ciphertext bound".to_string())
+    })
 }
 
 fn create_secure_tempfile(parent: &Path) -> CryptoResult<NamedTempFile> {
@@ -761,6 +788,42 @@ mod tests {
         .unwrap();
 
         // Verify content matches
+        let decrypted_content = fs::read(&decrypted_path).unwrap();
+        assert_eq!(content.to_vec(), decrypted_content);
+    }
+
+    #[test]
+    fn test_streaming_compression_small_chunk_size_roundtrip() {
+        // Ensure very small chunk sizes still decrypt correctly with compression enabled.
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        let content = b"a";
+        let input_file = NamedTempFile::new().unwrap();
+        fs::write(input_file.path(), content).unwrap();
+
+        let encrypted_path = temp_dir.path().join("encrypted_small_chunk.bin");
+        let password = Password::new("test_password".to_string());
+        encrypt_file_streaming(
+            input_file.path(),
+            &encrypted_path,
+            &password,
+            1,
+            None,
+            false,
+            Some(CompressionConfig::default()),
+        )
+        .unwrap();
+
+        let decrypted_path = temp_dir.path().join("decrypted_small_chunk.bin");
+        decrypt_file_streaming(
+            &encrypted_path,
+            &decrypted_path,
+            &password,
+            None,
+            false,
+        )
+        .unwrap();
+
         let decrypted_content = fs::read(&decrypted_path).unwrap();
         assert_eq!(content.to_vec(), decrypted_content);
     }

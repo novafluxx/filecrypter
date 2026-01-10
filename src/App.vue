@@ -140,9 +140,6 @@ function switchTab(tab: 'encrypt' | 'decrypt' | 'batch' | 'help') {
   --panel-alt: #fafafa;        /* Hover states, secondary panels */
   --field: #ffffff;            /* Input backgrounds */
   --border: #e0e0e0;          /* All borders */
-  --border-strong: #c2c2c2;   /* High-contrast borders */
-  --drop-border: #b0b0b0;     /* Drag/drop target border */
-  --drop-border-active: #2f7ee6;
   --text: #1f1f1f;            /* Primary text */
   --muted: #737373;           /* Secondary text, disabled */
   --accent: #0066cc;          /* Interactive elements */
@@ -169,9 +166,6 @@ function switchTab(tab: 'encrypt' | 'decrypt' | 'batch' | 'help') {
   --panel-alt: #323232;
   --field: #2a2a2a;
   --border: #404040;
-  --border-strong: #5a5a5a;
-  --drop-border: #6a6a6a;
-  --drop-border-active: #5fb0ff;
   --text: #e0e0e0;
   --muted: #909090;
   --accent: #4a9eff;

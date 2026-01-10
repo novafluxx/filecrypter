@@ -28,7 +28,7 @@ use tauri::{command, AppHandle, Emitter};
 
 use crate::commands::file_utils::{resolve_output_path, validate_input_path};
 use crate::commands::CryptoResponse;
-use crate::crypto::{encrypt_file_streaming, CompressionConfig, Password, DEFAULT_CHUNK_SIZE};
+use crate::crypto::{encrypt_file_streaming, Password, DEFAULT_CHUNK_SIZE};
 use crate::error::CryptoResult;
 use crate::events::{ProgressEvent, CRYPTO_PROGRESS_EVENT};
 
@@ -44,8 +44,6 @@ use crate::events::{ProgressEvent, CRYPTO_PROGRESS_EVENT};
 /// * `output_path` - Path where the encrypted file will be saved
 /// * `password` - User's password (will be zeroized after use)
 /// * `allow_overwrite` - Allow overwriting existing files (default: false)
-/// * `compression_enabled` - Enable ZSTD compression before encryption (default: false)
-/// * `compression_level` - ZSTD compression level 1-22 (default: 3)
 ///
 /// # Returns
 /// A success response containing the message and resolved output path
@@ -69,9 +67,7 @@ use crate::events::{ProgressEvent, CRYPTO_PROGRESS_EVENT};
 ///   inputPath: '/path/to/file.txt',
 ///   outputPath: '/path/to/file.txt.encrypted',
 ///   password: 'user_password',
-///   allowOverwrite: false,
-///   compressionEnabled: true,
-///   compressionLevel: 3
+///   allowOverwrite: false
 /// });
 /// ```
 #[command]
@@ -81,8 +77,6 @@ pub async fn encrypt_file(
     output_path: String,
     password: String,
     allow_overwrite: Option<bool>,
-    compression_enabled: Option<bool>,
-    compression_level: Option<i32>,
 ) -> CryptoResult<CryptoResponse> {
     // Log the operation (password is NOT logged)
     log::info!("Encrypting file: {}", input_path);
@@ -96,13 +90,6 @@ pub async fn encrypt_file(
     let allow_overwrite = allow_overwrite.unwrap_or(false);
     let validated_output = resolve_output_path(&output_path, allow_overwrite)?;
     let password = Password::new(password);
-
-    // Build compression config if enabled
-    let compression = if compression_enabled.unwrap_or(false) {
-        Some(CompressionConfig::new(compression_level.unwrap_or(3)))
-    } else {
-        None
-    };
 
     // Progress callback for streaming
     let app_handle = Arc::new(app.clone());
@@ -128,7 +115,6 @@ pub async fn encrypt_file(
         DEFAULT_CHUNK_SIZE,
         Some(Box::new(progress_callback)),
         allow_overwrite,
-        compression,
     )?;
 
     let _ = app.emit(CRYPTO_PROGRESS_EVENT, ProgressEvent::encrypt_complete());
@@ -158,7 +144,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let output_path = temp_dir.path().join("encrypted.bin");
 
-        // Encrypt using streaming (no compression)
+        // Encrypt using streaming
         let password = Password::new("test_password".to_string());
         let result = encrypt_file_streaming(
             input_path,
@@ -167,7 +153,6 @@ mod tests {
             DEFAULT_CHUNK_SIZE,
             None,
             false,
-            None,
         );
 
         assert!(result.is_ok());
@@ -207,7 +192,6 @@ mod tests {
             DEFAULT_CHUNK_SIZE,
             None,
             false,
-            None,
         );
 
         assert!(result.is_ok());
@@ -215,45 +199,5 @@ mod tests {
         // Verify Version 4 format
         let output_data = fs::read(&output_path).unwrap();
         assert_eq!(output_data[0], 4);
-    }
-
-    #[test]
-    fn test_encrypt_file_with_compression() {
-        // Create a temporary input file with compressible content
-        let input_file = NamedTempFile::new().unwrap();
-        let input_path = input_file.path();
-        let content = b"Test content for streaming ".repeat(100);
-        fs::write(input_path, &content).unwrap();
-
-        // Create output path
-        let temp_dir = tempfile::tempdir().unwrap();
-        let output_path = temp_dir.path().join("encrypted_compressed.bin");
-
-        // Encrypt with compression
-        let password = Password::new("test_password".to_string());
-        let result = encrypt_file_streaming(
-            input_path,
-            &output_path,
-            &password,
-            DEFAULT_CHUNK_SIZE,
-            None,
-            false,
-            Some(CompressionConfig::default()),
-        );
-
-        assert!(result.is_ok());
-
-        // Verify output file was created
-        let output_data = fs::read(&output_path).unwrap();
-        assert!(!output_data.is_empty());
-
-        // Verify it's Version 5 format
-        assert_eq!(output_data[0], 5);
-
-        // Verify we can decrypt it
-        let decrypted_path = temp_dir.path().join("decrypted.txt");
-        decrypt_file_streaming(&output_path, &decrypted_path, &password, None, false).unwrap();
-        let decrypted_content = fs::read(&decrypted_path).unwrap();
-        assert_eq!(decrypted_content, content);
     }
 }

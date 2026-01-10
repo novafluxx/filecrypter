@@ -251,12 +251,6 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
       </button>
     </div>
 
-    <!-- Compression Info Banner (encryption mode only) -->
-    <div v-if="mode === 'encrypt'" class="info-banner">
-      Compression is automatically enabled for batch operations.
-      Files are compressed with ZSTD before encryption for optimal size reduction.
-    </div>
-
     <!-- File Selection -->
     <div class="form-group">
       <label>{{ mode === 'encrypt' ? 'Files to Encrypt' : 'Files to Decrypt' }}:</label>
@@ -647,18 +641,5 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
   font-size: 16px;
   font-weight: 600;
   color: var(--accent);
-}
-
-/* Info Banner */
-.info-banner {
-  padding: 12px 16px;
-  margin-bottom: 16px;
-  background: var(--panel-alt);
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
-  border-radius: 4px;
-  font-size: 14px;
-  color: var(--muted);
-  line-height: 1.5;
 }
 </style>

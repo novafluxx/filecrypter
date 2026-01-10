@@ -27,7 +27,6 @@ fn test_streaming_roundtrip_basic() {
         DEFAULT_CHUNK_SIZE,
         None,
         false,
-        None,
     )
     .unwrap();
 
@@ -52,7 +51,6 @@ fn test_streaming_wrong_password_fails() {
         DEFAULT_CHUNK_SIZE,
         None,
         false,
-        None,
     )
     .unwrap();
 
@@ -78,7 +76,6 @@ fn test_streaming_roundtrip_large_file() {
         DEFAULT_CHUNK_SIZE,
         None,
         false,
-        None,
     )
     .unwrap();
 

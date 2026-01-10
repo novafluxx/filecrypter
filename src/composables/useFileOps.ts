@@ -275,7 +275,7 @@ export function useFileOps() {
    * 5. Clear password for security
    *
    * The backend uses streaming decryption (1MB chunks) for all files,
-   * regardless of size. Only Version 4 format is supported.
+   * regardless of size. Version 4 and Version 5 formats are supported.
    *
    * @returns Promise<boolean> True if successful, false otherwise
    */

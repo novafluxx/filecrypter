@@ -4,7 +4,12 @@
 // - Writing files with restrictive permissions (0o600 on Unix)
 // - Atomic file writes (write to temp, then rename)
 // - Path validation (symlink detection, canonicalization)
-// - File size validation
+// - Output path resolution with collision handling
+// - Batch operation validation
+//
+// Note: File size validation was removed as streaming handles all file sizes.
+// The atomic_write() function is kept for testing and potential future use,
+// though current operations use streaming's built-in atomic writes.
 
 use std::fs;
 use std::io::Write;
@@ -104,8 +109,33 @@ pub fn secure_write<P: AsRef<Path>>(path: P, data: &[u8]) -> Result<(), std::io:
 
 /// Write data atomically: write to temp file, then rename
 ///
-/// This ensures that the output file is never partially written.
-/// If the process crashes, only the temp file is left behind.
+/// This function provides atomic file writes for in-memory data. It ensures
+/// that the output file is never partially written - either the full file is
+/// written successfully, or nothing is written.
+///
+/// # Current Usage
+/// This function is currently used only in tests. Production code uses streaming
+/// encryption which has its own built-in atomic write mechanism (via NamedTempFile
+/// in crypto/streaming.rs). This function is kept as a utility for:
+/// - Testing file operations
+/// - Future utilities that need to write data atomically
+/// - Reference implementation of secure atomic writes
+///
+/// # How It Works
+/// 1. Creates a secure temporary file in the output directory
+/// 2. Writes data to the temporary file with restrictive permissions (0o600)
+/// 3. Atomically renames the temp file to the final output path
+/// 4. If rename fails, cleans up temp file and returns error
+///
+/// # Arguments
+/// * `path` - Target output path
+/// * `data` - Data to write (entire content in memory)
+/// * `allow_overwrite` - If false, auto-renames on collision
+///
+/// # Platform-Specific Security
+/// - Unix: Sets file permissions to 0o600 (owner read/write only)
+/// - Windows: Uses DACL to restrict access to file owner
+///
 /// When `allow_overwrite` is false, collisions are resolved by auto-renaming.
 #[allow(dead_code)]
 pub fn atomic_write<P: AsRef<Path>>(

@@ -76,9 +76,8 @@ src-tauri/src/
 │   ├── mod.rs             # Module exports
 │   ├── cipher.rs          # AES-256-GCM encryption/decryption
 │   ├── kdf.rs             # Argon2id key derivation
-│   ├── format.rs          # Binary file format serialization
 │   ├── secure.rs          # Password and SecureBytes wrappers (zeroization)
-│   └── streaming.rs       # Chunked encryption for large files
+│   └── streaming.rs       # Chunked encryption (Version 4 format, all files)
 ├── security/              # Platform-specific security
 │   ├── mod.rs             # Security module exports
 │   └── windows_acl.rs     # Windows ACL protection for temp files
@@ -100,17 +99,29 @@ src-tauri/src/
 - Tag: 128-bit authentication tag (prevents tampering)
 - Each encryption generates unique salt and nonce
 
-**File Format (src-tauri/src/crypto/format.rs)**
+**File Format - Version 4 (src-tauri/src/crypto/streaming.rs)**
+
+All files use the Version 4 streaming format:
 ```
-[VERSION:1byte][SALT_LEN:4bytes][SALT:variable][NONCE:12bytes][CIPHERTEXT+TAG:variable]
+Header (little-endian):
+[VERSION:1][SALT_LEN:4][KDF_ALG:1][KDF_MEM_COST:4][KDF_TIME_COST:4]
+[KDF_PARALLELISM:4][KDF_KEY_LEN:4][SALT:N][BASE_NONCE:12]
+[CHUNK_SIZE:4][TOTAL_CHUNKS:8]
+
+Chunks:
+[CHUNK_1_LEN:4][CHUNK_1_CIPHERTEXT+TAG]
+[CHUNK_2_LEN:4][CHUNK_2_CIPHERTEXT+TAG]
+...
 ```
 
-**Streaming Encryption (src-tauri/src/crypto/streaming.rs)**
-- Auto-selected for files >10 MB (configurable via `STREAMING_THRESHOLD`)
+**Streaming Encryption Details:**
+- Used for all files regardless of size (no threshold)
 - Processes files in 1 MB chunks (configurable via `DEFAULT_CHUNK_SIZE`)
-- Uses temporary files during encryption/decryption
-- On Windows, temp files are protected with ACLs to prevent other processes from reading them
-- Reduces memory usage for large files
+- Each chunk has unique nonce: BLAKE3(base_nonce || chunk_index)
+- Header authenticated as AAD (Additional Authenticated Data) for every chunk
+- Uses temporary files during encryption/decryption for atomic writes
+- Temp files protected with restrictive permissions (Unix: 0o600, Windows: ACLs)
+- Optimal memory usage (constant 1MB buffer, not proportional to file size)
 
 ### IPC Communication
 
@@ -118,8 +129,9 @@ Frontend calls Rust backend via Tauri's `invoke()`:
 ```typescript
 // Frontend (src/composables/useTauri.ts)
 await invoke('encrypt_file', { inputPath, outputPath, password })
-await invoke('encrypt_file_streamed', { inputPath, outputPath, password })
+await invoke('decrypt_file', { inputPath, outputPath, password })
 await invoke('batch_encrypt', { inputPaths, outputDir, password })
+await invoke('batch_decrypt', { inputPaths, outputDir, password })
 
 // Backend (src-tauri/src/commands/)
 #[command]
@@ -127,8 +139,9 @@ pub async fn encrypt_file(input_path: String, output_path: String, password: Str
 ```
 
 **Available Commands:**
-- `encrypt_file` / `decrypt_file`: Streaming encryption/decryption for all files
+- `encrypt_file` / `decrypt_file`: Streaming encryption/decryption (all files, any size)
 - `batch_encrypt` / `batch_decrypt`: Process multiple files with progress events
+- All commands use streaming internally (Version 4 format)
 
 ### Security Practices
 

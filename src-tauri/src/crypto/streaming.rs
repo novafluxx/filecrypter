@@ -239,16 +239,20 @@ pub fn encrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
     };
 
     // Write header
-    let header = build_header(
+    let header = build_header(&HeaderParams {
         version,
-        &kdf_params,
-        &salt,
-        &base_nonce,
+        kdf_params: &kdf_params,
+        salt: &salt,
+        base_nonce: &base_nonce,
         chunk_size,
-        total_chunks_u64,
-        if use_compression { Some(&compression_config) } else { None },
-        file_size,
-    );
+        total_chunks: total_chunks_u64,
+        compression: if use_compression {
+            Some(&compression_config)
+        } else {
+            None
+        },
+        original_size: file_size,
+    });
     writer.write_all(&header)?;
 
     // Process chunks
@@ -443,16 +447,16 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
         algorithm: alg,
         level: _compression_level,
     });
-    let header = build_header(
-        version[0],
-        &kdf_params,
-        &salt,
-        &base_nonce,
+    let header = build_header(&HeaderParams {
+        version: version[0],
+        kdf_params: &kdf_params,
+        salt: &salt,
+        base_nonce: &base_nonce,
         chunk_size,
         total_chunks,
-        compression_config.as_ref(),
-        _original_size,
-    );
+        compression: compression_config.as_ref(),
+        original_size: _original_size,
+    });
     let header_aad = header.as_slice();
 
     // Derive key
@@ -566,41 +570,43 @@ fn derive_chunk_nonce(base_nonce: &[u8; NONCE_SIZE], chunk_index: u64) -> [u8; N
     nonce
 }
 
-fn build_header(
+struct HeaderParams<'a> {
     version: u8,
-    kdf_params: &KdfParams,
-    salt: &[u8],
-    base_nonce: &[u8; NONCE_SIZE],
+    kdf_params: &'a KdfParams,
+    salt: &'a [u8],
+    base_nonce: &'a [u8; NONCE_SIZE],
     chunk_size: usize,
     total_chunks: u64,
-    compression: Option<&CompressionConfig>,
+    compression: Option<&'a CompressionConfig>,
     original_size: u64,
-) -> Vec<u8> {
-    let capacity = if compression.is_some() {
-        HEADER_V5_FIXED_SIZE + salt.len()
+}
+
+fn build_header(params: &HeaderParams<'_>) -> Vec<u8> {
+    let capacity = if params.compression.is_some() {
+        HEADER_V5_FIXED_SIZE + params.salt.len()
     } else {
-        HEADER_V4_FIXED_SIZE + salt.len()
+        HEADER_V4_FIXED_SIZE + params.salt.len()
     };
     let mut header = Vec::with_capacity(capacity);
 
     // Common header fields (V4 and V5)
-    header.push(version);
-    header.extend_from_slice(&(salt.len() as u32).to_le_bytes());
-    header.push(kdf_params.algorithm.to_u8());
-    header.extend_from_slice(&kdf_params.memory_cost_kib.to_le_bytes());
-    header.extend_from_slice(&kdf_params.time_cost.to_le_bytes());
-    header.extend_from_slice(&kdf_params.parallelism.to_le_bytes());
-    header.extend_from_slice(&kdf_params.key_length.to_le_bytes());
-    header.extend_from_slice(salt);
-    header.extend_from_slice(base_nonce);
-    header.extend_from_slice(&(chunk_size as u32).to_le_bytes());
-    header.extend_from_slice(&total_chunks.to_le_bytes());
+    header.push(params.version);
+    header.extend_from_slice(&(params.salt.len() as u32).to_le_bytes());
+    header.push(params.kdf_params.algorithm.to_u8());
+    header.extend_from_slice(&params.kdf_params.memory_cost_kib.to_le_bytes());
+    header.extend_from_slice(&params.kdf_params.time_cost.to_le_bytes());
+    header.extend_from_slice(&params.kdf_params.parallelism.to_le_bytes());
+    header.extend_from_slice(&params.kdf_params.key_length.to_le_bytes());
+    header.extend_from_slice(params.salt);
+    header.extend_from_slice(params.base_nonce);
+    header.extend_from_slice(&(params.chunk_size as u32).to_le_bytes());
+    header.extend_from_slice(&params.total_chunks.to_le_bytes());
 
     // V5 compression fields
-    if let Some(config) = compression {
+    if let Some(config) = params.compression {
         header.push(config.algorithm.to_u8());
         header.push(config.level as u8);
-        header.extend_from_slice(&original_size.to_le_bytes());
+        header.extend_from_slice(&params.original_size.to_le_bytes());
     }
 
     header
@@ -863,7 +869,16 @@ mod tests {
         let kdf_params = KdfParams::default();
         let salt = vec![0u8; kdf_params.salt_length as usize];
         let base_nonce = [0u8; NONCE_SIZE];
-        let header = build_header(STREAMING_VERSION, &kdf_params, &salt, &base_nonce, 0, 0, None, 0);
+        let header = build_header(&HeaderParams {
+            version: STREAMING_VERSION,
+            kdf_params: &kdf_params,
+            salt: &salt,
+            base_nonce: &base_nonce,
+            chunk_size: 0,
+            total_chunks: 0,
+            compression: None,
+            original_size: 0,
+        });
         fs::write(&encrypted_path, header).unwrap();
 
         let password = Password::new("test_password".to_string());
@@ -880,16 +895,16 @@ mod tests {
         let kdf_params = KdfParams::default();
         let salt = vec![0u8; kdf_params.salt_length as usize];
         let base_nonce = [0u8; NONCE_SIZE];
-        let header = build_header(
-            STREAMING_VERSION,
-            &kdf_params,
-            &salt,
-            &base_nonce,
-            MAX_CHUNK_SIZE + 1,
-            0,
-            None,
-            0,
-        );
+        let header = build_header(&HeaderParams {
+            version: STREAMING_VERSION,
+            kdf_params: &kdf_params,
+            salt: &salt,
+            base_nonce: &base_nonce,
+            chunk_size: MAX_CHUNK_SIZE + 1,
+            total_chunks: 0,
+            compression: None,
+            original_size: 0,
+        });
         fs::write(&encrypted_path, header).unwrap();
 
         let password = Password::new("test_password".to_string());

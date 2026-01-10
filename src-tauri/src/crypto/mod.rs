@@ -4,7 +4,6 @@
 // It exports a clean API for file encryption and decryption.
 
 mod cipher;
-pub mod compression;
 mod kdf;
 mod secure;
 pub mod streaming;
@@ -17,4 +16,3 @@ pub use kdf::{
 };
 pub use secure::{Password, SecureBytes};
 pub use streaming::{decrypt_file_streaming, encrypt_file_streaming, DEFAULT_CHUNK_SIZE};
-pub use compression::{compress, decompress, CompressionAlgorithm, CompressionConfig};

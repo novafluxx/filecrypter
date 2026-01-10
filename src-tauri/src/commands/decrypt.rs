@@ -150,7 +150,6 @@ mod tests {
             DEFAULT_CHUNK_SIZE,
             None,
             false,
-            None,
         )
         .unwrap();
 
@@ -188,7 +187,6 @@ mod tests {
             DEFAULT_CHUNK_SIZE,
             None,
             false,
-            None,
         )
         .unwrap();
 

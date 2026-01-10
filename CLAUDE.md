@@ -75,10 +75,9 @@ src-tauri/src/
 ├── crypto/                # Cryptographic implementations
 │   ├── mod.rs             # Module exports
 │   ├── cipher.rs          # AES-256-GCM encryption/decryption
-│   ├── compression.rs     # ZSTD compression for optional file size reduction
 │   ├── kdf.rs             # Argon2id key derivation
 │   ├── secure.rs          # Password and SecureBytes wrappers (zeroization)
-│   └── streaming.rs       # Chunked encryption (Version 4/5 format, all files)
+│   └── streaming.rs       # Chunked encryption (Version 4 format, all files)
 ├── security/              # Platform-specific security
 │   ├── mod.rs             # Security module exports
 │   └── windows_acl.rs     # Windows ACL protection for temp files
@@ -100,11 +99,9 @@ src-tauri/src/
 - Tag: 128-bit authentication tag (prevents tampering)
 - Each encryption generates unique salt and nonce
 
-**File Formats (src-tauri/src/crypto/streaming.rs)**
+**File Format - Version 4 (src-tauri/src/crypto/streaming.rs)**
 
-Two file format versions are supported:
-
-**Version 4 (No Compression):**
+All files use the Version 4 streaming format:
 ```
 Header (little-endian):
 [VERSION:1][SALT_LEN:4][KDF_ALG:1][KDF_MEM_COST:4][KDF_TIME_COST:4]
@@ -116,26 +113,6 @@ Chunks:
 [CHUNK_2_LEN:4][CHUNK_2_CIPHERTEXT+TAG]
 ...
 ```
-
-**Version 5 (With Compression):**
-```
-Header (little-endian):
-[VERSION:1][SALT_LEN:4][KDF_ALG:1][KDF_MEM_COST:4][KDF_TIME_COST:4]
-[KDF_PARALLELISM:4][KDF_KEY_LEN:4][SALT:N][BASE_NONCE:12]
-[CHUNK_SIZE:4][TOTAL_CHUNKS:8]
-[COMPRESSION_ALG:1][COMPRESSION_LEVEL:1][ORIGINAL_SIZE:8]
-
-Chunks:
-[CHUNK_1_LEN:4][CHUNK_1_CIPHERTEXT+TAG]  (compressed before encryption)
-...
-```
-
-**Compression (src-tauri/src/crypto/compression.rs):**
-- Algorithm: ZSTD (Zstandard) level 3 (balanced speed/ratio)
-- Strategy: Compress-then-encrypt (data is compressed before encryption)
-- Single file mode: Optional (disabled by default, checkbox to enable)
-- Batch mode: Always enabled for all files
-- Typical reduction: ~70% for text/documents, less for already-compressed formats
 
 **Streaming Encryption Details:**
 - Used for all files regardless of size (no threshold)

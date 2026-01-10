@@ -72,8 +72,6 @@ export function useFileOps() {
   const outputPath = ref('');
   const password = ref('');
   const neverOverwrite = ref(true);
-  const compressionEnabled = ref(false); // Compression disabled by default for single files
-  const compressionLevel = ref(3); // ZSTD level 3 (balanced)
   const isProcessing = ref(false);
   const statusMessage = ref('');
   const statusType = ref<StatusType>('info');
@@ -243,9 +241,7 @@ export function useFileOps() {
         inputPath.value,
         outputPath.value,
         password.value,
-        allowOverwrite,
-        compressionEnabled.value,
-        compressionLevel.value
+        allowOverwrite
       );
 
       // Success!
@@ -321,8 +317,6 @@ export function useFileOps() {
     outputPath,
     password,
     neverOverwrite,
-    compressionEnabled,
-    compressionLevel,
     isProcessing,
     statusMessage,
     statusType,

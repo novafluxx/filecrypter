@@ -33,7 +33,7 @@ pub enum CryptoError {
     #[error("File error: {0}")]
     Io(#[from] std::io::Error),
 
-    /// File too large for in-memory processing
+    /// File too large for processing (exceeds maximum chunk count)
     #[error("FileTooLarge: {0}")]
     FileTooLarge(String),
 

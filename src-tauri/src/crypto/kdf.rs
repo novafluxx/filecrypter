@@ -65,7 +65,7 @@ const PARALLELISM: u32 = 4;
 const KEY_LENGTH: usize = 32;
 
 /// Salt length in bytes (16 bytes = 128 bits is standard)
-/// This is public to allow consistent validation across all encryption modes
+/// This is public to allow consistent validation across streaming encryption operations
 pub const SALT_LENGTH: usize = 16;
 
 const MIN_MEMORY_COST: u32 = 8 * 1024;

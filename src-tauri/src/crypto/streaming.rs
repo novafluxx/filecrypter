@@ -1,25 +1,61 @@
-// crypto/streaming.rs - Streaming Encryption/Decryption
+// crypto/streaming.rs - Streaming Encryption/Decryption (Version 4 Format)
 //
-// This module implements chunked file encryption for large files.
-// Instead of loading the entire file into memory, it processes
-// files in chunks (default 1MB), encrypting each chunk independently.
+// This module implements chunked file encryption using the Version 4 format.
+// All files in FileCrypter use this streaming approach, regardless of size,
+// for consistent behavior and optimal memory usage.
 //
-// Security considerations:
-// - Each chunk uses a unique nonce derived from (base_nonce, chunk_index) via BLAKE3
-// - AES-GCM authentication tag verifies each chunk's integrity
-// - Chunk ordering is enforced by binding chunk_index into the nonce derivation
+// ## Architecture
 //
-// File format (version 4):
-// - KDF parameters are stored in the header so each file is self-describing.
-// - The header is authenticated as AAD for every chunk.
+// Files are processed in chunks (default 1MB) rather than loading entirely
+// into memory. This provides:
+// - Constant memory usage (1MB buffer) independent of file size
+// - Support for files of any size (no upper limit)
+// - Consistent behavior across all file sizes
+// - Atomic writes via temporary files
+//
+// ## Security Design
+//
+// **Nonce Derivation:**
+// - Base nonce: 96-bit random value XORed with timestamp
+// - Per-chunk nonce: BLAKE3("filecrypter-chunk-nonce-v1" || base_nonce || chunk_index)
+// - Each chunk has unique nonce, preventing nonce reuse even if base_nonce repeats
+// - Chunk ordering enforced by binding chunk_index into nonce derivation
+//
+// **Authentication:**
+// - Each chunk encrypted with AES-256-GCM (provides both encryption and authentication)
+// - 128-bit authentication tag per chunk (detects tampering at chunk granularity)
+// - Header authenticated as AAD (Additional Authenticated Data) for every chunk
+// - Wrong password or tampering detected immediately on first chunk
+//
+// **Key Derivation:**
+// - Argon2id with parameters stored in header (self-describing format)
+// - Unique salt per file ensures different keys for same password
+//
+// ## File Format (Version 4)
+//
 // All integer fields are little-endian.
-// [VERSION:1] [SALT_LEN_LE:4] [KDF_ALG:1] [KDF_MEM_COST:4] [KDF_TIME_COST:4]
-// [KDF_PARALLELISM:4] [KDF_KEY_LEN:4] [SALT:N] [BASE_NONCE:12] [CHUNK_SIZE_LE:4] [TOTAL_CHUNKS_LE:8]
-// [CHUNK_1_LEN_LE:4] [CHUNK_1_CIPHERTEXT+TAG] [CHUNK_2_LEN_LE:4] [CHUNK_2_CIPHERTEXT+TAG] ...
 //
-// Each chunk's nonce is derived via:
-// BLAKE3("filecrypter-chunk-nonce-v1" || base_nonce || chunk_index)
-// For version 4, the header bytes are authenticated as AAD for every chunk.
+// **Header:**
+// [VERSION:1] [SALT_LEN:4] [KDF_ALG:1] [KDF_MEM_COST:4] [KDF_TIME_COST:4]
+// [KDF_PARALLELISM:4] [KDF_KEY_LEN:4] [SALT:N] [BASE_NONCE:12]
+// [CHUNK_SIZE:4] [TOTAL_CHUNKS:8]
+//
+// **Chunks:**
+// [CHUNK_1_LEN:4] [CHUNK_1_CIPHERTEXT+TAG]
+// [CHUNK_2_LEN:4] [CHUNK_2_CIPHERTEXT+TAG]
+// ...
+//
+// **Edge Cases:**
+// - Empty files (0 bytes): Represented as 1 chunk with 0 data bytes (still produces auth tag)
+// - Last chunk: May be smaller than CHUNK_SIZE (exact length stored per chunk)
+//
+// ## Atomic Writes
+//
+// Uses temporary files to ensure atomic operations:
+// 1. Create secure temp file in output directory
+// 2. Write all encrypted chunks to temp file
+// 3. Atomically rename temp to final output (no partial files)
+// 4. Temp files have restrictive permissions (Unix: 0o600, Windows: ACLs)
 
 use std::fs::{self, File};
 use std::io::{BufReader, BufWriter, Read, Write};

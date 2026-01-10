@@ -1,18 +1,27 @@
 // commands/encrypt.rs - File Encryption Command Handler
 //
-// This module implements the Tauri command for encrypting files.
-// It handles the complete encryption workflow:
-// 1. Read plaintext file from disk
-// 2. Generate random salt
-// 3. Derive encryption key from password using Argon2id
-// 4. Encrypt file content with AES-256-GCM
-// 5. Serialize encrypted data with metadata
-// 6. Write encrypted file to disk
+// This module implements the Tauri command for encrypting files using streaming
+// (chunked) encryption. All files, regardless of size, use the same streaming
+// approach for consistent behavior and optimal memory usage.
+//
+// Encryption workflow:
+// 1. Validate input path and resolve output path
+// 2. Create secure temporary file
+// 3. Generate random salt and derive encryption key using Argon2id
+// 4. Encrypt file in 1MB chunks using AES-256-GCM
+// 5. Write encrypted chunks to temporary file
+// 6. Atomically rename temporary file to final output
+//
+// File Format: Version 4 (streaming format with chunk-level authentication)
+// - Header contains KDF parameters, salt, base nonce, chunk size, and total chunks
+// - Each chunk has a unique nonce derived from (base_nonce, chunk_index)
+// - Each chunk is authenticated with AES-GCM tag
 //
 // Tauri IPC:
-// - This is called from the frontend using invoke('encrypt_file', {...})
-// - Returns a success message or error
-// - Async function allows long-running operations without blocking UI
+// - Called from frontend using invoke('encrypt_file', {...})
+// - Emits progress events during encryption for UI updates
+// - Returns success message with resolved output path
+// - Async to avoid blocking the UI thread
 
 use std::sync::Arc;
 use tauri::{command, AppHandle, Emitter};

@@ -21,7 +21,6 @@ import { useTauri } from './useTauri';
 const SAFE_ERROR_MESSAGES: Record<string, string> = {
   InvalidPassword: 'Incorrect password or corrupted file',
   FileNotFound: 'File could not be accessed',
-  FileTooLarge: 'File is too large for this operation. Use streaming for large files.',
   TooManyFiles: 'Too many files selected for batch operation',
   InvalidPath: 'Invalid file path',
   permission: 'Permission denied - unable to access file',
@@ -52,9 +51,14 @@ function sanitizeErrorMessage(error: unknown): string {
  * for encrypt and decrypt workflows.
  *
  * Features:
- * - Automatic streaming encryption for large files (>10MB)
- * - Form validation
- * - Status message handling
+ * - Streaming encryption/decryption for all files (consistent behavior)
+ * - Form validation (password strength, required fields)
+ * - Status message handling with sanitized error messages
+ * - Progress tracking via Tauri events
+ * - Secure password handling (cleared after operations)
+ *
+ * All file operations use streaming (1MB chunks) regardless of file size,
+ * providing optimal memory usage and support for files of any size.
  *
  * @returns {Object} Object containing state, validation, and operation methods
  */
@@ -111,7 +115,9 @@ export function useFileOps() {
    *
    * When a user selects an input file, we automatically suggest
    * an output filename by adding/removing the .encrypted extension.
-   * Also checks if streaming encryption should be used for large files.
+   *
+   * For encryption: appends ".encrypted" to the filename
+   * For decryption: removes ".encrypted" if present, otherwise appends ".decrypted"
    *
    * @param path - Selected input file path
    * @param isEncrypt - Whether this is for encryption (add .encrypted) or decryption (remove it)
@@ -208,11 +214,14 @@ export function useFileOps() {
    * Perform file encryption
    *
    * This is the main encryption workflow:
-   * 1. Validate inputs
-   * 2. Show processing state
-   * 3. Call Rust backend via Tauri IPC (streaming for large files)
-   * 4. Handle success/error
+   * 1. Validate inputs (password length, file path)
+   * 2. Show processing state (status message)
+   * 3. Call Rust backend via Tauri IPC (uses streaming for all files)
+   * 4. Handle success/error with sanitized error messages
    * 5. Clear password for security
+   *
+   * The backend uses streaming encryption (1MB chunks) for all files,
+   * regardless of size. Progress updates are received via Tauri events.
    *
    * @returns Promise<boolean> True if successful, false otherwise
    */
@@ -255,11 +264,14 @@ export function useFileOps() {
    * Perform file decryption
    *
    * Similar workflow to encryption:
-   * 1. Validate inputs
-   * 2. Show processing state
-   * 3. Call Rust backend (tries regular decryption first, then streaming if format error)
-   * 4. Handle success/error (wrong password will fail here)
-   * 5. Clear password
+   * 1. Validate inputs (password length, file path)
+   * 2. Show processing state (status message)
+   * 3. Call Rust backend via Tauri IPC (uses streaming for all files)
+   * 4. Handle success/error (wrong password will fail with authentication error)
+   * 5. Clear password for security
+   *
+   * The backend uses streaming decryption (1MB chunks) for all files,
+   * regardless of size. Only Version 4 format is supported.
    *
    * @returns Promise<boolean> True if successful, false otherwise
    */

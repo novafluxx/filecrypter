@@ -1,17 +1,29 @@
 // commands/decrypt.rs - File Decryption Command Handler
 //
-// This module implements the Tauri command for decrypting files.
-// It handles the complete decryption workflow:
-// 1. Read encrypted file from disk
-// 2. Parse file format and extract metadata (salt, nonce, ciphertext)
-// 3. Derive decryption key from password using stored salt
-// 4. Decrypt ciphertext with AES-256-GCM and verify authentication tag
-// 5. Write decrypted plaintext to disk
+// This module implements the Tauri command for decrypting files using streaming
+// (chunked) decryption. All encrypted files use Version 4 format, which stores
+// the file in chunks with per-chunk authentication.
+//
+// Decryption workflow:
+// 1. Validate input path and resolve output path
+// 2. Read and parse Version 4 header (KDF params, salt, nonce, chunk info)
+// 3. Derive decryption key from password using stored KDF parameters
+// 4. Create secure temporary file
+// 5. Decrypt each chunk using unique per-chunk nonce
+// 6. Verify authentication tag for each chunk (detects tampering)
+// 7. Write decrypted chunks to temporary file
+// 8. Atomically rename temporary file to final output
+//
+// File Format: Version 4 (streaming format)
+// - Header authenticated as AAD (Additional Authenticated Data) for every chunk
+// - Each chunk has unique nonce: BLAKE3(base_nonce || chunk_index)
+// - Each chunk verified with AES-GCM authentication tag
 //
 // Security:
-// - Authentication tag is verified automatically by AES-GCM
-// - Wrong password results in tag verification failure
-// - Any tampering with ciphertext is detected
+// - Wrong password fails at first chunk (tag verification failure)
+// - Tampered data detected immediately (authentication failure)
+// - Timing-safe comparison prevents timing attacks
+// - Header tampering detected (used as AAD in each chunk)
 
 use std::sync::Arc;
 use tauri::{command, AppHandle, Emitter};

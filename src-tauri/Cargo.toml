@@ -46,7 +46,7 @@ log = "0.4"
 # Windows-specific dependencies
 [target.'cfg(windows)'.dependencies]
 windows-acl = "0.3"
-windows-sys = { version = "0.59", features = [
+windows-sys = { version = "0.61", features = [
     "Win32_Foundation",
     "Win32_Security",
     "Win32_Security_Authorization",

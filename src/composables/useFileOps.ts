@@ -72,6 +72,8 @@ export function useFileOps() {
   const outputPath = ref('');
   const password = ref('');
   const neverOverwrite = ref(true);
+  const compressionEnabled = ref(false); // Compression disabled by default for single files
+  const compressionLevel = ref(3); // ZSTD level 3 (balanced)
   const isProcessing = ref(false);
   const statusMessage = ref('');
   const statusType = ref<StatusType>('info');
@@ -241,7 +243,9 @@ export function useFileOps() {
         inputPath.value,
         outputPath.value,
         password.value,
-        allowOverwrite
+        allowOverwrite,
+        compressionEnabled.value,
+        compressionLevel.value
       );
 
       // Success!
@@ -271,7 +275,7 @@ export function useFileOps() {
    * 5. Clear password for security
    *
    * The backend uses streaming decryption (1MB chunks) for all files,
-   * regardless of size. Only Version 4 format is supported.
+   * regardless of size. Version 4 and Version 5 formats are supported.
    *
    * @returns Promise<boolean> True if successful, false otherwise
    */
@@ -317,6 +321,8 @@ export function useFileOps() {
     outputPath,
     password,
     neverOverwrite,
+    compressionEnabled,
+    compressionLevel,
     isProcessing,
     statusMessage,
     statusType,

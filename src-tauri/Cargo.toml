@@ -36,6 +36,13 @@ zeroize = { version = "1", features = ["derive"] }
 blake3 = "1"
 tempfile = "3"
 
+# Compression
+zstd = "0.13"
+zstd-safe = "7.2"
+
+# Archiving (for batch mode)
+tar = "0.4"
+
 # Error handling
 thiserror = "2"
 anyhow = "1"

@@ -1,12 +1,12 @@
 // commands/decrypt.rs - File Decryption Command Handler
 //
 // This module implements the Tauri command for decrypting files using streaming
-// (chunked) decryption. All encrypted files use Version 4 format, which stores
-// the file in chunks with per-chunk authentication.
+// (chunked) decryption. Encrypted files use Version 4 (no compression) or
+// Version 5 (ZSTD compression) formats, both with per-chunk authentication.
 //
 // Decryption workflow:
 // 1. Validate input path and resolve output path
-// 2. Read and parse Version 4 header (KDF params, salt, nonce, chunk info)
+// 2. Read and parse Version 4/5 header (KDF params, salt, nonce, chunk info)
 // 3. Derive decryption key from password using stored KDF parameters
 // 4. Create secure temporary file
 // 5. Decrypt each chunk using unique per-chunk nonce
@@ -14,7 +14,7 @@
 // 7. Write decrypted chunks to temporary file
 // 8. Atomically rename temporary file to final output
 //
-// File Format: Version 4 (streaming format)
+// File Format: Version 4/5 (streaming format)
 // - Header authenticated as AAD (Additional Authenticated Data) for every chunk
 // - Each chunk has unique nonce: BLAKE3(base_nonce || chunk_index)
 // - Each chunk verified with AES-GCM authentication tag
@@ -51,7 +51,7 @@ use crate::events::{ProgressEvent, CRYPTO_PROGRESS_EVENT};
 /// # Errors
 /// Returns `CryptoError` if:
 /// - Input file cannot be read or doesn't exist
-/// - File format is invalid or corrupted (Version 4 format expected)
+/// - File format is invalid or corrupted (Version 4/5 format expected)
 /// - Wrong password (authentication tag verification fails)
 /// - File has been tampered with (tag mismatch)
 /// - Output file cannot be written
@@ -150,6 +150,7 @@ mod tests {
             DEFAULT_CHUNK_SIZE,
             None,
             false,
+            None,
         )
         .unwrap();
 
@@ -187,6 +188,7 @@ mod tests {
             DEFAULT_CHUNK_SIZE,
             None,
             false,
+            None,
         )
         .unwrap();
 

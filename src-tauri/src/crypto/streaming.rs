@@ -1,6 +1,6 @@
-// crypto/streaming.rs - Streaming Encryption/Decryption (Version 4 Format)
+// crypto/streaming.rs - Streaming Encryption/Decryption (Version 4 & 5 Format)
 //
-// This module implements chunked file encryption using the Version 4 format.
+// This module implements chunked file encryption using the Version 4 and 5 formats.
 // All files in FileCrypter use this streaming approach, regardless of size,
 // for consistent behavior and optimal memory usage.
 //
@@ -31,7 +31,7 @@
 // - Argon2id with parameters stored in header (self-describing format)
 // - Unique salt per file ensures different keys for same password
 //
-// ## File Format (Version 4)
+// ## File Format (Version 4 - No Compression)
 //
 // All integer fields are little-endian.
 //
@@ -39,6 +39,14 @@
 // [VERSION:1] [SALT_LEN:4] [KDF_ALG:1] [KDF_MEM_COST:4] [KDF_TIME_COST:4]
 // [KDF_PARALLELISM:4] [KDF_KEY_LEN:4] [SALT:N] [BASE_NONCE:12]
 // [CHUNK_SIZE:4] [TOTAL_CHUNKS:8]
+//
+// ## File Format (Version 5 - With Compression)
+//
+// **Header:**
+// [VERSION:1] [SALT_LEN:4] [KDF_ALG:1] [KDF_MEM_COST:4] [KDF_TIME_COST:4]
+// [KDF_PARALLELISM:4] [KDF_KEY_LEN:4] [SALT:N] [BASE_NONCE:12]
+// [CHUNK_SIZE:4] [TOTAL_CHUNKS:8]
+// [COMPRESSION_ALG:1] [COMPRESSION_LEVEL:1] [ORIGINAL_SIZE:8]
 //
 // **Chunks:**
 // [CHUNK_1_LEN:4] [CHUNK_1_CIPHERTEXT+TAG]
@@ -68,6 +76,9 @@ use aes_gcm::{
 use rand::{rngs::OsRng, TryRngCore};
 use tempfile::NamedTempFile;
 
+use crate::crypto::compression::{
+    compress, decompress_with_limit, CompressionAlgorithm, CompressionConfig,
+};
 use crate::crypto::kdf::{derive_key_with_params, generate_salt_with_len, KdfAlgorithm, KdfParams};
 use crate::crypto::secure::Password;
 use crate::error::{CryptoError, CryptoResult};
@@ -85,11 +96,21 @@ const MAX_CHUNK_SIZE: usize = 16 * 1024 * 1024;
 const VERSION_SIZE: usize = 1;
 const SALT_LEN_SIZE: usize = 4;
 const KDF_PARAMS_SIZE: usize = 1 + 4 + 4 + 4 + 4;
-const HEADER_FIXED_SIZE: usize =
+const HEADER_V4_FIXED_SIZE: usize =
     VERSION_SIZE + SALT_LEN_SIZE + KDF_PARAMS_SIZE + NONCE_SIZE + 4 + 8;
 
-/// Streaming file format version
-pub const STREAMING_VERSION: u8 = 4;
+// Version 5 adds compression fields: algorithm (1) + level (1) + original_size (8) = 10 bytes
+const COMPRESSION_FIELDS_SIZE: usize = 1 + 1 + 8;
+const HEADER_V5_FIXED_SIZE: usize = HEADER_V4_FIXED_SIZE + COMPRESSION_FIELDS_SIZE;
+
+/// Streaming file format version (without compression)
+pub const STREAMING_VERSION_V4: u8 = 4;
+
+/// Streaming file format version (with compression)
+pub const STREAMING_VERSION_V5: u8 = 5;
+
+/// Default streaming version for backward compatibility (V4 when no compression)
+pub const STREAMING_VERSION: u8 = STREAMING_VERSION_V4;
 
 /// Nonce size for AES-GCM (96 bits = 12 bytes)
 const NONCE_SIZE: usize = 12;
@@ -106,8 +127,8 @@ pub type ProgressCallback = Box<dyn Fn(u64, u64) + Send + Sync>;
 
 /// Encrypt a file using streaming (chunked) encryption
 ///
-/// This function reads the input file in chunks, encrypts each chunk
-/// independently with AES-256-GCM, and writes to the output file.
+/// This function reads the input file in chunks, optionally compresses each chunk,
+/// encrypts each chunk independently with AES-256-GCM, and writes to the output file.
 ///
 /// # Arguments
 /// * `input_path` - Path to the plaintext file
@@ -116,6 +137,7 @@ pub type ProgressCallback = Box<dyn Fn(u64, u64) + Send + Sync>;
 /// * `chunk_size` - Size of each chunk in bytes (default: 1MB)
 /// * `progress_callback` - Optional callback for progress updates (bytes_processed, total_bytes)
 /// * `allow_overwrite` - Allow overwriting existing files (default: false)
+/// * `compression` - Optional compression configuration. If provided, uses Version 5 format.
 ///
 /// # Returns
 /// Ok(()) on success, or CryptoError on failure
@@ -126,6 +148,7 @@ pub fn encrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
     chunk_size: usize,
     progress_callback: Option<ProgressCallback>,
     allow_overwrite: bool,
+    compression: Option<CompressionConfig>,
 ) -> CryptoResult<()> {
     if password.is_empty() {
         return Err(CryptoError::FormatError(
@@ -208,15 +231,38 @@ pub fn encrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
         )));
     }
 
-    // Write header
-    let header = build_header(
-        STREAMING_VERSION,
-        &kdf_params,
-        &salt,
-        &base_nonce,
+    // Determine version based on compression
+    let compression_config = compression.unwrap_or_else(CompressionConfig::none);
+    let use_compression = compression_config.is_enabled();
+    let version = if use_compression {
+        STREAMING_VERSION_V5
+    } else {
+        STREAMING_VERSION_V4
+    };
+    let max_ciphertext_chunk_len = max_ciphertext_len(
         chunk_size,
-        total_chunks_u64,
-    );
+        if use_compression {
+            Some(compression_config.algorithm)
+        } else {
+            None
+        },
+    )?;
+
+    // Write header
+    let header = build_header(&HeaderParams {
+        version,
+        kdf_params: &kdf_params,
+        salt: &salt,
+        base_nonce: &base_nonce,
+        chunk_size,
+        total_chunks: total_chunks_u64,
+        compression: if use_compression {
+            Some(&compression_config)
+        } else {
+            None
+        },
+        original_size: file_size,
+    });
     writer.write_all(&header)?;
 
     // Process chunks
@@ -235,16 +281,32 @@ pub fn encrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
         let chunk_nonce = derive_chunk_nonce(&base_nonce, chunk_index);
         let nonce = Nonce::from_slice(&chunk_nonce);
 
+        // Compress chunk if compression is enabled
+        let data_to_encrypt = if use_compression {
+            compress(&buffer[..bytes_to_read], &compression_config)?
+        } else {
+            buffer[..bytes_to_read].to_vec()
+        };
+
         // Encrypt chunk
         let ciphertext = cipher
             .encrypt(
                 nonce,
                 Payload {
-                    msg: &buffer[..bytes_to_read],
+                    msg: &data_to_encrypt,
                     aad: &header,
                 },
             )
             .map_err(|_| CryptoError::EncryptionFailed)?;
+
+        if ciphertext.len() > max_ciphertext_chunk_len {
+            return Err(CryptoError::FormatError(format!(
+                "Encrypted chunk length {} exceeds max {} for chunk_size {}",
+                ciphertext.len(),
+                max_ciphertext_chunk_len,
+                chunk_size
+            )));
+        }
 
         // Write chunk: [length:4][ciphertext+tag]
         writer.write_all(&(ciphertext.len() as u32).to_le_bytes())?;
@@ -308,11 +370,13 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
     // Read and verify version
     let mut version = [0u8; 1];
     reader.read_exact(&mut version)?;
-    if version[0] != STREAMING_VERSION {
-        return Err(CryptoError::FormatError(
-            "Unsupported file format".to_string(),
-        ));
+    if version[0] != STREAMING_VERSION_V4 && version[0] != STREAMING_VERSION_V5 {
+        return Err(CryptoError::FormatError(format!(
+            "Unsupported file format version: {}",
+            version[0]
+        )));
     }
+    let is_v5 = version[0] == STREAMING_VERSION_V5;
 
     // Read salt length
     let mut salt_len_bytes = [0u8; 4];
@@ -378,14 +442,50 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
         return Err(CryptoError::FormatError("File too large".to_string()));
     }
 
-    let header = build_header(
-        version[0],
-        &kdf_params,
-        &salt,
-        &base_nonce,
+    // Read compression fields for V5
+    let (compression_algorithm, compression_level, original_size) = if is_v5 {
+        let mut alg_byte = [0u8; 1];
+        reader.read_exact(&mut alg_byte)?;
+        let algorithm = CompressionAlgorithm::from_u8(alg_byte[0])?;
+
+        let mut level_byte = [0u8; 1];
+        reader.read_exact(&mut level_byte)?;
+        let level = level_byte[0] as i32;
+
+        let mut orig_size_bytes = [0u8; 8];
+        reader.read_exact(&mut orig_size_bytes)?;
+        let orig_size = u64::from_le_bytes(orig_size_bytes);
+
+        (Some(algorithm), level, orig_size)
+    } else {
+        (None, 0, 0)
+    };
+
+    if is_v5 {
+        let max_plaintext_size = total_chunks.saturating_mul(chunk_size as u64);
+        if original_size > max_plaintext_size {
+            return Err(CryptoError::FormatError(format!(
+                "Invalid original size: {} bytes (max {} bytes)",
+                original_size, max_plaintext_size
+            )));
+        }
+    }
+
+    // Build header for AAD (must match what was used during encryption)
+    let compression_config = compression_algorithm.map(|alg| CompressionConfig {
+        algorithm: alg,
+        level: compression_level,
+    });
+    let header = build_header(&HeaderParams {
+        version: version[0],
+        kdf_params: &kdf_params,
+        salt: &salt,
+        base_nonce: &base_nonce,
         chunk_size,
         total_chunks,
-    );
+        compression: compression_config.as_ref(),
+        original_size,
+    });
     let header_aad = header.as_slice();
 
     // Derive key
@@ -402,6 +502,15 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
 
     // Process chunks
     let mut bytes_processed: u64 = 0;
+    let max_ciphertext_chunk_len = max_ciphertext_len(
+        chunk_size,
+        if is_v5 {
+            compression_algorithm
+        } else {
+            None
+        },
+    )?;
+    let mut plaintext_written: u64 = 0;
 
     for chunk_index in 0..total_chunks {
         // Read chunk length
@@ -410,13 +519,10 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
         let chunk_len = u32::from_le_bytes(chunk_len_bytes) as usize;
 
         // Strict chunk length validation
-        // For version 4, we know the exact chunk_size from header
-        // Maximum valid chunk: chunk_size + TAG_SIZE (no extra tolerance needed)
-        let max_valid_chunk = chunk_size + TAG_SIZE;
-        if chunk_len > max_valid_chunk {
+        if chunk_len > max_ciphertext_chunk_len {
             return Err(CryptoError::FormatError(format!(
                 "Invalid chunk length: {} bytes (max {} for chunk_size {})",
-                chunk_len, max_valid_chunk, chunk_size
+                chunk_len, max_ciphertext_chunk_len, chunk_size
             )));
         }
 
@@ -429,7 +535,7 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
         let nonce = Nonce::from_slice(&chunk_nonce);
 
         // Decrypt chunk
-        let plaintext = cipher
+        let decrypted = cipher
             .decrypt(
                 nonce,
                 Payload {
@@ -439,8 +545,29 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
             )
             .map_err(|_| CryptoError::InvalidPassword)?;
 
+        let expected_plaintext_len = if is_v5 {
+            let remaining = original_size.saturating_sub(plaintext_written);
+            std::cmp::min(chunk_size as u64, remaining) as usize
+        } else {
+            chunk_size
+        };
+
+        // Decompress (or validate) with a hard output size cap.
+        let plaintext = if let Some(alg) = compression_algorithm {
+            decompress_with_limit(&decrypted, alg, expected_plaintext_len)?
+        } else {
+            if decrypted.len() > expected_plaintext_len {
+                return Err(CryptoError::FormatError(format!(
+                    "Decrypted chunk exceeds expected size (max {} bytes)",
+                    expected_plaintext_len
+                )));
+            }
+            decrypted
+        };
+
         // Write plaintext
         writer.write_all(&plaintext)?;
+        plaintext_written = plaintext_written.saturating_add(plaintext.len() as u64);
 
         // Track encrypted bytes processed (excludes header and per-chunk length fields).
         bytes_processed += chunk_len as u64;
@@ -449,6 +576,13 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
         if let Some(ref callback) = progress_callback {
             callback(bytes_processed, file_size);
         }
+    }
+
+    if is_v5 && plaintext_written != original_size {
+        return Err(CryptoError::FormatError(format!(
+            "Decrypted size mismatch: {} bytes (expected {})",
+            plaintext_written, original_size
+        )));
     }
 
     writer.flush()?;
@@ -484,27 +618,59 @@ fn derive_chunk_nonce(base_nonce: &[u8; NONCE_SIZE], chunk_index: u64) -> [u8; N
     nonce
 }
 
-fn build_header(
+struct HeaderParams<'a> {
     version: u8,
-    kdf_params: &KdfParams,
-    salt: &[u8],
-    base_nonce: &[u8; NONCE_SIZE],
+    kdf_params: &'a KdfParams,
+    salt: &'a [u8],
+    base_nonce: &'a [u8; NONCE_SIZE],
     chunk_size: usize,
     total_chunks: u64,
-) -> Vec<u8> {
-    let mut header = Vec::with_capacity(HEADER_FIXED_SIZE + salt.len());
-    header.push(version);
-    header.extend_from_slice(&(salt.len() as u32).to_le_bytes());
-    header.push(kdf_params.algorithm.to_u8());
-    header.extend_from_slice(&kdf_params.memory_cost_kib.to_le_bytes());
-    header.extend_from_slice(&kdf_params.time_cost.to_le_bytes());
-    header.extend_from_slice(&kdf_params.parallelism.to_le_bytes());
-    header.extend_from_slice(&kdf_params.key_length.to_le_bytes());
-    header.extend_from_slice(salt);
-    header.extend_from_slice(base_nonce);
-    header.extend_from_slice(&(chunk_size as u32).to_le_bytes());
-    header.extend_from_slice(&total_chunks.to_le_bytes());
+    compression: Option<&'a CompressionConfig>,
+    original_size: u64,
+}
+
+fn build_header(params: &HeaderParams<'_>) -> Vec<u8> {
+    let capacity = if params.compression.is_some() {
+        HEADER_V5_FIXED_SIZE + params.salt.len()
+    } else {
+        HEADER_V4_FIXED_SIZE + params.salt.len()
+    };
+    let mut header = Vec::with_capacity(capacity);
+
+    // Common header fields (V4 and V5)
+    header.push(params.version);
+    header.extend_from_slice(&(params.salt.len() as u32).to_le_bytes());
+    header.push(params.kdf_params.algorithm.to_u8());
+    header.extend_from_slice(&params.kdf_params.memory_cost_kib.to_le_bytes());
+    header.extend_from_slice(&params.kdf_params.time_cost.to_le_bytes());
+    header.extend_from_slice(&params.kdf_params.parallelism.to_le_bytes());
+    header.extend_from_slice(&params.kdf_params.key_length.to_le_bytes());
+    header.extend_from_slice(params.salt);
+    header.extend_from_slice(params.base_nonce);
+    header.extend_from_slice(&(params.chunk_size as u32).to_le_bytes());
+    header.extend_from_slice(&params.total_chunks.to_le_bytes());
+
+    // V5 compression fields
+    if let Some(config) = params.compression {
+        header.push(config.algorithm.to_u8());
+        header.push(config.level as u8);
+        header.extend_from_slice(&params.original_size.to_le_bytes());
+    }
+
     header
+}
+
+fn max_ciphertext_len(
+    chunk_size: usize,
+    compression: Option<CompressionAlgorithm>,
+) -> CryptoResult<usize> {
+    let max_payload_len = match compression {
+        Some(CompressionAlgorithm::Zstd) => zstd_safe::compress_bound(chunk_size),
+        _ => chunk_size,
+    };
+    max_payload_len.checked_add(TAG_SIZE).ok_or_else(|| {
+        CryptoError::FormatError("Chunk size too large to compute ciphertext bound".to_string())
+    })
 }
 
 fn create_secure_tempfile(parent: &Path) -> CryptoResult<NamedTempFile> {
@@ -582,7 +748,7 @@ mod tests {
         let input_file = NamedTempFile::new().unwrap();
         fs::write(input_file.path(), content).unwrap();
 
-        // Encrypt
+        // Encrypt (no compression - V4)
         let encrypted_path = temp_dir.path().join("encrypted.bin");
         let password = Password::new("test_password".to_string());
         encrypt_file_streaming(
@@ -592,6 +758,7 @@ mod tests {
             1024, // Small chunk size for testing
             None,
             false,
+            None, // No compression
         )
         .unwrap();
 
@@ -616,6 +783,86 @@ mod tests {
     }
 
     #[test]
+    fn test_streaming_encrypt_decrypt_with_compression() {
+        // Create a temp directory for output files
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        // Create a test file with compressible content
+        let content = b"Hello, streaming encryption! ".repeat(100);
+        let input_file = NamedTempFile::new().unwrap();
+        fs::write(input_file.path(), &content).unwrap();
+
+        // Encrypt with compression (V5)
+        let encrypted_path = temp_dir.path().join("encrypted_compressed.bin");
+        let password = Password::new("test_password".to_string());
+        encrypt_file_streaming(
+            input_file.path(),
+            &encrypted_path,
+            &password,
+            1024,
+            None,
+            false,
+            Some(CompressionConfig::default()), // ZSTD level 3
+        )
+        .unwrap();
+
+        // Verify encrypted file is V5
+        let encrypted_data = fs::read(&encrypted_path).unwrap();
+        assert_eq!(encrypted_data[0], STREAMING_VERSION_V5);
+
+        // Decrypt
+        let decrypted_path = temp_dir.path().join("decrypted.bin");
+        decrypt_file_streaming(
+            &encrypted_path,
+            &decrypted_path,
+            &password,
+            None,
+            false,
+        )
+        .unwrap();
+
+        // Verify content matches
+        let decrypted_content = fs::read(&decrypted_path).unwrap();
+        assert_eq!(content.to_vec(), decrypted_content);
+    }
+
+    #[test]
+    fn test_streaming_compression_small_chunk_size_roundtrip() {
+        // Ensure very small chunk sizes still decrypt correctly with compression enabled.
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        let content = b"a";
+        let input_file = NamedTempFile::new().unwrap();
+        fs::write(input_file.path(), content).unwrap();
+
+        let encrypted_path = temp_dir.path().join("encrypted_small_chunk.bin");
+        let password = Password::new("test_password".to_string());
+        encrypt_file_streaming(
+            input_file.path(),
+            &encrypted_path,
+            &password,
+            1,
+            None,
+            false,
+            Some(CompressionConfig::default()),
+        )
+        .unwrap();
+
+        let decrypted_path = temp_dir.path().join("decrypted_small_chunk.bin");
+        decrypt_file_streaming(
+            &encrypted_path,
+            &decrypted_path,
+            &password,
+            None,
+            false,
+        )
+        .unwrap();
+
+        let decrypted_content = fs::read(&decrypted_path).unwrap();
+        assert_eq!(content.to_vec(), decrypted_content);
+    }
+
+    #[test]
     fn test_streaming_empty_file_roundtrip() {
         // Empty inputs should still authenticate (we store a single empty chunk + tag).
         let temp_dir = tempfile::tempdir().unwrap();
@@ -631,6 +878,7 @@ mod tests {
             1024,
             None,
             false,
+            None,
         )
         .unwrap();
 
@@ -671,6 +919,7 @@ mod tests {
             1024,
             None,
             false,
+            None,
         )
         .unwrap();
 
@@ -702,6 +951,7 @@ mod tests {
             DEFAULT_CHUNK_SIZE,
             None,
             false,
+            None,
         );
 
         assert!(result.is_err());
@@ -716,7 +966,16 @@ mod tests {
         let kdf_params = KdfParams::default();
         let salt = vec![0u8; kdf_params.salt_length as usize];
         let base_nonce = [0u8; NONCE_SIZE];
-        let header = build_header(STREAMING_VERSION, &kdf_params, &salt, &base_nonce, 0, 0);
+        let header = build_header(&HeaderParams {
+            version: STREAMING_VERSION,
+            kdf_params: &kdf_params,
+            salt: &salt,
+            base_nonce: &base_nonce,
+            chunk_size: 0,
+            total_chunks: 0,
+            compression: None,
+            original_size: 0,
+        });
         fs::write(&encrypted_path, header).unwrap();
 
         let password = Password::new("test_password".to_string());
@@ -733,19 +992,76 @@ mod tests {
         let kdf_params = KdfParams::default();
         let salt = vec![0u8; kdf_params.salt_length as usize];
         let base_nonce = [0u8; NONCE_SIZE];
-        let header = build_header(
-            STREAMING_VERSION,
-            &kdf_params,
-            &salt,
-            &base_nonce,
-            MAX_CHUNK_SIZE + 1,
-            0,
-        );
+        let header = build_header(&HeaderParams {
+            version: STREAMING_VERSION,
+            kdf_params: &kdf_params,
+            salt: &salt,
+            base_nonce: &base_nonce,
+            chunk_size: MAX_CHUNK_SIZE + 1,
+            total_chunks: 0,
+            compression: None,
+            original_size: 0,
+        });
         fs::write(&encrypted_path, header).unwrap();
 
         let password = Password::new("test_password".to_string());
         let result = decrypt_file_streaming(&encrypted_path, &output_path, &password, None, false);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_streaming_rejects_v5_chunk_expansion() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let encrypted_path = temp_dir.path().join("bad_v5_expand.bin");
+        let output_path = temp_dir.path().join("out_v5_expand.bin");
+
+        let chunk_size = 1024;
+        let total_chunks = 1u64;
+        let original_size = 512u64; // Smaller than actual plaintext.
+
+        let kdf_params = KdfParams::default();
+        let salt = vec![1u8; kdf_params.salt_length as usize];
+        let base_nonce = [2u8; NONCE_SIZE];
+        let compression_config = CompressionConfig::default();
+
+        let header = build_header(&HeaderParams {
+            version: STREAMING_VERSION_V5,
+            kdf_params: &kdf_params,
+            salt: &salt,
+            base_nonce: &base_nonce,
+            chunk_size,
+            total_chunks,
+            compression: Some(&compression_config),
+            original_size,
+        });
+
+        let password = Password::new("test_password".to_string());
+        let key = derive_key_with_params(&password, &salt, &kdf_params).unwrap();
+        let cipher = Aes256Gcm::new_from_slice(key.as_slice()).unwrap();
+
+        let plaintext = vec![b'A'; chunk_size];
+        let compressed = compress(&plaintext, &compression_config).unwrap();
+
+        let chunk_nonce = derive_chunk_nonce(&base_nonce, 0);
+        let nonce = Nonce::from_slice(&chunk_nonce);
+        let ciphertext = cipher
+            .encrypt(
+                nonce,
+                Payload {
+                    msg: &compressed,
+                    aad: &header,
+                },
+            )
+            .unwrap();
+
+        let mut file_bytes = Vec::new();
+        file_bytes.extend_from_slice(&header);
+        file_bytes.extend_from_slice(&(ciphertext.len() as u32).to_le_bytes());
+        file_bytes.extend_from_slice(&ciphertext);
+        fs::write(&encrypted_path, file_bytes).unwrap();
+
+        let result = decrypt_file_streaming(&encrypted_path, &output_path, &password, None, false);
+        assert!(matches!(result, Err(CryptoError::FormatError(_))));
     }
 
     #[test]
@@ -773,6 +1089,7 @@ mod tests {
             chunk_size,
             None,
             false,
+            None,
         )
         .unwrap();
 

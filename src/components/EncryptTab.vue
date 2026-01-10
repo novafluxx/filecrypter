@@ -184,6 +184,23 @@ async function handleEncrypt() {
       </p>
     </div>
 
+    <!-- Compression Option -->
+    <div class="form-group">
+      <label class="checkbox-row">
+        <input
+          type="checkbox"
+          v-model="fileOps.compressionEnabled.value"
+          :disabled="fileOps.isProcessing.value"
+          title="Compress file before encryption to reduce size"
+        />
+        Enable compression (ZSTD)
+      </label>
+      <p class="hint-text">
+        Compresses file before encryption. Reduces size by ~70% for text/documents,
+        less for images/videos. Slightly slower encryption.
+      </p>
+    </div>
+
     <!-- Password Input Section -->
     <div class="form-group password-section">
       <label for="encrypt-password">Password:</label>

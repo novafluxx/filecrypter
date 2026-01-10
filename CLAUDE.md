@@ -139,9 +139,8 @@ pub async fn encrypt_file(input_path: String, output_path: String, password: Str
 ```
 
 **Available Commands:**
-- `encrypt_file` / `decrypt_file`: Streaming encryption/decryption (all files, any size)
+- `encrypt_file` / `decrypt_file`: Streaming encryption/decryption for all files
 - `batch_encrypt` / `batch_decrypt`: Process multiple files with progress events
-- All commands use streaming internally (Version 4 format)
 
 ### Security Practices
 

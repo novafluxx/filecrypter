@@ -219,7 +219,7 @@ pub fn validate_input_path(path: &str) -> CryptoResult<PathBuf> {
     validate_no_symlinks(path)?;
 
     // Reject non-regular files (directories, devices, FIFOs, etc.).
-    // Size limits are enforced by callers (streaming vs in-memory paths).
+    // All files are processed via streaming encryption with chunking.
     let metadata = fs::metadata(path)?;
     if !metadata.file_type().is_file() {
         return Err(CryptoError::InvalidPath(

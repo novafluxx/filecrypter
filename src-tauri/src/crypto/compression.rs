@@ -22,7 +22,7 @@
 // - This is acceptable for file encryption (no compression oracle attacks)
 // - AES-GCM authentication prevents tampering with compressed data
 
-use std::io::{Read, Write};
+use std::io::{BufReader, Cursor, Read, Write};
 
 use crate::error::{CryptoError, CryptoResult};
 
@@ -122,6 +122,40 @@ pub fn decompress_zstd(data: &[u8]) -> CryptoResult<Vec<u8>> {
     zstd::decode_all(data).map_err(|e| CryptoError::FormatError(format!("Decompression failed: {}", e)))
 }
 
+/// Decompress ZSTD-compressed data with a hard output size limit
+///
+/// # Arguments
+/// * `data` - Compressed data
+/// * `max_size` - Maximum allowed decompressed size in bytes
+///
+/// # Returns
+/// Decompressed data as Vec<u8>
+pub fn decompress_zstd_with_limit(data: &[u8], max_size: usize) -> CryptoResult<Vec<u8>> {
+    let cursor = Cursor::new(data);
+    let mut decoder = zstd::Decoder::new(BufReader::new(cursor))
+        .map_err(|e| CryptoError::FormatError(format!("Failed to create decompressor: {}", e)))?;
+    let mut output = Vec::with_capacity(std::cmp::min(max_size, 64 * 1024));
+    let mut buffer = [0u8; 8192];
+
+    loop {
+        let read = decoder
+            .read(&mut buffer)
+            .map_err(|e| CryptoError::FormatError(format!("Decompression failed: {}", e)))?;
+        if read == 0 {
+            break;
+        }
+        if output.len() + read > max_size {
+            return Err(CryptoError::FormatError(format!(
+                "Decompressed data exceeds expected size (max {} bytes)",
+                max_size
+            )));
+        }
+        output.extend_from_slice(&buffer[..read]);
+    }
+
+    Ok(output)
+}
+
 /// Compress data using the specified algorithm
 ///
 /// # Arguments
@@ -149,6 +183,34 @@ pub fn decompress(data: &[u8], algorithm: CompressionAlgorithm) -> CryptoResult<
     match algorithm {
         CompressionAlgorithm::None => Ok(data.to_vec()),
         CompressionAlgorithm::Zstd => decompress_zstd(data),
+    }
+}
+
+/// Decompress data using the specified algorithm with a hard output size limit
+///
+/// # Arguments
+/// * `data` - Compressed data
+/// * `algorithm` - Algorithm used for compression
+/// * `max_size` - Maximum allowed decompressed size in bytes
+///
+/// # Returns
+/// Decompressed data
+pub fn decompress_with_limit(
+    data: &[u8],
+    algorithm: CompressionAlgorithm,
+    max_size: usize,
+) -> CryptoResult<Vec<u8>> {
+    match algorithm {
+        CompressionAlgorithm::None => {
+            if data.len() > max_size {
+                return Err(CryptoError::FormatError(format!(
+                    "Decompressed data exceeds expected size (max {} bytes)",
+                    max_size
+                )));
+            }
+            Ok(data.to_vec())
+        }
+        CompressionAlgorithm::Zstd => decompress_zstd_with_limit(data, max_size),
     }
 }
 
@@ -261,5 +323,17 @@ mod tests {
         decoder.read_to_end(&mut decompressed).unwrap();
 
         assert_eq!(original.to_vec(), decompressed);
+    }
+
+    #[test]
+    fn test_decompress_with_limit_rejects_oversize() {
+        let original = b"0123456789".repeat(100);
+        let compressed = compress_zstd(&original, 3).unwrap();
+        let result = decompress_with_limit(
+            &compressed,
+            CompressionAlgorithm::Zstd,
+            original.len() - 1,
+        );
+        assert!(result.is_err());
     }
 }

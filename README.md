@@ -7,8 +7,8 @@ See `README_USER.md` for end-user instructions (how to encrypt/decrypt, batch mo
 
 ## Features
 - Password-based encryption using AES-256-GCM.
-- Argon2id key derivation with per-file salt and nonce.
-- Streaming (chunked) encryption for large files (auto-selected for >10 MB).
+- Argon2id key derivation with per-file salt.
+- Streaming (chunked) encryption/decryption for all files (default 1MB chunks).
 - Batch encrypt/decrypt with progress updates.
 - Native file dialogs via Tauri.
 
@@ -50,6 +50,11 @@ bun run build
 bun run tauri:build
 ```
 
+Preview the production frontend build in a browser:
+```bash
+bun run preview
+```
+
 Platform note:
 - `bun run tauri:build` builds bundles for the host OS only (Linux builds on Linux, Windows builds on Windows, macOS builds on macOS).
 - Cross-building for other OSes typically requires building on that OS with its toolchain/SDK.
@@ -69,10 +74,10 @@ cargo clippy
 
 ## Security Notes
 - Encryption uses AES-256-GCM with Argon2id key derivation.
-- Each encryption generates a unique salt and nonce.
+- Each encryption generates a unique salt and base nonce; per-chunk nonces are derived with BLAKE3 and the chunk index.
 - File I/O is handled in Rust; the frontend only invokes commands.
-- Single-file operations switch to streaming for large files (default threshold: 10 MB).
-- Batch operations are in-memory and enforce a per-file size limit (100 MB).
+- All file operations use streaming (chunked) encryption/decryption with atomic writes (temp file + rename).
+- Batch operations validate max file count (1000) and continue on per-file failures.
 
 ## Contributing
 See `AGENTS.md` for repository guidelines and contribution practices.

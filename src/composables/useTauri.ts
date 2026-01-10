@@ -27,14 +27,17 @@ export function useTauri() {
    *
    * Calls the 'encrypt_file' Tauri command which:
    * 1. Reads the input file
-   * 2. Derives encryption key from password using Argon2id
-   * 3. Encrypts with AES-256-GCM
-   * 4. Writes encrypted file
+   * 2. Optionally compresses the data using ZSTD
+   * 3. Derives encryption key from password using Argon2id
+   * 4. Encrypts with AES-256-GCM
+   * 5. Writes encrypted file
    *
    * @param inputPath - Path to the file to encrypt
    * @param outputPath - Path where encrypted file will be saved
    * @param password - User's password
    * @param allowOverwrite - Allow overwriting existing files (default: false)
+   * @param compressionEnabled - Enable ZSTD compression (default: false)
+   * @param compressionLevel - ZSTD compression level 1-22 (default: 3)
    * @returns Promise resolving to message + resolved output path
    * @throws Error if encryption fails (wrong path, permission denied, etc.)
    */
@@ -42,7 +45,9 @@ export function useTauri() {
     inputPath: string,
     outputPath: string,
     password: string,
-    allowOverwrite = false
+    allowOverwrite = false,
+    compressionEnabled = false,
+    compressionLevel = 3
   ): Promise<CryptoResponse> {
     try {
       // invoke() is Tauri's IPC mechanism - it calls the Rust function
@@ -52,6 +57,8 @@ export function useTauri() {
         outputPath,  // Maps to output_path parameter in Rust
         password,    // Maps to password parameter in Rust
         allowOverwrite,
+        compressionEnabled,
+        compressionLevel,
       });
       return result;
     } catch (error) {

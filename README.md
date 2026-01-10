@@ -9,7 +9,8 @@ See `README_USER.md` for end-user instructions (how to encrypt/decrypt, batch mo
 - Password-based encryption using AES-256-GCM.
 - Argon2id key derivation with per-file salt.
 - Streaming (chunked) encryption/decryption for all files (default 1MB chunks).
-- Batch encrypt/decrypt with progress updates.
+- Optional ZSTD compression (reduces file size by ~70% for text/documents).
+- Batch encrypt/decrypt with progress updates (compression enabled by default).
 - Native file dialogs via Tauri.
 
 ## Tech Stack
@@ -77,7 +78,15 @@ cargo clippy
 - Each encryption generates a unique salt and base nonce; per-chunk nonces are derived with BLAKE3 and the chunk index.
 - File I/O is handled in Rust; the frontend only invokes commands.
 - All file operations use streaming (chunked) encryption/decryption with atomic writes (temp file + rename).
+- Compression uses compress-then-encrypt strategy (industry standard used by SSH, TLS).
 - Batch operations validate max file count (1000) and continue on per-file failures.
+
+## File Format
+FileCrypter uses two file format versions:
+- **Version 4**: Standard encrypted format (no compression)
+- **Version 5**: Encrypted format with ZSTD compression metadata
+
+Version 5 extends Version 4 with compression fields in the header. Both versions are fully supported for decryption, ensuring backward compatibility.
 
 ## Contributing
 See `AGENTS.md` for repository guidelines and contribution practices.

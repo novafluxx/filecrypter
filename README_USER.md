@@ -10,10 +10,11 @@ The app creates a new encrypted file (with a `.encrypted` extension) and leaves 
 1. Open **Encrypt**.
 2. **Browse** (or drag-and-drop) a file.
 3. (Optional) **Change** the output location/name.
-4. Enter a password (minimum **8** characters).
-5. Click **Encrypt File**.
+4. (Optional) Check **Enable compression (ZSTD)** to reduce file size before encryption.
+5. Enter a password (minimum **8** characters).
+6. Click **Encrypt File**.
 
-You’ll get an output file like `example.pdf.encrypted`.
+You'll get an output file like `example.pdf.encrypted`.
 
 ### Decrypt a file
 1. Open **Decrypt**.
@@ -34,7 +35,21 @@ Use **Batch** to encrypt or decrypt many files at once.
 Notes:
 - Batch encryption outputs `filename.ext.encrypted` into the output directory.
 - Batch decryption removes `.encrypted` if present; otherwise it writes `filename.ext.decrypted`.
+- **Compression is automatically enabled** for batch encryption (ZSTD) to reduce file sizes.
 - Batch operations have a per-file size limit (currently **100 MB**). For larger files, use single-file Encrypt/Decrypt instead.
+
+## Compression
+FileCrypter supports optional ZSTD compression to reduce file sizes before encryption.
+
+- **Single file mode**: Compression is optional (checkbox in Encrypt tab). Disabled by default.
+- **Batch mode**: Compression is automatically enabled for all files.
+
+**Compression effectiveness:**
+- Text files, documents, spreadsheets: ~70% size reduction
+- Already-compressed files (images, videos, archives): ~5-10% reduction
+- Encryption is slightly slower when compression is enabled
+
+**Note:** Compressed files are automatically detected and decompressed during decryption. No special action is needed.
 
 ## Output Safety (Overwrite / Auto-Rename)
 FileCrypter includes a **Never overwrite existing files** option.
@@ -43,8 +58,9 @@ FileCrypter includes a **Never overwrite existing files** option.
 - When disabled, the app is allowed to overwrite the destination file.
 
 ## Large Files & Performance
-- Single-file Encrypt/Decrypt automatically switches to a streaming mode for files larger than about **10 MB** to avoid loading the entire file into memory.
+- All files use streaming (chunked) encryption to avoid loading the entire file into memory.
 - Encryption and decryption speed depend on file size and your device; key derivation is intentionally slow to make password guessing harder.
+- Enabling compression adds a small performance overhead but can significantly reduce output file size.
 
 ## Password Tips (Important)
 - There is no “password reset”. If you forget the password, the encrypted file cannot be recovered.

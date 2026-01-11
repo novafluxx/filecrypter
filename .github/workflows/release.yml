@@ -39,13 +39,21 @@ jobs:
       - name: Calculate version
         id: calculate-version
         run: |
+          # Ensure tags are fetched
+          git fetch --tags --force
+
+          # Debug: show available tags
+          echo "Available tags:"
+          git tag -l | tail -5
+
           # Use manual override if provided, otherwise auto-calculate
           if [ -n "${{ inputs.version }}" ]; then
             VERSION="${{ inputs.version }}"
             echo "Using manual version override: $VERSION"
           else
-            # Get the latest tag
-            LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+            # Get the latest tag (try multiple methods)
+            LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || git tag --sort=-v:refname | head -1 || echo "")
+            echo "Latest tag found: $LATEST_TAG"
 
             if [ -z "$LATEST_TAG" ]; then
               # No previous tags, start at 0.1.0
@@ -53,18 +61,24 @@ jobs:
               echo "No previous tags found, starting at $VERSION"
             else
               # Use git-cliff to determine bump type based on commits
-              BUMP_VERSION=$(git-cliff --config cliff.toml --bumped-version 2>/dev/null || echo "")
+              echo "Running git-cliff --bumped-version..."
+              BUMP_VERSION=$(git-cliff --config cliff.toml --bumped-version 2>&1) || true
+              echo "git-cliff output: $BUMP_VERSION"
 
-              if [ -n "$BUMP_VERSION" ]; then
-                # Remove 'v' prefix if present
-                VERSION="${BUMP_VERSION#v}"
+              # Clean the version (remove 'v' prefix if present)
+              BUMP_VERSION="${BUMP_VERSION#v}"
+
+              # Check if git-cliff returned a valid, different version
+              CURRENT="${LATEST_TAG#v}"
+              if [ -n "$BUMP_VERSION" ] && echo "$BUMP_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$' && [ "$BUMP_VERSION" != "$CURRENT" ]; then
+                VERSION="$BUMP_VERSION"
                 echo "Auto-calculated version from commits: $VERSION"
               else
                 # Fallback: patch bump from current version
-                CURRENT="${LATEST_TAG#v}"
+                echo "git-cliff didn't return a new version, using patch bump fallback"
                 IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
                 VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
-                echo "Fallback patch bump: $VERSION"
+                echo "Fallback patch bump: $CURRENT -> $VERSION"
               fi
             fi
           fi
@@ -75,8 +89,16 @@ jobs:
             exit 1
           fi
 
+          # Final check: make sure this version doesn't already exist
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "⚠️ Calculated version v$VERSION already exists, incrementing patch..."
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+            VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
+            echo "New version: $VERSION"
+          fi
+
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "✅ Version: $VERSION"
+          echo "✅ Final version: $VERSION"
 
       - name: Check if tag already exists
         run: |

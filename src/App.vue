@@ -14,25 +14,35 @@
 -->
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import EncryptTab from './components/EncryptTab.vue';
 import DecryptTab from './components/DecryptTab.vue';
 import BatchTab from './components/BatchTab.vue';
+import SettingsTab from './components/SettingsTab.vue';
 import HelpTab from './components/HelpTab.vue';
 import { useTheme } from './composables/useTheme';
+import { useSettings } from './composables/useSettings';
 
-// Active tab state: 'encrypt', 'decrypt', 'batch', or 'help'
-const activeTab = ref<'encrypt' | 'decrypt' | 'batch' | 'help'>('encrypt');
+// Active tab state: 'encrypt', 'decrypt', 'batch', 'settings', or 'help'
+const activeTab = ref<'encrypt' | 'decrypt' | 'batch' | 'settings' | 'help'>('encrypt');
 
-// Theme management
-const { theme, toggleTheme } = useTheme();
+// Initialize theme (applies theme from settings)
+useTheme();
+
+// Settings management
+const { initSettings } = useSettings();
+
+// Initialize settings store on mount
+onMounted(async () => {
+  await initSettings();
+});
 
 /**
  * Switch between tabs
  *
- * @param tab - Tab to activate ('encrypt', 'decrypt', 'batch', or 'help')
+ * @param tab - Tab to activate ('encrypt', 'decrypt', 'batch', 'settings', or 'help')
  */
-function switchTab(tab: 'encrypt' | 'decrypt' | 'batch' | 'help') {
+function switchTab(tab: 'encrypt' | 'decrypt' | 'batch' | 'settings' | 'help') {
   activeTab.value = tab;
 }
 
@@ -43,28 +53,6 @@ function switchTab(tab: 'encrypt' | 'decrypt' | 'batch' | 'help') {
     <!-- Toolbar -->
     <div class="app-toolbar">
       <h1 class="app-title">FileCrypter</h1>
-      <button
-        class="theme-toggle"
-        @click="toggleTheme"
-        :title="theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'"
-      >
-        <!-- Sun icon for dark mode (click to go light) -->
-        <svg v-if="theme === 'dark'" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="5"></circle>
-          <line x1="12" y1="1" x2="12" y2="3"></line>
-          <line x1="12" y1="21" x2="12" y2="23"></line>
-          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-          <line x1="1" y1="12" x2="3" y2="12"></line>
-          <line x1="21" y1="12" x2="23" y2="12"></line>
-          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-        </svg>
-        <!-- Moon icon for light mode (click to go dark) -->
-        <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-        </svg>
-      </button>
     </div>
 
     <!-- Tab Navigation -->
@@ -95,6 +83,14 @@ function switchTab(tab: 'encrypt' | 'decrypt' | 'batch' | 'help') {
       </button>
       <button
         class="tab-button"
+        :class="{ active: activeTab === 'settings' }"
+        @click="switchTab('settings')"
+        title="Configure application settings"
+      >
+        Settings
+      </button>
+      <button
+        class="tab-button"
         :class="{ active: activeTab === 'help' }"
         @click="switchTab('help')"
         title="Open the FileCrypter user guide"
@@ -118,6 +114,11 @@ function switchTab(tab: 'encrypt' | 'decrypt' | 'batch' | 'help') {
       <!-- Batch Tab Panel -->
       <div v-if="activeTab === 'batch'" class="tab-panel">
         <BatchTab />
+      </div>
+
+      <!-- Settings Tab Panel -->
+      <div v-if="activeTab === 'settings'" class="tab-panel">
+        <SettingsTab />
       </div>
 
       <!-- Help Tab Panel -->
@@ -246,29 +247,6 @@ body {
   color: var(--text);
   letter-spacing: 0;
   margin: 0;
-}
-
-.theme-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.theme-toggle:hover {
-  background: var(--panel-alt);
-  color: var(--text);
-}
-
-.theme-toggle:active {
-  background: var(--border);
 }
 
 /* Desktop Tab Navigation */

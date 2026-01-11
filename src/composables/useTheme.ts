@@ -1,22 +1,20 @@
 // composables/useTheme.ts - Theme Management
 //
-// This composable provides dark/light theme switching functionality.
-// Theme preference is persisted to localStorage and respects system preference.
+// This composable provides dark/light/system theme switching functionality.
+// Theme preference is persisted via useSettings and respects system preference.
 //
 // CSS Variables Approach:
 // - Define CSS variables in :root for light theme
 // - Override in [data-theme="dark"] for dark theme
 // - Components use var(--*) for colors
 
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { useSettings, type ThemeMode } from './useSettings';
 
 /**
- * Available theme modes
+ * Actual applied theme (always 'light' or 'dark')
  */
-export type Theme = 'light' | 'dark';
-
-/** localStorage key for persisting theme preference */
-const STORAGE_KEY = 'filecrypter-theme';
+export type AppliedTheme = 'light' | 'dark';
 
 /**
  * Composable for managing application theme
@@ -25,92 +23,151 @@ const STORAGE_KEY = 'filecrypter-theme';
  *
  * @example
  * ```ts
- * const { theme, toggleTheme } = useTheme();
+ * const { theme, appliedTheme, toggleTheme, setTheme } = useTheme();
  *
  * // In template:
- * // <button @click="toggleTheme">{{ theme === 'light' ? 'Dark' : 'Light' }}</button>
+ * // <button @click="toggleTheme">{{ appliedTheme === 'light' ? 'Dark' : 'Light' }}</button>
  * ```
  */
 export function useTheme() {
-  /** Current theme */
-  const theme = ref<Theme>('light');
+  const settings = useSettings();
+
+  /** The actual applied theme (resolved from 'system' if needed) */
+  const appliedTheme = ref<AppliedTheme>('light');
+
+  /** Media query for system preference */
+  let mediaQuery: MediaQueryList | null = null;
+  let mediaQueryHandler: ((e: MediaQueryListEvent) => void) | null = null;
+
+  /**
+   * Get system preferred theme
+   */
+  function getSystemTheme(): AppliedTheme {
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      return 'dark';
+    }
+    return 'light';
+  }
 
   /**
    * Apply theme to document
    *
    * Sets the data-theme attribute on document element,
    * which triggers CSS variable changes.
-   *
-   * @param newTheme - Theme to apply
    */
-  function setTheme(newTheme: Theme) {
-    theme.value = newTheme;
-    document.documentElement.setAttribute('data-theme', newTheme);
-    localStorage.setItem(STORAGE_KEY, newTheme);
+  function applyTheme(theme: AppliedTheme) {
+    appliedTheme.value = theme;
+    document.documentElement.setAttribute('data-theme', theme);
   }
 
   /**
-   * Toggle between light and dark themes
+   * Resolve theme mode to actual theme
    */
-  function toggleTheme() {
-    setTheme(theme.value === 'light' ? 'dark' : 'light');
+  function resolveTheme(mode: ThemeMode): AppliedTheme {
+    if (mode === 'system') {
+      return getSystemTheme();
+    }
+    return mode;
   }
 
   /**
-   * Initialize theme from stored preference or system preference
+   * Update theme based on current setting
    */
-  function initTheme() {
-    // Check localStorage first
-    const storedTheme = localStorage.getItem(STORAGE_KEY) as Theme | null;
-
-    if (storedTheme && (storedTheme === 'light' || storedTheme === 'dark')) {
-      setTheme(storedTheme);
-      return;
-    }
-
-    // Fall back to system preference
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      setTheme('dark');
-    } else {
-      setTheme('light');
-    }
+  function updateTheme() {
+    const resolved = resolveTheme(settings.theme.value);
+    applyTheme(resolved);
   }
 
-  /** Cleanup function for media query listener */
-  let cleanupMediaQuery: (() => void) | null = null;
+  /**
+   * Set theme preference (delegates to settings)
+   */
+  async function setTheme(newTheme: ThemeMode) {
+    await settings.setTheme(newTheme);
+    updateTheme();
+  }
 
-  // Initialize on mount
-  onMounted(() => {
-    initTheme();
+  /**
+   * Toggle between light, dark, and system themes
+   * Cycles: light -> dark -> system -> light
+   */
+  async function toggleTheme() {
+    const current = settings.theme.value;
+    let next: ThemeMode;
 
-    // Listen for system theme changes
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = (e: MediaQueryListEvent) => {
-      // Only auto-switch if user hasn't manually set a preference
-      if (!localStorage.getItem(STORAGE_KEY)) {
-        setTheme(e.matches ? 'dark' : 'light');
+    switch (current) {
+      case 'light':
+        next = 'dark';
+        break;
+      case 'dark':
+        next = 'system';
+        break;
+      case 'system':
+      default:
+        next = 'light';
+        break;
+    }
+
+    await setTheme(next);
+  }
+
+  /**
+   * Setup system theme change listener
+   */
+  function setupSystemThemeListener() {
+    if (!window.matchMedia) return;
+
+    mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    mediaQueryHandler = () => {
+      // Only update if we're in system mode
+      if (settings.theme.value === 'system') {
+        updateTheme();
       }
     };
 
-    mediaQuery.addEventListener('change', handleChange);
+    mediaQuery.addEventListener('change', mediaQueryHandler);
+  }
 
-    // Store cleanup function
-    cleanupMediaQuery = () => {
-      mediaQuery.removeEventListener('change', handleChange);
-    };
+  /**
+   * Cleanup system theme listener
+   */
+  function cleanupSystemThemeListener() {
+    if (mediaQuery && mediaQueryHandler) {
+      mediaQuery.removeEventListener('change', mediaQueryHandler);
+      mediaQuery = null;
+      mediaQueryHandler = null;
+    }
+  }
+
+  // Watch for settings changes
+  watch(
+    () => settings.theme.value,
+    () => {
+      updateTheme();
+    }
+  );
+
+  // Initialize on mount
+  onMounted(() => {
+    // Apply initial theme
+    updateTheme();
+
+    // Setup listener for system theme changes
+    setupSystemThemeListener();
   });
 
-  // Clean up event listener on unmount to prevent memory leaks
+  // Clean up on unmount
   onUnmounted(() => {
-    if (cleanupMediaQuery) {
-      cleanupMediaQuery();
-      cleanupMediaQuery = null;
-    }
+    cleanupSystemThemeListener();
   });
 
   return {
-    theme,
+    /** Current theme setting (light/dark/system) */
+    theme: settings.theme,
+    /** Actual applied theme (light/dark) */
+    appliedTheme,
+    /** Set theme preference */
     setTheme,
+    /** Toggle through theme options */
     toggleTheme,
   };
 }

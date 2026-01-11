@@ -14,12 +14,13 @@
 -->
 
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { onMounted, watch } from 'vue';
 import { useFileOps } from '../composables/useFileOps';
 import { useTauri } from '../composables/useTauri';
 import { useProgress } from '../composables/useProgress';
 import { useDragDrop } from '../composables/useDragDrop';
 import { usePasswordVisibility } from '../composables/usePasswordVisibility';
+import { useSettings } from '../composables/useSettings';
 import ProgressBar from './ProgressBar.vue';
 import IconEye from './icons/IconEye.vue';
 import IconEyeOff from './icons/IconEyeOff.vue';
@@ -27,6 +28,45 @@ import IconEyeOff from './icons/IconEyeOff.vue';
 // Initialize composables
 const fileOps = useFileOps();
 const tauri = useTauri();
+const settings = useSettings();
+
+// Apply default settings when initialized
+watch(
+  () => settings.isInitialized.value,
+  (initialized) => {
+    if (initialized) {
+      fileOps.neverOverwrite.value = settings.defaultNeverOverwrite.value;
+    }
+  },
+  { immediate: true }
+);
+
+/**
+ * Get suggested output path considering default output directory
+ */
+function getSuggestedOutputPath(inputPath: string): string {
+  const defaultDir = settings.defaultOutputDirectory.value;
+
+  // Extract filename from input path
+  const filename = inputPath.split(/[/\\]/).pop() ?? '';
+
+  // Determine output filename (remove .encrypted or add .decrypted)
+  let outputFilename: string;
+  if (filename.endsWith('.encrypted')) {
+    outputFilename = filename.slice(0, -'.encrypted'.length);
+  } else {
+    outputFilename = filename + '.decrypted';
+  }
+
+  if (defaultDir) {
+    return `${defaultDir}/${outputFilename}`;
+  }
+
+  // Use same directory as input file
+  const inputDir = inputPath.substring(0, inputPath.lastIndexOf('/') + 1) ||
+                   inputPath.substring(0, inputPath.lastIndexOf('\\') + 1);
+  return inputDir + outputFilename;
+}
 
 // Password visibility toggle
 const { isPasswordVisible, togglePasswordVisibility } = usePasswordVisibility();
@@ -36,7 +76,15 @@ const { progress, isActive: showProgress, startListening, stopListening } = useP
 
 // Drag-and-drop file handling
 const { isDragging, handleDragOver, handleDragLeave, handleDrop, setupDragDrop } = useDragDrop(
-  (path) => fileOps.setInputPath(path, false) // false = decryption mode
+  (path) => {
+    fileOps.setInputPath(path, false); // false = decryption mode
+
+    // If a default output directory is set, use it
+    const defaultDir = settings.defaultOutputDirectory.value;
+    if (defaultDir) {
+      fileOps.setOutputPath(getSuggestedOutputPath(path));
+    }
+  }
 );
 
 // Setup drag-drop on mount
@@ -61,6 +109,12 @@ async function handleSelectFile() {
   if (path) {
     // setInputPath with false = decryption mode (removes .encrypted extension)
     fileOps.setInputPath(path, false);
+
+    // If a default output directory is set, use it
+    const defaultDir = settings.defaultOutputDirectory.value;
+    if (defaultDir) {
+      fileOps.setOutputPath(getSuggestedOutputPath(path));
+    }
   }
 }
 

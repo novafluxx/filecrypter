@@ -23,6 +23,7 @@ pub fn run() {
     tauri::Builder::default()
         // Register plugins
         .plugin(tauri_plugin_dialog::init()) // File dialogs (open/save)
+        .plugin(tauri_plugin_store::Builder::default().build()) // Persistent settings storage
         .setup(|app| {
             // Setup logging in debug mode
             if cfg!(debug_assertions) {

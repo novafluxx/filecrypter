@@ -3,11 +3,27 @@ name: ci
 on:
   push:
     branches: [main]
+    paths:
+      - 'src-tauri/**'
+      - 'src/**'
+      - 'package.json'
+      - 'bun.lockb'
+      - '.github/workflows/ci.yml'
   pull_request:
     branches: [main]
+    paths:
+      - 'src-tauri/**'
+      - 'src/**'
+      - 'package.json'
+      - 'bun.lockb'
+      - '.github/workflows/ci.yml'
 
 permissions:
   contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:

@@ -22,11 +22,12 @@ body = """
 {% endif %}\
 {% set commits = commits | filter(attribute="merge_commit", value=false) %}
 {% for group, commits in commits | group_by(attribute="group") %}
-### {{ group }}
+
+### {{ group | striptags | trim }}
 {% for commit in commits %}
-- {% if commit.scope %}**{{ commit.scope }}:** {% endif %}{{ commit.message | trim | replace_regex(from="(?s)\\n.*", to="") | trim | upper_first }}{% if commit.breaking %} **[BREAKING]**{% endif %} ({{ commit.id | truncate(length=7, end="") }})
+- {% if commit.scope %}**{{ commit.scope }}:** {% endif %}{{ commit.message | split(pat="\n") | first | trim | upper_first }}{% if commit.breaking %} **[BREAKING]**{% endif %}
 {%- endfor %}
-{% endfor %}\n
+{% endfor %}
 """
 
 # Footer template for the changelog
@@ -37,33 +38,32 @@ footer = """
 [git]
 # Parse conventional commits
 conventional_commits = true
-# Filter out unconventional commits (set to false to include all commits)
-filter_unconventional = false
+# Filter out unconventional commits (only show conventional commits)
+filter_unconventional = true
 # Exclude merge commits from the changelog
 skip_merge_commits = true
 # Sort commits by oldest first
 sort_commits = "oldest"
 
-# Commit parsers to categorize commits
+# Commit parsers to categorize commits (ordered by priority via HTML comments)
 commit_parsers = [
   { message = "^Merge pull request", skip = true },
   { message = "^Merge branch", skip = true },
-  { message = "^feat", group = "Features" },
-  { message = "^fix", group = "Bug Fixes" },
-  { message = "^docs?", group = "Documentation" },
-  { message = "^perf", group = "Performance" },
-  { message = "^refactor", group = "Refactoring" },
-  { message = "^style", group = "Style" },
-  { message = "^test", group = "Testing" },
-  { message = "^build", group = "Build" },
-  { message = "^ci", group = "CI" },
-  { message = "^revert", group = "Reverts" },
+  { message = "^feat", group = "<!-- 0 -->🚀 Features" },
+  { message = "^fix", group = "<!-- 1 -->🐛 Bug Fixes" },
+  { message = "^perf", group = "<!-- 2 -->⚡ Performance" },
+  { message = "^refactor", group = "<!-- 3 -->♻️ Refactoring" },
+  { message = "^docs?", group = "<!-- 4 -->📚 Documentation" },
+  { message = "^test", group = "<!-- 5 -->🧪 Testing" },
+  { message = "^build", group = "<!-- 6 -->🔨 Build" },
+  { message = "^ci", group = "<!-- 7 -->⚙️ CI" },
+  { message = "^style", group = "<!-- 8 -->💄 Style" },
+  { message = "^revert", group = "<!-- 9 -->⏪ Reverts" },
   { message = "^chore\\(release\\): prepare for", skip = true },
   { message = "^chore\\(release\\): bump version", skip = true },
-  { message = "^chore\\(deps\\):", group = "Dependencies" },
-  { message = "^chore", group = "Miscellaneous" },
-  { message = "(dependenc|Dependenc|deps|Deps)", group = "Dependencies" },
-  { message = ".*", group = "Other" },
+  { message = "^chore\\(deps\\):", group = "<!-- 10 -->📦 Dependencies" },
+  { message = "(dependenc|Dependenc|deps|Deps)", group = "<!-- 10 -->📦 Dependencies" },
+  { message = "^chore", group = "<!-- 11 -->🔧 Miscellaneous" },
 ]
 
 # Protect breaking changes by looking for BREAKING CHANGE: in commit body

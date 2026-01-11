@@ -127,7 +127,7 @@ Chunks:
 **Streaming Encryption Details:**
 - Used for all files regardless of size (no threshold)
 - Processes files in 1 MB chunks (configurable via `DEFAULT_CHUNK_SIZE`)
-- Each chunk has unique nonce: BLAKE3(base_nonce || chunk_index)
+- Each chunk has unique nonce: BLAKE3("filecrypter-chunk-nonce-v1" || base_nonce || chunk_index)
 - Header authenticated as AAD (Additional Authenticated Data) for every chunk
 - Uses temporary files during encryption/decryption for atomic writes
 - Temp files protected with restrictive permissions (Unix: 0o600, Windows: ACLs)

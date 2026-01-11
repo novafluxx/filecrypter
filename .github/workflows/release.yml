@@ -4,8 +4,8 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version number (example: 0.2.0). Must be semver format (X.Y.Z)."
-        required: true
+        description: "Optional: Override auto-calculated version (leave empty for auto)"
+        required: false
         type: string
 
 permissions:
@@ -17,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.create-tag.outputs.tag }}
+      version: ${{ steps.calculate-version.outputs.version }}
+      changelog: ${{ steps.generate-release-changelog.outputs.changelog }}
 
     steps:
       - uses: actions/checkout@v4
@@ -24,30 +26,71 @@ jobs:
           fetch-depth: 0  # Full history needed for changelog generation
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Validate version format
+      - name: Install dependencies
         run: |
-          if ! echo "${{ inputs.version }}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-            echo "❌ Error: Version must be in semver format (X.Y.Z)"
-            echo "Examples: 0.2.0, 1.0.0, 2.1.3"
+          sudo apt-get update && sudo apt-get install -y jq
+
+          # Install git-cliff
+          wget -q https://github.com/orhun/git-cliff/releases/download/v2.11.0/git-cliff-2.11.0-x86_64-unknown-linux-gnu.tar.gz
+          tar -xzf git-cliff-2.11.0-x86_64-unknown-linux-gnu.tar.gz
+          sudo mv git-cliff-2.11.0/git-cliff /usr/local/bin/
+          git-cliff --version
+
+      - name: Calculate version
+        id: calculate-version
+        run: |
+          # Use manual override if provided, otherwise auto-calculate
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+            echo "Using manual version override: $VERSION"
+          else
+            # Get the latest tag
+            LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+            if [ -z "$LATEST_TAG" ]; then
+              # No previous tags, start at 0.1.0
+              VERSION="0.1.0"
+              echo "No previous tags found, starting at $VERSION"
+            else
+              # Use git-cliff to determine bump type based on commits
+              BUMP_VERSION=$(git-cliff --config cliff.toml --bumped-version 2>/dev/null || echo "")
+
+              if [ -n "$BUMP_VERSION" ]; then
+                # Remove 'v' prefix if present
+                VERSION="${BUMP_VERSION#v}"
+                echo "Auto-calculated version from commits: $VERSION"
+              else
+                # Fallback: patch bump from current version
+                CURRENT="${LATEST_TAG#v}"
+                IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+                VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
+                echo "Fallback patch bump: $VERSION"
+              fi
+            fi
+          fi
+
+          # Validate format
+          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "❌ Error: Version must be in semver format (X.Y.Z), got: $VERSION"
             exit 1
           fi
-          echo "✅ Version format valid: ${{ inputs.version }}"
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "✅ Version: $VERSION"
 
       - name: Check if tag already exists
         run: |
-          if git rev-parse "v${{ inputs.version }}" >/dev/null 2>&1; then
-            echo "❌ Error: Tag v${{ inputs.version }} already exists"
+          VERSION="${{ steps.calculate-version.outputs.version }}"
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "❌ Error: Tag v$VERSION already exists"
             echo "Please use a different version number or delete the existing tag"
             exit 1
           fi
-          echo "✅ Tag v${{ inputs.version }} does not exist"
-
-      - name: Install jq for JSON manipulation
-        run: sudo apt-get update && sudo apt-get install -y jq
+          echo "✅ Tag v$VERSION does not exist"
 
       - name: Bump version in all config files
         run: |
-          VERSION="${{ inputs.version }}"
+          VERSION="${{ steps.calculate-version.outputs.version }}"
 
           echo "Updating version to $VERSION in all config files..."
 
@@ -80,32 +123,42 @@ jobs:
           echo ""
 
           # Verify all show the correct version
-          if ! grep -q '"version": "${{ inputs.version }}"' package.json; then
+          VERSION="${{ steps.calculate-version.outputs.version }}"
+          if ! grep -q "\"version\": \"$VERSION\"" package.json; then
             echo "❌ package.json version mismatch"
             exit 1
           fi
-          if ! grep -q '^version = "${{ inputs.version }}"' src-tauri/Cargo.toml; then
+          if ! grep -q "^version = \"$VERSION\"" src-tauri/Cargo.toml; then
             echo "❌ Cargo.toml version mismatch"
             exit 1
           fi
-          if ! grep -q '"version": "${{ inputs.version }}"' src-tauri/tauri.conf.json; then
+          if ! grep -q "\"version\": \"$VERSION\"" src-tauri/tauri.conf.json; then
             echo "❌ tauri.conf.json version mismatch"
             exit 1
           fi
 
           echo "✅ All version files updated successfully"
 
-      - name: Install git-cliff
-        run: |
-          wget https://github.com/orhun/git-cliff/releases/download/v2.11.0/git-cliff-2.11.0-x86_64-unknown-linux-gnu.tar.gz
-          tar -xzf git-cliff-2.11.0-x86_64-unknown-linux-gnu.tar.gz
-          sudo mv git-cliff-2.11.0/git-cliff /usr/local/bin/
-          git-cliff --version
-
       - name: Generate changelog
         run: |
-          git-cliff --config cliff.toml --tag v${{ inputs.version }} --output CHANGELOG.md
+          VERSION="${{ steps.calculate-version.outputs.version }}"
+          git-cliff --config cliff.toml --tag "v$VERSION" --output CHANGELOG.md
           echo "✅ Changelog generated"
+
+      - name: Generate release notes
+        id: generate-release-changelog
+        run: |
+          VERSION="${{ steps.calculate-version.outputs.version }}"
+
+          # Generate changelog for just this release (unreleased changes)
+          CHANGELOG=$(git-cliff --config cliff.toml --tag "v$VERSION" --unreleased --strip header)
+
+          # Handle multiline output for GitHub Actions
+          echo "changelog<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$CHANGELOG" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+          echo "✅ Release notes generated"
 
       - name: Setup Rust for Cargo.lock update
         uses: dtolnay/rust-toolchain@stable
@@ -123,14 +176,14 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           git add package.json src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json CHANGELOG.md
-          git commit -m "chore(release): bump version to ${{ inputs.version }}"
+          git commit -m "chore(release): bump version to ${{ steps.calculate-version.outputs.version }}"
 
           echo "✅ Changes committed"
 
       - name: Create and push tag
         id: create-tag
         run: |
-          TAG="v${{ inputs.version }}"
+          TAG="v${{ steps.calculate-version.outputs.version }}"
 
           git tag "$TAG"
           echo "✅ Created tag $TAG"
@@ -143,14 +196,10 @@ jobs:
 
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
-  # Stage 2: Build binaries and create GitHub Release
+  # Stage 2: Build Windows binary and create GitHub Release
   build-and-release:
     needs: prepare-release
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.platform }}
+    runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@v4
@@ -164,13 +213,6 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: './src-tauri -> target'
-
-      - name: Cache apt packages
-        if: matrix.platform == 'ubuntu-latest'
-        uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-          version: 1.0
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -194,6 +236,6 @@ jobs:
         with:
           tagName: ${{ needs.prepare-release.outputs.tag }}
           releaseName: "FileCrypter ${{ needs.prepare-release.outputs.tag }}"
-          releaseBody: "See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/${{ needs.prepare-release.outputs.tag }}/CHANGELOG.md) for details."
+          releaseBody: ${{ needs.prepare-release.outputs.changelog }}
           releaseDraft: true
           prerelease: false

@@ -12,7 +12,7 @@
 -->
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onUnmounted } from 'vue';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useTauri } from '../composables/useTauri';
 import { usePasswordStrength } from '../composables/usePasswordStrength';

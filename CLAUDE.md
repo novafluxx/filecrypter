@@ -42,22 +42,9 @@ cargo clippy                   # Run linter
 
 ### Frontend Structure (Vue 3 Composition API)
 
-- **src/main.ts**: Application entry point
 - **src/App.vue**: Root component with tab navigation (Encrypt, Decrypt, Batch)
-- **src/components/**: UI components
-  - `EncryptTab.vue`: Single file encryption interface
-  - `DecryptTab.vue`: Single file decryption interface
-  - `BatchTab.vue`: Batch encryption/decryption interface
-  - `ProgressBar.vue`: Progress indicator for batch operations
-  - `PasswordStrengthMeter.vue`: Visual password strength feedback
-- **src/composables/**: Reusable logic
-  - `useFileOps.ts`: Core file operation state management
-  - `useTauri.ts`: Type-safe Tauri IPC command wrappers
-  - `useProgress.ts`: Progress tracking for batch operations
-  - `usePasswordStrength.ts`: Password strength calculation
-  - `useDragDrop.ts`: Drag-and-drop file handling
-  - `useTheme.ts`: Dark/light theme management
-  - `usePasswordVisibility.ts`: Password field toggle logic
+- **src/components/**: Tab UI components (`EncryptTab`, `DecryptTab`, `BatchTab`) and widgets
+- **src/composables/**: Shared logic (file ops, Tauri IPC, progress, theme, drag-drop)
 - **src/types/**: TypeScript type definitions
 
 ### Backend Structure (Rust)
@@ -146,33 +133,16 @@ Chunks:
 - Temp files protected with restrictive permissions (Unix: 0o600, Windows: ACLs)
 - Optimal memory usage (constant 1MB buffer, not proportional to file size)
 
-### IPC Communication
+### IPC Commands
 
-Frontend calls Rust backend via Tauri's `invoke()`:
-```typescript
-// Frontend (src/composables/useTauri.ts)
-await invoke('encrypt_file', { inputPath, outputPath, password })
-await invoke('decrypt_file', { inputPath, outputPath, password })
-await invoke('batch_encrypt', { inputPaths, outputDir, password })
-await invoke('batch_decrypt', { inputPaths, outputDir, password })
+Frontend calls Rust via `invoke()` in `src/composables/useTauri.ts`:
+- `encrypt_file` / `decrypt_file`: Single file streaming encryption/decryption
+- `batch_encrypt` / `batch_decrypt`: Multiple files with progress events
 
-// Backend (src-tauri/src/commands/)
-#[command]
-pub async fn encrypt_file(input_path: String, output_path: String, password: String)
-```
+### Security Notes
 
-**Available Commands:**
-- `encrypt_file` / `decrypt_file`: Streaming encryption/decryption for all files
-- `batch_encrypt` / `batch_decrypt`: Process multiple files with progress events
-
-### Security Practices
-
-- **Password Handling**: Passwords are wrapped in `Password` type and zeroized after use (src-tauri/src/crypto/secure.rs)
-- **Unique Salts**: Each encryption generates a new random salt, ensuring different keys for same password
-- **Authentication**: AES-GCM provides both encryption and authentication (detects tampering)
-- **Error Messages**: Generic error messages prevent information leakage (wrong password → "Invalid password or corrupted file")
-- **Temp File Security**: On Windows, temp files use ACLs to restrict access to current user only
-- **Memory Safety**: Sensitive data (keys, passwords) is zeroized after use
+- Passwords wrapped in `Password` type and zeroized after use (`src-tauri/src/crypto/secure.rs`)
+- On Windows, temp files use ACLs to restrict access to current user only (`src-tauri/src/security/windows_acl.rs`)
 
 ## Working with Tauri
 
@@ -184,26 +154,9 @@ pub async fn encrypt_file(input_path: String, output_path: String, password: Str
 
 ## Testing
 
-- **Rust**: Comprehensive unit tests in each module (`#[cfg(test)]` blocks)
+- **Rust**: Unit tests in `#[cfg(test)]` blocks, integration tests in `src-tauri/tests/`
 - **Frontend**: No test framework currently configured
 - Run Rust tests before committing: `cd src-tauri && cargo test`
-
-## File Operations
-
-All file operations use streaming (chunked) encryption for consistent behavior and optimal memory usage:
-
-1. **Streaming encryption**: Files are processed in 1MB chunks
-   - Commands: `encrypt_file`, `decrypt_file`
-   - Used for all file sizes
-   - Reduces memory footprint for large files
-   - Small files create appropriately-sized chunks
-   - Used in `EncryptTab.vue` and `DecryptTab.vue`
-
-2. **Batch mode**: Multiple files encrypted/decrypted sequentially
-   - Commands: `batch_encrypt`, `batch_decrypt`
-   - Emits progress events to frontend for UI updates
-   - No per-file size limit
-   - Used in `BatchTab.vue`
 
 ## Common Modifications
 

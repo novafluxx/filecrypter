@@ -51,6 +51,12 @@ pub fn resolve_output_path<P: AsRef<Path>>(
     ))
 }
 
+/// Build a collision-avoidance path by inserting " (n)" before the extension.
+///
+/// Examples:
+/// - "file.txt" with index 1 -> "file (1).txt"
+/// - "archive.tar.gz" with index 2 -> "archive.tar (2).gz"
+/// - "noext" with index 1 -> "noext (1)"
 fn build_collision_path(path: &Path, index: u32) -> CryptoResult<PathBuf> {
     let parent = path.parent().unwrap_or_else(|| Path::new("."));
     let file_name = path
@@ -232,6 +238,14 @@ pub fn validate_input_path(path: &str) -> CryptoResult<PathBuf> {
     Ok(canonical)
 }
 
+/// Validate that no component of the path is a symlink.
+///
+/// This prevents symlink attacks where an attacker could create a symlink
+/// pointing to sensitive files (e.g., /etc/passwd) and trick the application
+/// into reading or overwriting them.
+///
+/// Walks through each path component and checks if it's a symlink using
+/// `symlink_metadata()` which doesn't follow symlinks.
 fn validate_no_symlinks(path: &Path) -> CryptoResult<()> {
     let mut current = if path.is_absolute() {
         PathBuf::new()

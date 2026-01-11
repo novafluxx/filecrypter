@@ -31,48 +31,59 @@ use crate::commands::file_utils::{resolve_output_path, validate_batch_count, val
 use crate::crypto::{decrypt_file_streaming, encrypt_file_streaming, CompressionConfig, Password, DEFAULT_CHUNK_SIZE};
 use crate::error::{CryptoError, CryptoResult};
 
-/// Progress event for batch operations
+/// Progress event for batch operations.
+///
+/// Emitted after each file is processed to update the frontend on batch progress.
+/// Listen for `BATCH_PROGRESS_EVENT` ("batch-progress") events in the frontend.
 #[derive(Clone, Serialize)]
 pub struct BatchProgress {
-    /// Name of the current file being processed
+    /// Name of the current file being processed (filename only, not full path)
     pub current_file: String,
-    /// Index of current file (0-based)
+    /// Index of current file (0-based, ranges from 0 to total_files-1)
     pub file_index: usize,
-    /// Total number of files in batch
+    /// Total number of files in the batch
     pub total_files: usize,
-    /// Current stage: "encrypting", "decrypting", "complete"
+    /// Current stage: "encrypting", "decrypting", or "complete"
     pub stage: String,
-    /// Overall progress percentage (0-100)
+    /// Overall batch progress percentage (0-100)
     pub percent: u32,
 }
 
-/// Result for a single file in batch operation
+/// Result for a single file in a batch operation.
+///
+/// Contains the outcome of encrypting or decrypting one file within a batch.
 #[derive(Clone, Serialize)]
 pub struct FileResult {
-    /// Original input path
+    /// Original input file path as provided by the user
     pub input_path: String,
-    /// Output path (if successful)
+    /// Resolved output path where the result was saved (None if operation failed)
     pub output_path: Option<String>,
-    /// Whether this file succeeded
+    /// Whether encryption/decryption succeeded for this file
     pub success: bool,
-    /// Error message (if failed)
+    /// Error message describing why the operation failed (None if successful)
     pub error: Option<String>,
 }
 
-/// Result of a batch operation
+/// Aggregated result of a batch encrypt/decrypt operation.
+///
+/// Contains individual results for each file plus summary statistics.
 #[derive(Clone, Serialize)]
 pub struct BatchResult {
-    /// Results for each file
+    /// Individual results for each file in the batch (in order of processing)
     pub files: Vec<FileResult>,
-    /// Number of successful files
+    /// Count of files that were successfully processed
     pub success_count: usize,
-    /// Number of failed files
+    /// Count of files that failed to process
     pub failed_count: usize,
 }
 
 /// Event name for batch progress
 pub const BATCH_PROGRESS_EVENT: &str = "batch-progress";
 
+/// Emit a batch progress event for the current file.
+///
+/// Extracts the filename from the input path and calculates the overall
+/// percentage based on the file index.
 fn emit_batch_progress<F>(
     emit_progress: &mut F,
     input_path: &str,
@@ -96,6 +107,7 @@ fn emit_batch_progress<F>(
     });
 }
 
+/// Emit a batch completion event indicating all files have been processed.
 fn emit_batch_complete<F>(emit_progress: &mut F, total_files: usize)
 where
     F: FnMut(BatchProgress),
@@ -109,6 +121,10 @@ where
     });
 }
 
+/// Core implementation of batch encryption.
+///
+/// This is separated from the Tauri command to allow unit testing without
+/// requiring a Tauri runtime.
 fn batch_encrypt_impl<F>(
     input_paths: &[String],
     output_dir: &str,
@@ -187,6 +203,10 @@ where
     })
 }
 
+/// Core implementation of batch decryption.
+///
+/// This is separated from the Tauri command to allow unit testing without
+/// requiring a Tauri runtime.
 fn batch_decrypt_impl<F>(
     input_paths: &[String],
     output_dir: &str,

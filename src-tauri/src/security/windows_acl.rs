@@ -287,6 +287,9 @@ pub fn set_owner_only_dacl<P: AsRef<Path>>(path: P) -> Result<(), DaclError> {
     }
 
     // Windows file access rights for read/write (equivalent to Unix 0o600)
+    // These values match the Windows SDK definitions:
+    // FILE_GENERIC_READ  = FILE_READ_ATTRIBUTES | FILE_READ_DATA | FILE_READ_EA | STANDARD_RIGHTS_READ | SYNCHRONIZE
+    // FILE_GENERIC_WRITE = FILE_APPEND_DATA | FILE_WRITE_ATTRIBUTES | FILE_WRITE_DATA | FILE_WRITE_EA | STANDARD_RIGHTS_WRITE | SYNCHRONIZE
     const FILE_GENERIC_READ_MASK: u32 = 0x120089;
     const FILE_GENERIC_WRITE_MASK: u32 = 0x120116;
 

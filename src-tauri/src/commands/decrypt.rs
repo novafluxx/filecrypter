@@ -25,7 +25,6 @@
 // - Timing-safe comparison prevents timing attacks
 // - Header tampering detected (used as AAD in each chunk)
 
-use std::sync::Arc;
 use tauri::{command, AppHandle, Emitter};
 
 use crate::commands::file_utils::{resolve_output_path, validate_input_path};
@@ -93,7 +92,8 @@ pub async fn decrypt_file(
     let password = Password::new(password);
 
     // Progress callback for streaming
-    let app_handle = Arc::new(app.clone());
+    // Note: AppHandle is internally reference-counted, so clone is cheap
+    let app_handle = app.clone();
     let progress_callback = move |bytes_processed: u64, total_bytes: u64| {
         let percent = if total_bytes > 0 {
             ((bytes_processed as f64 / total_bytes as f64) * 100.0) as u32

@@ -88,6 +88,12 @@ impl Password {
     ///
     /// The provided String will be moved into the Password wrapper
     /// and will be zeroed when the Password is dropped.
+    ///
+    /// # Security Note
+    /// Only the String passed to this function is zeroized. If the password
+    /// was copied or cloned before being passed here, those copies remain
+    /// in memory. For maximum security, construct the String directly from
+    /// user input and pass it immediately to this function.
     pub fn new(password: String) -> Self {
         Self(password)
     }

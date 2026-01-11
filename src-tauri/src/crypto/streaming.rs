@@ -195,8 +195,11 @@ pub fn encrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
         .map_err(|_| CryptoError::EncryptionFailed)?;
 
     // Mix in timestamp as defense-in-depth (belt-and-suspenders approach)
-    // OsRng is cryptographically secure, but this adds extra protection against
-    // potential RNG failures or nonce reuse across system restarts
+    // OsRng is cryptographically secure and is the primary source of randomness.
+    // The timestamp XOR provides additional entropy as a secondary defense against:
+    // - Hypothetical RNG state compromise or implementation bugs
+    // - Nonce reuse if the same RNG state is restored (e.g., VM snapshots)
+    // This is purely supplemental and does NOT replace the CSPRNG requirement.
     let timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_err(|_| CryptoError::EncryptionFailed)?
@@ -702,11 +705,23 @@ fn create_secure_tempfile(parent: &Path) -> CryptoResult<NamedTempFile> {
 /// Check if a file should use streaming encryption based on size
 ///
 /// Returns true if the file is larger than the threshold (default: 10MB)
+///
+/// # Deprecated
+/// This function is a legacy utility. As of the current implementation,
+/// all files use streaming encryption regardless of size for consistent
+/// behavior and optimal memory usage. This function is retained for
+/// potential future use cases where size-based decisions may be needed.
+#[allow(dead_code)]
 pub fn should_use_streaming(file_size: u64, threshold: u64) -> bool {
     file_size > threshold
 }
 
 /// Default threshold for automatic streaming (10 MB)
+///
+/// # Note
+/// This constant is retained for potential future use. Currently, all files
+/// use streaming encryption regardless of size.
+#[allow(dead_code)]
 pub const STREAMING_THRESHOLD: u64 = 10 * 1024 * 1024;
 
 #[cfg(test)]

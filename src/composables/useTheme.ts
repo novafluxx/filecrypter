@@ -8,7 +8,7 @@
 // - Override in [data-theme="dark"] for dark theme
 // - Components use var(--*) for colors
 
-import { ref, watch, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 
 /**
  * Available theme modes
@@ -76,6 +76,9 @@ export function useTheme() {
     }
   }
 
+  /** Cleanup function for media query listener */
+  let cleanupMediaQuery: (() => void) | null = null;
+
   // Initialize on mount
   onMounted(() => {
     initTheme();
@@ -90,6 +93,19 @@ export function useTheme() {
     };
 
     mediaQuery.addEventListener('change', handleChange);
+
+    // Store cleanup function
+    cleanupMediaQuery = () => {
+      mediaQuery.removeEventListener('change', handleChange);
+    };
+  });
+
+  // Clean up event listener on unmount to prevent memory leaks
+  onUnmounted(() => {
+    if (cleanupMediaQuery) {
+      cleanupMediaQuery();
+      cleanupMediaQuery = null;
+    }
   });
 
   return {

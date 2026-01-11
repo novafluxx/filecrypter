@@ -173,3 +173,24 @@ Frontend calls Rust via `invoke()` in `src/composables/useTauri.ts`:
 4. Call from frontend via `invoke('command_name', {...})`
 
 **Emitting Progress Events**: Use `emit_progress` from `src-tauri/src/events.rs` to send updates to frontend
+
+## Commit Conventions
+
+Use [Conventional Commits](https://www.conventionalcommits.org/) format. These prefixes are parsed by git-cliff to generate changelogs and auto-calculate version bumps:
+
+| Prefix | Category | Version Bump |
+|--------|----------|--------------|
+| `feat:` | Features | Minor |
+| `fix:` | Bug Fixes | Patch |
+| `docs:` | Documentation | Patch |
+| `perf:` | Performance | Patch |
+| `refactor:` | Refactoring | Patch |
+| `test:` | Testing | Patch |
+| `build:` | Build | Patch |
+| `ci:` | CI | Patch |
+| `chore:` | Miscellaneous | Patch |
+| `revert:` | Reverts | Patch |
+
+**Breaking changes**: Add `!` after the prefix (e.g., `feat!:`) or include `BREAKING CHANGE:` in the commit body → Major version bump
+
+**Scopes** (optional): Add context in parentheses, e.g., `feat(crypto):`, `fix(ui):`

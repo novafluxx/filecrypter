@@ -17,8 +17,12 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useTauri } from '../composables/useTauri';
 import { usePasswordStrength } from '../composables/usePasswordStrength';
 import { usePasswordVisibility } from '../composables/usePasswordVisibility';
+import { sanitizeErrorMessage } from '../utils/errorSanitizer';
 import PasswordStrengthMeter from './PasswordStrengthMeter.vue';
+import IconEye from './icons/IconEye.vue';
+import IconEyeOff from './icons/IconEyeOff.vue';
 import type { BatchProgress, BatchResult, FileResult } from '../types/crypto';
+import { MIN_PASSWORD_LENGTH } from '../constants';
 
 // Initialize Tauri composable
 const tauri = useTauri();
@@ -48,7 +52,7 @@ const { strength: passwordStrength } = usePasswordStrength(password);
 let unlistenProgress: UnlistenFn | null = null;
 
 // Computed properties
-const isPasswordValid = computed(() => password.value.length >= 8);
+const isPasswordValid = computed(() => password.value.length >= MIN_PASSWORD_LENGTH);
 
 const isFormValid = computed(() =>
   inputPaths.value.length > 0 &&
@@ -62,35 +66,7 @@ const fileCount = computed(() => inputPaths.value.length);
 
 // Extract filename from full path
 function getFileName(path: string): string {
-  const parts = path.split(/[/\\]/);
-  return parts[parts.length - 1] || path;
-}
-
-/**
- * Safe error messages to display to users.
- * Prevents information leakage by mapping backend errors to safe messages.
- */
-const SAFE_ERROR_MESSAGES: Record<string, string> = {
-  InvalidPassword: 'Incorrect password or corrupted file',
-  FileNotFound: 'File could not be accessed',
-  FileTooLarge: 'File is too large for this operation',
-  TooManyFiles: 'Too many files selected for batch operation',
-  InvalidPath: 'Invalid file path',
-  permission: 'Permission denied',
-  default: 'Operation failed - please try again',
-};
-
-/**
- * Sanitize error messages for user display.
- */
-function sanitizeErrorMessage(error: unknown): string {
-  const errStr = String(error);
-  for (const [key, safeMsg] of Object.entries(SAFE_ERROR_MESSAGES)) {
-    if (key !== 'default' && errStr.includes(key)) {
-      return safeMsg;
-    }
-  }
-  return SAFE_ERROR_MESSAGES['default'] ?? 'Operation failed';
+  return path.split(/[/\\]/).at(-1) ?? path;
 }
 
 // Setup progress listener
@@ -373,16 +349,8 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
           :aria-label="isPasswordVisible ? 'Hide password' : 'Show password'"
           :title="isPasswordVisible ? 'Hide password' : 'Show password'"
         >
-          <!-- Eye icon (show) -->
-          <svg v-if="!isPasswordVisible" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-            <circle cx="12" cy="12" r="3"></circle>
-          </svg>
-          <!-- Eye-off icon (hide) -->
-          <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-            <line x1="1" y1="1" x2="23" y2="23"></line>
-          </svg>
+          <IconEye v-if="!isPasswordVisible" />
+          <IconEyeOff v-else />
         </button>
       </div>
       <!-- Password strength meter (encryption only) -->
@@ -435,6 +403,8 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
         v-if="statusMessage"
         class="status-message"
         :class="`status-${statusType}`"
+        role="status"
+        aria-live="polite"
       >
         {{ statusMessage }}
       </div>

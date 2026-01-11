@@ -12,37 +12,14 @@
 import { ref, computed } from 'vue';
 import type { CryptoResponse, StatusType } from '../types/crypto';
 import { useTauri } from './useTauri';
-
-/**
- * Safe error messages to display to users.
- * Maps error keywords to user-friendly messages.
- * This prevents leaking sensitive system information in error messages.
- */
-const SAFE_ERROR_MESSAGES: Record<string, string> = {
-  InvalidPassword: 'Incorrect password or corrupted file',
-  FileNotFound: 'File could not be accessed',
-  TooManyFiles: 'Too many files selected for batch operation',
-  InvalidPath: 'Invalid file path',
-  permission: 'Permission denied - unable to access file',
-  default: 'Operation failed - please try again',
-};
-
-/**
- * Sanitize error messages for user display.
- * Prevents information leakage by mapping backend errors to safe messages.
- */
-function sanitizeErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    const msg = error.message;
-    // Check for known error keywords
-    for (const [key, safeMsg] of Object.entries(SAFE_ERROR_MESSAGES)) {
-      if (key !== 'default' && msg.includes(key)) {
-        return safeMsg;
-      }
-    }
-  }
-  return SAFE_ERROR_MESSAGES['default'] ?? 'Operation failed';
-}
+import {
+  MIN_PASSWORD_LENGTH,
+  ENCRYPTED_EXTENSION,
+  DECRYPTED_EXTENSION,
+  STATUS_SUCCESS_TIMEOUT_MS,
+  DEFAULT_COMPRESSION_LEVEL,
+} from '../constants';
+import { sanitizeErrorMessage } from '../utils/errorSanitizer';
 
 /**
  * Composable for file encryption/decryption operations
@@ -73,7 +50,7 @@ export function useFileOps() {
   const password = ref('');
   const neverOverwrite = ref(true);
   const compressionEnabled = ref(false); // Compression disabled by default for single files
-  const compressionLevel = ref(3); // ZSTD level 3 (balanced)
+  const compressionLevel = ref(DEFAULT_COMPRESSION_LEVEL); // ZSTD level 3 (balanced)
   const isProcessing = ref(false);
   const statusMessage = ref('');
   const statusType = ref<StatusType>('info');
@@ -88,14 +65,14 @@ export function useFileOps() {
    * Requirements:
    * - Input file must be selected
    * - Output path must be set
-   * - Password must be at least 8 characters (recommended minimum)
+   * - Password must be at least MIN_PASSWORD_LENGTH characters (recommended minimum)
    * - Not currently processing
    */
   const isFormValid = computed(() => {
     return (
       inputPath.value.length > 0 &&
       outputPath.value.length > 0 &&
-      password.value.length >= 8 &&
+      password.value.length >= MIN_PASSWORD_LENGTH &&
       !isProcessing.value
     );
   });
@@ -107,7 +84,7 @@ export function useFileOps() {
    * to add a password strength meter (e.g., using zxcvbn library).
    */
   const isPasswordValid = computed(() => {
-    return password.value.length >= 8;
+    return password.value.length >= MIN_PASSWORD_LENGTH;
   });
 
   // ========== Helper Methods ==========
@@ -124,19 +101,19 @@ export function useFileOps() {
    * @param path - Selected input file path
    * @param isEncrypt - Whether this is for encryption (add .encrypted) or decryption (remove it)
    */
-  async function setInputPath(path: string, isEncrypt: boolean) {
+  function setInputPath(path: string, isEncrypt: boolean) {
     inputPath.value = path;
 
     // Auto-suggest output filename
     if (isEncrypt) {
       // For encryption: add .encrypted extension
-      outputPath.value = path + '.encrypted';
+      outputPath.value = path + ENCRYPTED_EXTENSION;
     } else {
       // For decryption: remove .encrypted extension if present
-      if (path.endsWith('.encrypted')) {
-        outputPath.value = path.slice(0, -10); // Remove '.encrypted'
+      if (path.endsWith(ENCRYPTED_EXTENSION)) {
+        outputPath.value = path.slice(0, -ENCRYPTED_EXTENSION.length);
       } else {
-        outputPath.value = path + '.decrypted';
+        outputPath.value = path + DECRYPTED_EXTENSION;
       }
     }
   }
@@ -168,7 +145,7 @@ export function useFileOps() {
    * @param type - Message type (success, error, info)
    * @param duration - How long to show the message (ms), 0 for permanent
    */
-  function showStatus(message: string, type: StatusType, duration = 5000) {
+  function showStatus(message: string, type: StatusType, duration = STATUS_SUCCESS_TIMEOUT_MS) {
     statusMessage.value = message;
     statusType.value = type;
 

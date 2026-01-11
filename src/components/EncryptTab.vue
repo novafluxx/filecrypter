@@ -16,13 +16,14 @@
 -->
 
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { onMounted, watch } from 'vue';
 import { useFileOps } from '../composables/useFileOps';
 import { useTauri } from '../composables/useTauri';
 import { usePasswordStrength } from '../composables/usePasswordStrength';
 import { useProgress } from '../composables/useProgress';
 import { useDragDrop } from '../composables/useDragDrop';
 import { usePasswordVisibility } from '../composables/usePasswordVisibility';
+import { useSettings } from '../composables/useSettings';
 import PasswordStrengthMeter from './PasswordStrengthMeter.vue';
 import ProgressBar from './ProgressBar.vue';
 import IconEye from './icons/IconEye.vue';
@@ -32,6 +33,19 @@ import IconEyeOff from './icons/IconEyeOff.vue';
 // These provide reactive state and methods for file operations
 const fileOps = useFileOps();
 const tauri = useTauri();
+const settings = useSettings();
+
+// Apply default settings when initialized
+watch(
+  () => settings.isInitialized.value,
+  (initialized) => {
+    if (initialized) {
+      fileOps.compressionEnabled.value = settings.defaultCompression.value;
+      fileOps.neverOverwrite.value = settings.defaultNeverOverwrite.value;
+    }
+  },
+  { immediate: true }
+);
 
 // Password visibility toggle
 const { isPasswordVisible, togglePasswordVisibility } = usePasswordVisibility();
@@ -45,7 +59,16 @@ const { progress, isActive: showProgress, startListening, stopListening } = useP
 
 // Drag-and-drop file handling
 const { isDragging, handleDragOver, handleDragLeave, handleDrop, setupDragDrop } = useDragDrop(
-  (path) => fileOps.setInputPath(path, true) // true = encryption mode
+  (path) => {
+    fileOps.setInputPath(path, true); // true = encryption mode
+
+    // If a default output directory is set, use it instead of the input file's directory
+    const defaultDir = settings.defaultOutputDirectory.value;
+    if (defaultDir) {
+      const filename = path.split(/[/\\]/).pop() ?? '';
+      fileOps.setOutputPath(`${defaultDir}/${filename}.encrypted`);
+    }
+  }
 );
 
 // Setup drag-drop on mount
@@ -64,6 +87,13 @@ async function handleSelectFile() {
   if (path) {
     // setInputPath automatically suggests output path with .encrypted extension
     fileOps.setInputPath(path, true); // true = encryption mode
+
+    // If a default output directory is set, use it instead of the input file's directory
+    const defaultDir = settings.defaultOutputDirectory.value;
+    if (defaultDir) {
+      const filename = path.split(/[/\\]/).pop() ?? '';
+      fileOps.setOutputPath(`${defaultDir}/${filename}.encrypted`);
+    }
   }
 }
 

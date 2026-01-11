@@ -12,11 +12,12 @@
 -->
 
 <script setup lang="ts">
-import { ref, computed, onUnmounted } from 'vue';
+import { ref, computed, onUnmounted, watch } from 'vue';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useTauri } from '../composables/useTauri';
 import { usePasswordStrength } from '../composables/usePasswordStrength';
 import { usePasswordVisibility } from '../composables/usePasswordVisibility';
+import { useSettings } from '../composables/useSettings';
 import { sanitizeErrorMessage } from '../utils/errorSanitizer';
 import PasswordStrengthMeter from './PasswordStrengthMeter.vue';
 import IconEye from './icons/IconEye.vue';
@@ -24,8 +25,9 @@ import IconEyeOff from './icons/IconEyeOff.vue';
 import type { BatchProgress, BatchResult, FileResult } from '../types/crypto';
 import { MIN_PASSWORD_LENGTH } from '../constants';
 
-// Initialize Tauri composable
+// Initialize composables
 const tauri = useTauri();
+const settings = useSettings();
 
 // Password visibility toggle
 const { isPasswordVisible, togglePasswordVisibility } = usePasswordVisibility();
@@ -36,6 +38,21 @@ const inputPaths = ref<string[]>([]);
 const outputDir = ref('');
 const password = ref('');
 const neverOverwrite = ref(true);
+
+// Apply default settings when initialized
+watch(
+  () => settings.isInitialized.value,
+  (initialized) => {
+    if (initialized) {
+      neverOverwrite.value = settings.defaultNeverOverwrite.value;
+      // Set default output directory if configured
+      if (settings.defaultOutputDirectory.value) {
+        outputDir.value = settings.defaultOutputDirectory.value;
+      }
+    }
+  },
+  { immediate: true }
+);
 const isProcessing = ref(false);
 const statusMessage = ref('');
 const statusType = ref<'success' | 'error' | 'info'>('info');

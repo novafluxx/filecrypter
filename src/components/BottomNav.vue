@@ -1,25 +1,44 @@
 <!-- BottomNav.vue - Mobile Bottom Navigation Component -->
 <!--
-  iOS/Android-style bottom navigation bar.
-  Only rendered on mobile platforms.
+  iOS/Android-style bottom navigation bar for mobile platforms.
+  This component is conditionally rendered only on iOS and Android
+  (controlled by usePlatform composable in App.vue).
 
   Features:
-  - 5 tab items with icons and labels
-  - Active state highlighting
-  - Safe area padding for notched devices
+  - 5 tab items with SVG icons and text labels
+  - Visual active state highlighting using accent color
+  - Safe area padding for notched devices (iPhone X+, etc.)
+  - Touch-friendly tap targets (min 56px width)
+
+  Props:
+  - activeTab: Currently selected tab identifier
+
+  Events:
+  - switch-tab: Emitted when user taps a navigation item
+
+  Usage:
+    <BottomNav
+      :active-tab="activeTab"
+      @switch-tab="switchTab"
+    />
 -->
 
 <script setup lang="ts">
+// Tab identifier type - must match the tabs defined in App.vue
 type TabName = 'encrypt' | 'decrypt' | 'batch' | 'settings' | 'help';
 
+// Props: receives the currently active tab from parent
 defineProps<{
   activeTab: TabName;
 }>();
 
+// Events: emits tab switch requests to parent
 const emit = defineEmits<{
   (e: 'switch-tab', tab: TabName): void;
 }>();
 
+// Navigation tab configuration
+// Each tab has an id (used for routing) and a display label
 const tabs: { id: TabName; label: string }[] = [
   { id: 'encrypt', label: 'Encrypt' },
   { id: 'decrypt', label: 'Decrypt' },
@@ -76,6 +95,15 @@ const tabs: { id: TabName; label: string }[] = [
 </template>
 
 <style scoped>
+/*
+ * Bottom Navigation Styles
+ *
+ * Designed to match iOS/Android native tab bar conventions:
+ * - Fixed at bottom of screen (via parent flexbox layout)
+ * - Icons above labels
+ * - Safe area handling for notched devices
+ */
+
 .bottom-nav {
   display: flex;
   justify-content: space-around;
@@ -83,8 +111,10 @@ const tabs: { id: TabName; label: string }[] = [
   background: var(--panel);
   border-top: 1px solid var(--border);
   padding: 8px 4px;
-  /* Safe area for notched devices (iPhone X+) */
+  /* Safe area inset for notched devices (iPhone X and later)
+     Adds extra padding at the bottom to avoid the home indicator */
   padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  /* Prevent nav from shrinking when content is tall */
   flex-shrink: 0;
 }
 
@@ -101,23 +131,28 @@ const tabs: { id: TabName; label: string }[] = [
   color: var(--muted);
   transition: color 0.15s;
   font-family: inherit;
+  /* Minimum touch target size for accessibility (Apple HIG recommends 44pt) */
   min-width: 56px;
   border-radius: 8px;
 }
 
+/* Tap feedback - shows subtle background on press */
 .nav-item:active {
   background: var(--panel-alt);
 }
 
+/* Active tab state - highlighted with accent color */
 .nav-item.active {
   color: var(--accent);
 }
 
+/* Icon sizing - 24x24 is standard for mobile nav icons */
 .nav-icon {
   width: 24px;
   height: 24px;
 }
 
+/* Label styling - small text below icon */
 .nav-label {
   font-size: 11px;
   font-weight: 500;

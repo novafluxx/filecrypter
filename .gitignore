@@ -9,6 +9,9 @@ target
 src-tauri/target
 src-tauri/.tauri
 
+# Tauri mobile generated projects (created by `tauri ios init` / `tauri android init`)
+src-tauri/gen/
+
 # code coverage
 coverage
 *.lcov

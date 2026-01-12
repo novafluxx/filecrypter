@@ -2,7 +2,7 @@
 
 FileCrypter is a desktop app that password-encrypts files and can decrypt them later.
 
-The app creates a new encrypted file (with a `.encrypted` extension) and leaves your original file unchanged unless you choose to overwrite it.
+By default, the app creates a new encrypted file (with a `.encrypted` extension) and leaves your original file unchanged. It only overwrites a destination file if you turn off **Never overwrite existing files** and choose an output path that already exists.
 
 ## Quick Start
 
@@ -36,12 +36,12 @@ Notes:
 - Batch encryption outputs `filename.ext.encrypted` into the output directory.
 - Batch decryption removes `.encrypted` if present; otherwise it writes `filename.ext.decrypted`.
 - **Compression is automatically enabled** for batch encryption (ZSTD) to reduce file sizes.
-- Batch operations have a per-file size limit (currently **100 MB**). For larger files, use single-file Encrypt/Decrypt instead.
+- Batch operations support large files (streaming), but are limited to **1000 files per run**.
 
 ## Compression
 FileCrypter supports optional ZSTD compression to reduce file sizes before encryption.
 
-- **Single file mode**: Compression is optional (checkbox in Encrypt tab). Disabled by default.
+- **Single file mode**: Compression is optional (checkbox in Encrypt tab). Off by default (unless enabled in **Settings**).
 - **Batch mode**: Compression is automatically enabled for all files.
 
 **Compression effectiveness:**
@@ -54,7 +54,7 @@ FileCrypter supports optional ZSTD compression to reduce file sizes before encry
 ## Output Safety (Overwrite / Auto-Rename)
 FileCrypter includes a **Never overwrite existing files** option.
 
-- When enabled, if the destination file already exists, FileCrypter auto-renames the output to avoid overwriting (for example: `file (1).encrypted`).
+- When enabled, if the destination file already exists, FileCrypter auto-renames the output to avoid overwriting (for example: `example.pdf (1).encrypted`).
 - When disabled, the app is allowed to overwrite the destination file.
 
 ## Large Files & Performance
@@ -81,9 +81,8 @@ Try decrypting again with the exact same password, and make sure the `.encrypted
 You may not have access to read the input file or write to the destination folder.
 Choose a different output location (like your Desktop/Documents) or adjust OS file permissions.
 
-### “File is too large”
-- In **Batch** mode, files larger than **100 MB** are rejected.
-- Use single-file Encrypt/Decrypt for large files.
+### “Too many files selected”
+Batch mode supports up to **1000** files per run. Split your batch into smaller groups and try again.
 
 ### File selection won’t work / nothing happens
 If you’re using drag-and-drop, try using **Browse** instead, and make sure you’re dragging a real file (not a shortcut/alias).

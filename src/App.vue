@@ -20,14 +20,19 @@ import DecryptTab from './components/DecryptTab.vue';
 import BatchTab from './components/BatchTab.vue';
 import SettingsTab from './components/SettingsTab.vue';
 import HelpTab from './components/HelpTab.vue';
+import BottomNav from './components/BottomNav.vue';
 import { useTheme } from './composables/useTheme';
 import { useSettings } from './composables/useSettings';
+import { usePlatform } from './composables/usePlatform';
 
 // Active tab state: 'encrypt', 'decrypt', 'batch', 'settings', or 'help'
 const activeTab = ref<'encrypt' | 'decrypt' | 'batch' | 'settings' | 'help'>('encrypt');
 
 // Initialize theme (applies theme from settings)
 useTheme();
+
+// Platform detection for conditional navigation
+const { isMobile } = usePlatform();
 
 // Settings management
 const { initSettings } = useSettings();
@@ -55,8 +60,8 @@ function switchTab(tab: 'encrypt' | 'decrypt' | 'batch' | 'settings' | 'help') {
       <h1 class="app-title">FileCrypter</h1>
     </div>
 
-    <!-- Tab Navigation -->
-    <div class="tabs">
+    <!-- Desktop Tab Navigation (hidden on mobile) -->
+    <div v-if="!isMobile" class="tabs">
       <button
         class="tab-button"
         :class="{ active: activeTab === 'encrypt' }"
@@ -126,6 +131,13 @@ function switchTab(tab: 'encrypt' | 'decrypt' | 'batch' | 'settings' | 'help') {
         <HelpTab />
       </div>
     </div>
+
+    <!-- Mobile Bottom Navigation (shown only on iOS/Android) -->
+    <BottomNav
+      v-if="isMobile"
+      :active-tab="activeTab"
+      @switch-tab="switchTab"
+    />
   </div>
 </template>
 
@@ -212,6 +224,7 @@ body {
 
 #app {
   height: 100vh;
+  height: 100dvh; /* Dynamic viewport height for mobile */
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -224,7 +237,7 @@ body {
 .app-container {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100%;
   background: var(--bg);
   overflow: hidden;
 }
@@ -295,6 +308,7 @@ body {
 /* Tab Content Area */
 .tab-panels {
   flex: 1;
+  min-height: 0; /* Required for flex item to respect overflow */
   overflow-y: auto;
   background: var(--bg);
 }

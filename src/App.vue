@@ -24,15 +24,17 @@ import BottomNav from './components/BottomNav.vue';
 import { useTheme } from './composables/useTheme';
 import { useSettings } from './composables/useSettings';
 import { usePlatform } from './composables/usePlatform';
+import type { TabName } from './types/tabs';
 
-// Active tab state: 'encrypt', 'decrypt', 'batch', 'settings', or 'help'
-const activeTab = ref<'encrypt' | 'decrypt' | 'batch' | 'settings' | 'help'>('encrypt');
+// Active tab state
+const activeTab = ref<TabName>('encrypt');
 
 // Initialize theme (applies theme from settings)
 useTheme();
 
 // Platform detection for conditional navigation
-const { isMobile } = usePlatform();
+// isInitialized prevents UI flash before detection completes
+const { isMobile, isInitialized } = usePlatform();
 
 // Settings management
 const { initSettings } = useSettings();
@@ -45,9 +47,9 @@ onMounted(async () => {
 /**
  * Switch between tabs
  *
- * @param tab - Tab to activate ('encrypt', 'decrypt', 'batch', 'settings', or 'help')
+ * @param tab - Tab to activate
  */
-function switchTab(tab: 'encrypt' | 'decrypt' | 'batch' | 'settings' | 'help') {
+function switchTab(tab: TabName) {
   activeTab.value = tab;
 }
 
@@ -60,8 +62,8 @@ function switchTab(tab: 'encrypt' | 'decrypt' | 'batch' | 'settings' | 'help') {
       <h1 class="app-title">FileCrypter</h1>
     </div>
 
-    <!-- Desktop Tab Navigation (hidden on mobile) -->
-    <div v-if="!isMobile" class="tabs">
+    <!-- Desktop Tab Navigation (hidden on mobile, waits for platform detection) -->
+    <div v-if="isInitialized && !isMobile" class="tabs">
       <button
         class="tab-button"
         :class="{ active: activeTab === 'encrypt' }"
@@ -132,9 +134,9 @@ function switchTab(tab: 'encrypt' | 'decrypt' | 'batch' | 'settings' | 'help') {
       </div>
     </div>
 
-    <!-- Mobile Bottom Navigation (shown only on iOS/Android) -->
+    <!-- Mobile Bottom Navigation (shown only on iOS/Android, waits for platform detection) -->
     <BottomNav
-      v-if="isMobile"
+      v-if="isInitialized && isMobile"
       :active-tab="activeTab"
       @switch-tab="switchTab"
     />

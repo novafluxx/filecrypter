@@ -24,8 +24,7 @@
 -->
 
 <script setup lang="ts">
-// Tab identifier type - must match the tabs defined in App.vue
-type TabName = 'encrypt' | 'decrypt' | 'batch' | 'settings' | 'help';
+import type { TabName } from '../types/tabs';
 
 // Props: receives the currently active tab from parent
 defineProps<{
@@ -55,35 +54,37 @@ const tabs: { id: TabName; label: string }[] = [
       :key="tab.id"
       class="nav-item"
       :class="{ active: activeTab === tab.id }"
+      :aria-label="`Switch to ${tab.label} tab`"
+      :aria-current="activeTab === tab.id ? 'page' : undefined"
       @click="emit('switch-tab', tab.id)"
     >
-      <!-- Encrypt Icon (Lock) -->
-      <svg v-if="tab.id === 'encrypt'" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Encrypt Icon (Lock) - aria-hidden since button has aria-label -->
+      <svg v-if="tab.id === 'encrypt'" aria-hidden="true" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
         <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
       </svg>
 
       <!-- Decrypt Icon (Unlock) -->
-      <svg v-if="tab.id === 'decrypt'" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <svg v-if="tab.id === 'decrypt'" aria-hidden="true" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
         <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
       </svg>
 
       <!-- Batch Icon (Stack) -->
-      <svg v-if="tab.id === 'batch'" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <svg v-if="tab.id === 'batch'" aria-hidden="true" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <rect x="2" y="7" width="16" height="14" rx="2"/>
         <path d="M6 3h12a2 2 0 0 1 2 2v2"/>
         <path d="M22 11v8a2 2 0 0 1-2 2"/>
       </svg>
 
       <!-- Settings Icon (Gear) -->
-      <svg v-if="tab.id === 'settings'" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <svg v-if="tab.id === 'settings'" aria-hidden="true" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="3"/>
         <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
       </svg>
 
       <!-- Help Icon (Question Circle) -->
-      <svg v-if="tab.id === 'help'" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <svg v-if="tab.id === 'help'" aria-hidden="true" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="10"/>
         <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
         <line x1="12" y1="17" x2="12.01" y2="17"/>

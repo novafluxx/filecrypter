@@ -50,6 +50,7 @@ anyhow = "1"
 
 # Logging
 log = "0.4"
+tauri-plugin-os = "2.3.2"
 
 # Windows-specific dependencies
 [target.'cfg(windows)'.dependencies]

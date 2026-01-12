@@ -169,9 +169,9 @@ The app uses platform-aware navigation that adapts to the device:
 - Navigation is conditionally rendered based on `isMobile` state
 
 **Mobile-Specific CSS**
-- Uses `100dvh` (dynamic viewport height) to handle iOS's collapsing address bar
-- Bottom nav includes `env(safe-area-inset-bottom)` padding for notched devices
-- `min-height: 0` on flex containers ensures proper scroll behavior
+- **Dynamic Viewport Height (`100dvh`)**: Used instead of `100vh` because iOS Safari's address bar collapses when scrolling. With `100vh`, the bottom navigation would be hidden behind the address bar on initial load. `100dvh` adjusts to the actual visible viewport, ensuring the bottom nav is always accessible. Falls back to `100vh` for browsers that don't support `dvh`.
+- **Safe Area Insets**: Bottom nav includes `env(safe-area-inset-bottom)` padding to avoid overlap with the home indicator on notched devices (iPhone X and later).
+- **Flex Overflow Fix**: `min-height: 0` on `.tab-panels` is required for flex children with `overflow-y: auto` to properly constrain their height and enable scrolling.
 
 ### Security Notes
 

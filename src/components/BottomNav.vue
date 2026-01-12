@@ -130,11 +130,13 @@ const tabs: { id: TabName; label: string }[] = [
   border: none;
   cursor: pointer;
   color: var(--muted);
-  transition: color 0.15s;
+  transition: color 0.15s, background-color 0.15s;
   font-family: inherit;
   /* Minimum touch target size for accessibility (Apple HIG recommends 44pt) */
   min-width: 56px;
   border-radius: 8px;
+  /* Position relative for the active indicator pseudo-element */
+  position: relative;
 }
 
 /* Tap feedback - shows subtle background on press */
@@ -142,9 +144,23 @@ const tabs: { id: TabName; label: string }[] = [
   background: var(--panel-alt);
 }
 
-/* Active tab state - highlighted with accent color */
+/* Active tab state - highlighted with accent color and subtle background */
 .nav-item.active {
   color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+/* Active indicator bar - provides additional visual feedback */
+.nav-item.active::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 32px;
+  height: 3px;
+  background: var(--accent);
+  border-radius: 0 0 2px 2px;
 }
 
 /* Icon sizing - 24x24 is standard for mobile nav icons */

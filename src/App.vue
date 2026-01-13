@@ -42,6 +42,9 @@ const { initSettings } = useSettings();
 // Initialize settings store on mount
 onMounted(async () => {
   await initSettings();
+
+  // Disable context menu (right-click) for desktop-like feel
+  document.addEventListener('contextmenu', event => event.preventDefault());
 });
 
 /**
@@ -279,7 +282,7 @@ body {
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
-  cursor: pointer;
+  cursor: default;
   font-size: 17px;
   font-weight: 500;
   color: var(--muted);

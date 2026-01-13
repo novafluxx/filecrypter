@@ -1,6 +1,32 @@
 /* shared.css - Shared Component Styles for FileCrypter */
 /* Desktop-first styling with 8px grid system */
 
+/* === GLOBAL DESKTOP-LIKE BEHAVIOR === */
+:root {
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Re-enable text selection for inputs */
+input, textarea, .selectable {
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+
+/* Disable pointer cursor for buttons/interactive elements to match native OS feel */
+button,
+label,
+input[type="checkbox"],
+input[type="radio"],
+select,
+.btn,
+.checkbox-row,
+.password-toggle-btn {
+  cursor: default;
+}
+
 /* === FORM LAYOUTS === */
 
 .form-group {
@@ -22,12 +48,12 @@ label {
   font-weight: 500;
   font-size: 16px;
   color: var(--text);
-  cursor: pointer;
+  cursor: default;
 }
 
 .checkbox-row input {
   accent-color: var(--accent);
-  cursor: pointer;
+  cursor: default;
 }
 
 /* === INPUT GROUPS === */
@@ -102,7 +128,7 @@ label {
   background: transparent;
   border: none;
   padding: 6px;
-  cursor: pointer;
+  cursor: default;
   color: var(--muted);
   transition: all 0.15s;
   display: flex;
@@ -133,7 +159,7 @@ label {
   border-radius: 4px;
   font-size: 18px;
   font-weight: 500;
-  cursor: pointer;
+  cursor: default;
   transition: all 0.15s;
   font-family: inherit;
   white-space: nowrap;

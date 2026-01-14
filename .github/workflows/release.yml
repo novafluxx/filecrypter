@@ -218,10 +218,23 @@ jobs:
 
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
-  # Stage 2: Build Windows binary and create GitHub Release
+  # Stage 2: Build binaries and create GitHub Release
   build-and-release:
     needs: prepare-release
-    runs-on: windows-latest
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'macos-latest'
+            args: '--target aarch64-apple-darwin'
+            rust_targets: 'aarch64-apple-darwin'
+          - platform: 'windows-latest'
+            args: ''
+            rust_targets: ''
+
+    runs-on: ${{ matrix.platform }}
 
     steps:
       - uses: actions/checkout@v4
@@ -230,6 +243,8 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_targets }}
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -261,3 +276,4 @@ jobs:
           releaseBody: ${{ needs.prepare-release.outputs.changelog }}
           releaseDraft: true
           prerelease: false
+          args: ${{ matrix.args }}

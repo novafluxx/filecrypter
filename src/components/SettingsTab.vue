@@ -268,7 +268,7 @@ async function handleResetToDefaults() {
   color: var(--muted);
   font-size: 16px;
   font-weight: 500;
-  cursor: pointer;
+  cursor: default;
   transition: all 0.15s;
   font-family: inherit;
 }

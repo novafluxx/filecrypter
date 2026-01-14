@@ -467,7 +467,7 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
   color: var(--muted);
   font-size: 17px;
   font-weight: 500;
-  cursor: pointer;
+  cursor: default;
   transition: all 0.15s;
   font-family: inherit;
 }
@@ -560,7 +560,7 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
   color: var(--muted);
   font-size: 18px;
   line-height: 1;
-  cursor: pointer;
+  cursor: default;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -581,7 +581,7 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
   color: var(--accent);
   font-size: 16px;
   font-weight: 500;
-  cursor: pointer;
+  cursor: default;
   text-align: center;
   transition: all 0.15s;
 }

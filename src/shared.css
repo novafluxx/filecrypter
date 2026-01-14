@@ -48,12 +48,10 @@ label {
   font-weight: 500;
   font-size: 16px;
   color: var(--text);
-  cursor: default;
 }
 
 .checkbox-row input {
   accent-color: var(--accent);
-  cursor: default;
 }
 
 /* === INPUT GROUPS === */
@@ -128,7 +126,6 @@ label {
   background: transparent;
   border: none;
   padding: 6px;
-  cursor: default;
   color: var(--muted);
   transition: all 0.15s;
   display: flex;
@@ -159,7 +156,6 @@ label {
   border-radius: 4px;
   font-size: 18px;
   font-weight: 500;
-  cursor: default;
   transition: all 0.15s;
   font-family: inherit;
   white-space: nowrap;

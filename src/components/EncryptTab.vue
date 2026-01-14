@@ -289,7 +289,7 @@ async function handleEncrypt() {
       <!-- Status Message -->
       <div
         v-if="fileOps.statusMessage.value"
-        class="status-message"
+        class="status-message selectable"
         :class="`status-${fileOps.statusType.value}`"
         role="status"
         aria-live="polite"

@@ -14,7 +14,7 @@ const helpHtml = marked.parse(helpMarkdown) as string;
 
 <template>
   <div class="tab-content">
-    <div class="content-panel help-content" v-html="helpHtml"></div>
+    <div class="content-panel help-content selectable" v-html="helpHtml"></div>
   </div>
 </template>
 

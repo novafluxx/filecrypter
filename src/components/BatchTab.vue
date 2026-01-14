@@ -281,7 +281,7 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
           <span class="file-name" :title="getFileName(path)">{{ getFileName(path) }}</span>
           <span
             v-if="batchResult?.files[index]?.error"
-            class="file-error-msg"
+            class="file-error-msg selectable"
             :title="sanitizeErrorMessage(batchResult.files[index].error)"
           >
             {{ sanitizeErrorMessage(batchResult.files[index].error) }}
@@ -418,7 +418,7 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
       <!-- Status Message -->
       <div
         v-if="statusMessage"
-        class="status-message"
+        class="status-message selectable"
         :class="`status-${statusType}`"
         role="status"
         aria-live="polite"
@@ -467,7 +467,7 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
   color: var(--muted);
   font-size: 17px;
   font-weight: 500;
-  cursor: pointer;
+  cursor: default;
   transition: all 0.15s;
   font-family: inherit;
 }
@@ -560,7 +560,7 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
   color: var(--muted);
   font-size: 18px;
   line-height: 1;
-  cursor: pointer;
+  cursor: default;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -581,7 +581,7 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
   color: var(--accent);
   font-size: 16px;
   font-weight: 500;
-  cursor: pointer;
+  cursor: default;
   text-align: center;
   transition: all 0.15s;
 }

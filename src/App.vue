@@ -14,7 +14,7 @@
 -->
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import EncryptTab from './components/EncryptTab.vue';
 import DecryptTab from './components/DecryptTab.vue';
 import BatchTab from './components/BatchTab.vue';
@@ -39,9 +39,20 @@ const { isMobile, isInitialized } = usePlatform();
 // Settings management
 const { initSettings } = useSettings();
 
+// Context menu handler (stored for cleanup)
+const preventContextMenu = (event: Event) => event.preventDefault();
+
 // Initialize settings store on mount
 onMounted(async () => {
   await initSettings();
+
+  // Disable context menu (right-click) for desktop-like feel
+  document.addEventListener('contextmenu', preventContextMenu);
+});
+
+// Clean up global event listeners
+onUnmounted(() => {
+  document.removeEventListener('contextmenu', preventContextMenu);
 });
 
 /**
@@ -279,7 +290,7 @@ body {
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
-  cursor: pointer;
+  cursor: default;
   font-size: 17px;
   font-weight: 500;
   color: var(--muted);

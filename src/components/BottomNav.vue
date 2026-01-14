@@ -128,7 +128,7 @@ const tabs: { id: TabName; label: string }[] = [
   padding: 6px 8px;
   background: transparent;
   border: none;
-  cursor: pointer;
+  cursor: default;
   color: var(--muted);
   transition: color 0.15s, background-color 0.15s;
   font-family: inherit;

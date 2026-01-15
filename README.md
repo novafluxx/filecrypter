@@ -1,4 +1,5 @@
-[![Tests](https://github.com/novafluxx/filecrypter/actions/workflows/ci.yml/badge.svg)](https://github.com/novafluxx/filecrypter/actions/workflows/ci.yml) [![CodeQL](https://github.com/novafluxx/filecrypter/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/novafluxx/filecrypter/actions/workflows/github-code-scanning/codeql)
+[![Tests](https://github.com/novafluxx/filecrypter/actions/workflows/ci.yml/badge.svg)](https://github.com/novafluxx/filecrypter/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/novafluxx/filecrypter/actions/workflows/codeql.yml/badge.svg)](https://github.com/novafluxx/filecrypter/actions/workflows/codeql.yml)
 # FileCrypter
 
 FileCrypter is a cross-platform desktop app for encrypting and decrypting files. The UI is built with Vue 3 and the cryptographic operations live in a Rust/Tauri backend.

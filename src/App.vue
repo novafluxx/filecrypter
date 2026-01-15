@@ -14,7 +14,8 @@
 -->
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { NConfigProvider, NTabs, NTab, darkTheme, type GlobalThemeOverrides } from 'naive-ui';
 import EncryptTab from './components/EncryptTab.vue';
 import DecryptTab from './components/DecryptTab.vue';
 import BatchTab from './components/BatchTab.vue';
@@ -24,13 +25,32 @@ import BottomNav from './components/BottomNav.vue';
 import { useTheme } from './composables/useTheme';
 import { useSettings } from './composables/useSettings';
 import { usePlatform } from './composables/usePlatform';
+import { FONT_FAMILY, LIGHT_THEME, DARK_THEME } from './constants';
 import type { TabName } from './types/tabs';
 
 // Active tab state
 const activeTab = ref<TabName>('encrypt');
 
 // Initialize theme (applies theme from settings)
-useTheme();
+// appliedTheme is 'light' or 'dark' (resolved from system preference if needed)
+const { appliedTheme } = useTheme();
+
+// Naive UI theme - use dark theme when app is in dark mode
+const naiveTheme = computed(() => appliedTheme.value === 'dark' ? darkTheme : null);
+
+// Theme overrides to match app's CSS variable colors
+// Colors are defined in src/constants.ts to maintain a single source of truth
+const themeOverrides = computed<GlobalThemeOverrides>(() => {
+  const colors = appliedTheme.value === 'dark' ? DARK_THEME : LIGHT_THEME;
+  return {
+    common: {
+      primaryColor: colors.accent,
+      primaryColorHover: colors.accentHover,
+      primaryColorPressed: colors.accentPressed,
+      fontFamily: FONT_FAMILY,
+    },
+  };
+});
 
 // Platform detection for conditional navigation
 // isInitialized prevents UI flash before detection completes
@@ -67,91 +87,64 @@ function switchTab(tab: TabName) {
 </script>
 
 <template>
-  <div class="app-container">
-    <!-- Toolbar -->
-    <div class="app-toolbar">
-      <h1 class="app-title">FileCrypter</h1>
+  <NConfigProvider :theme="naiveTheme" :theme-overrides="themeOverrides">
+    <div class="app-container">
+      <!-- Toolbar -->
+      <div class="app-toolbar">
+        <h1 class="app-title">FileCrypter</h1>
+      </div>
+
+      <!-- Desktop Tab Navigation (hidden on mobile, waits for platform detection) -->
+      <NTabs
+        v-if="isInitialized && !isMobile"
+        :value="activeTab"
+        @update:value="switchTab"
+        type="line"
+        class="desktop-tabs"
+      >
+        <NTab name="encrypt">Encrypt</NTab>
+        <NTab name="decrypt">Decrypt</NTab>
+        <NTab name="batch">Batch</NTab>
+        <NTab name="settings">Settings</NTab>
+        <NTab name="help">Help</NTab>
+      </NTabs>
+
+      <!-- Tab Content Area -->
+      <div class="tab-panels">
+        <!-- Encrypt Tab Panel -->
+        <div v-if="activeTab === 'encrypt'" class="tab-panel">
+          <EncryptTab />
+        </div>
+
+        <!-- Decrypt Tab Panel -->
+        <div v-if="activeTab === 'decrypt'" class="tab-panel">
+          <DecryptTab />
+        </div>
+
+        <!-- Batch Tab Panel -->
+        <div v-if="activeTab === 'batch'" class="tab-panel">
+          <BatchTab />
+        </div>
+
+        <!-- Settings Tab Panel -->
+        <div v-if="activeTab === 'settings'" class="tab-panel">
+          <SettingsTab />
+        </div>
+
+        <!-- Help Tab Panel -->
+        <div v-if="activeTab === 'help'" class="tab-panel">
+          <HelpTab />
+        </div>
+      </div>
+
+      <!-- Mobile Bottom Navigation (shown only on iOS/Android, waits for platform detection) -->
+      <BottomNav
+        v-if="isInitialized && isMobile"
+        :active-tab="activeTab"
+        @switch-tab="switchTab"
+      />
     </div>
-
-    <!-- Desktop Tab Navigation (hidden on mobile, waits for platform detection) -->
-    <div v-if="isInitialized && !isMobile" class="tabs">
-      <button
-        class="tab-button"
-        :class="{ active: activeTab === 'encrypt' }"
-        @click="switchTab('encrypt')"
-        title="Switch to file encryption"
-      >
-        Encrypt
-      </button>
-      <button
-        class="tab-button"
-        :class="{ active: activeTab === 'decrypt' }"
-        @click="switchTab('decrypt')"
-        title="Switch to file decryption"
-      >
-        Decrypt
-      </button>
-      <button
-        class="tab-button"
-        :class="{ active: activeTab === 'batch' }"
-        @click="switchTab('batch')"
-        title="Switch to batch processing"
-      >
-        Batch
-      </button>
-      <button
-        class="tab-button"
-        :class="{ active: activeTab === 'settings' }"
-        @click="switchTab('settings')"
-        title="Configure application settings"
-      >
-        Settings
-      </button>
-      <button
-        class="tab-button"
-        :class="{ active: activeTab === 'help' }"
-        @click="switchTab('help')"
-        title="Open the FileCrypter user guide"
-      >
-        Help
-      </button>
-    </div>
-
-    <!-- Tab Content Area -->
-    <div class="tab-panels">
-      <!-- Encrypt Tab Panel -->
-      <div v-if="activeTab === 'encrypt'" class="tab-panel">
-        <EncryptTab />
-      </div>
-
-      <!-- Decrypt Tab Panel -->
-      <div v-if="activeTab === 'decrypt'" class="tab-panel">
-        <DecryptTab />
-      </div>
-
-      <!-- Batch Tab Panel -->
-      <div v-if="activeTab === 'batch'" class="tab-panel">
-        <BatchTab />
-      </div>
-
-      <!-- Settings Tab Panel -->
-      <div v-if="activeTab === 'settings'" class="tab-panel">
-        <SettingsTab />
-      </div>
-
-      <!-- Help Tab Panel -->
-      <div v-if="activeTab === 'help'" class="tab-panel">
-        <HelpTab />
-      </div>
-    </div>
-
-    <!-- Mobile Bottom Navigation (shown only on iOS/Android, waits for platform detection) -->
-    <BottomNav
-      v-if="isInitialized && isMobile"
-      :active-tab="activeTab"
-      @switch-tab="switchTab"
-    />
-  </div>
+  </NConfigProvider>
 </template>
 
 <style>
@@ -242,6 +235,14 @@ body {
   flex-direction: column;
   overflow: hidden;
 }
+
+/* Ensure NConfigProvider wrapper doesn't break flex layout */
+#app > .n-config-provider {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
 </style>
 
 <style scoped>
@@ -276,46 +277,11 @@ body {
 }
 
 /* Desktop Tab Navigation */
-.tabs {
-  display: flex;
-  gap: 0;
+.desktop-tabs {
   background: var(--panel);
-  border-bottom: 1px solid var(--border);
   padding: 0 16px;
   flex-shrink: 0;
-}
-
-.tab-button {
-  padding: 8px 16px;
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  cursor: default;
-  font-size: 17px;
-  font-weight: 500;
-  color: var(--muted);
-  transition: all 0.15s;
-  font-family: inherit;
-}
-
-.tab-button:hover:not(.active) {
-  color: var(--text);
-  background: var(--panel-alt);
-}
-
-.tab-button.active {
-  color: var(--accent);
-  border-bottom-color: var(--accent);
-  background: transparent;
-}
-
-.tab-button:active {
-  background: var(--border);
-}
-
-.tab-button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
+  flex-grow: 0;
 }
 
 /* Tab Content Area */

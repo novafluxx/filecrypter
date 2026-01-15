@@ -13,24 +13,20 @@
 
 <script setup lang="ts">
 import { ref, computed, onUnmounted, watch } from 'vue';
+import { NButton, NButtonGroup, NCheckbox, NAlert, NInput } from 'naive-ui';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useTauri } from '../composables/useTauri';
 import { usePasswordStrength } from '../composables/usePasswordStrength';
-import { usePasswordVisibility } from '../composables/usePasswordVisibility';
 import { useSettings } from '../composables/useSettings';
 import { sanitizeErrorMessage } from '../utils/errorSanitizer';
 import PasswordStrengthMeter from './PasswordStrengthMeter.vue';
-import IconEye from './icons/IconEye.vue';
-import IconEyeOff from './icons/IconEyeOff.vue';
-import type { BatchProgress, BatchResult, FileResult } from '../types/crypto';
+import StatusMessage from './StatusMessage.vue';
+import type { BatchProgress, BatchResult } from '../types/crypto';
 import { MIN_PASSWORD_LENGTH } from '../constants';
 
 // Initialize composables
 const tauri = useTauri();
 const settings = useSettings();
-
-// Password visibility toggle
-const { isPasswordVisible, togglePasswordVisibility } = usePasswordVisibility();
 
 // State
 const mode = ref<'encrypt' | 'decrypt'>('encrypt');
@@ -223,32 +219,30 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
   <div class="tab-content">
     <div class="content-panel">
       <!-- Mode Toggle -->
-      <div class="mode-toggle">
-      <button
-        class="mode-btn"
-        :class="{ active: mode === 'encrypt' }"
-        @click="switchMode('encrypt')"
-        :disabled="isProcessing"
-        title="Batch encrypt multiple files"
-      >
-        Encrypt
-      </button>
-      <button
-        class="mode-btn"
-        :class="{ active: mode === 'decrypt' }"
-        @click="switchMode('decrypt')"
-        :disabled="isProcessing"
-        title="Batch decrypt multiple files"
-      >
-        Decrypt
-      </button>
-    </div>
+      <NButtonGroup class="mode-toggle">
+        <NButton
+          :type="mode === 'encrypt' ? 'primary' : 'default'"
+          :ghost="mode !== 'encrypt'"
+          :disabled="isProcessing"
+          @click="switchMode('encrypt')"
+        >
+          Encrypt
+        </NButton>
+        <NButton
+          :type="mode === 'decrypt' ? 'primary' : 'default'"
+          :ghost="mode !== 'decrypt'"
+          :disabled="isProcessing"
+          @click="switchMode('decrypt')"
+        >
+          Decrypt
+        </NButton>
+      </NButtonGroup>
 
     <!-- Compression Info Banner (encryption mode only) -->
-    <div v-if="mode === 'encrypt'" class="info-banner">
+    <NAlert v-if="mode === 'encrypt'" type="info" :show-icon="false" class="info-banner">
       Compression is automatically enabled for batch operations.
       Files are compressed with ZSTD before encryption for optimal size reduction.
-    </div>
+    </NAlert>
 
     <!-- File Selection -->
     <div class="form-group">
@@ -257,14 +251,14 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
         <div class="file-count-display">
           {{ fileCount }} file{{ fileCount !== 1 ? 's' : '' }} selected
         </div>
-        <button
+        <NButton
+          type="primary"
           @click="handleSelectFiles"
-          class="btn btn-primary"
           :disabled="isProcessing"
           title="Choose multiple files to process"
         >
           Browse
-        </button>
+        </NButton>
       </div>
 
       <!-- Selected Files List -->
@@ -310,66 +304,44 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
     <div class="form-group">
       <label>Output Directory:</label>
       <div class="file-input-group">
-        <input
-          type="text"
+        <NInput
           :value="outputDir"
           readonly
           placeholder="Select output directory..."
-          class="file-input"
-          title="Auto-filled output folder; click Browse to pick a different one"
         />
-        <button
+        <NButton
           @click="handleSelectOutputDir"
-          class="btn btn-secondary"
           :disabled="isProcessing"
           title="Choose the output folder"
         >
           Browse
-        </button>
+        </NButton>
       </div>
     </div>
 
     <!-- Output Safety Options -->
     <div class="form-group">
-      <label class="checkbox-row">
-        <input
-          type="checkbox"
-          v-model="neverOverwrite"
-          :disabled="isProcessing"
-          title="Prevent overwriting by auto-renaming on name conflicts"
-        />
+      <NCheckbox
+        v-model:checked="neverOverwrite"
+        :disabled="isProcessing"
+      >
         Never overwrite existing files (auto-rename on conflicts)
-      </label>
+      </NCheckbox>
       <p class="hint-text">
         If a filename already exists, we'll save as "name (1)".
       </p>
     </div>
 
     <!-- Password Input -->
-    <div class="form-group password-section">
+    <div class="form-group">
       <label>Password:</label>
-      <div class="password-input-wrapper">
-        <input
-          :type="isPasswordVisible ? 'text' : 'password'"
-          v-model="password"
-          :placeholder="mode === 'encrypt' ? 'Enter password (min 8 characters)' : 'Enter decryption password'"
-          :autocomplete="mode === 'encrypt' ? 'new-password' : 'current-password'"
-          class="password-input"
-          :disabled="isProcessing"
-          :title="mode === 'encrypt' ? 'Enter a strong password (at least 8 characters)' : 'Enter the password used to encrypt these files'"
-        />
-        <button
-          type="button"
-          class="password-toggle-btn"
-          @click="togglePasswordVisibility"
-          :disabled="isProcessing"
-          :aria-label="isPasswordVisible ? 'Hide password' : 'Show password'"
-          :title="isPasswordVisible ? 'Hide password' : 'Show password'"
-        >
-          <IconEye v-if="!isPasswordVisible" />
-          <IconEyeOff v-else />
-        </button>
-      </div>
+      <NInput
+        type="password"
+        show-password-on="click"
+        v-model:value="password"
+        :placeholder="mode === 'encrypt' ? 'Enter password (min 8 characters)' : 'Enter decryption password'"
+        :disabled="isProcessing"
+      />
       <!-- Password strength meter (encryption only) -->
       <PasswordStrengthMeter
         v-if="mode === 'encrypt' && password.length > 0"
@@ -383,9 +355,12 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
     </div>
 
     <!-- Action Button -->
-    <button
+    <NButton
+      type="primary"
+      block
+      strong
+      class="action-btn"
       @click="handleBatchOperation"
-      class="btn btn-action"
       :disabled="!isFormValid"
       :title="mode === 'encrypt' ? 'Encrypt all selected files' : 'Decrypt all selected files'"
     >
@@ -395,7 +370,7 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
       <span v-else>
         {{ mode === 'encrypt' ? 'Encrypt' : 'Decrypt' }} {{ fileCount }} File{{ fileCount !== 1 ? 's' : '' }}
       </span>
-    </button>
+    </NButton>
 
     <!-- Progress Bar -->
     <div v-if="showProgress && batchProgress" class="progress-container">
@@ -416,15 +391,11 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
     </div>
 
       <!-- Status Message -->
-      <div
+      <StatusMessage
         v-if="statusMessage"
-        class="status-message selectable"
-        :class="`status-${statusType}`"
-        role="status"
-        aria-live="polite"
-      >
-        {{ statusMessage }}
-      </div>
+        :message="statusMessage"
+        :type="statusType"
+      />
     </div>
   </div>
 </template>
@@ -447,44 +418,9 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
   position: relative;
 }
 
-/* Mode Toggle (unique to BatchTab) */
+/* Mode Toggle */
 .mode-toggle {
-  display: flex;
-  gap: 4px;
   margin-bottom: 16px;
-  padding: 4px;
-  background: var(--panel-alt);
-  border-radius: 4px;
-  border: 1px solid var(--border);
-}
-
-.mode-btn {
-  flex: 1;
-  padding: 6px 12px;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 17px;
-  font-weight: 500;
-  cursor: default;
-  transition: all 0.15s;
-  font-family: inherit;
-}
-
-.mode-btn:hover:not(:disabled):not(.active) {
-  color: var(--text);
-  background: var(--border);
-}
-
-.mode-btn.active {
-  background: var(--accent);
-  color: white;
-}
-
-.mode-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 /* File Count Display */
@@ -638,14 +574,10 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
 
 /* Info Banner */
 .info-banner {
-  padding: 12px 16px;
   margin-bottom: 16px;
-  background: var(--panel-alt);
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
-  border-radius: 4px;
-  font-size: 14px;
-  color: var(--muted);
-  line-height: 1.5;
+}
+
+.action-btn {
+  margin-top: 8px;
 }
 </style>

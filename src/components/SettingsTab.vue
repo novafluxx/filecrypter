@@ -12,6 +12,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { NButton, NButtonGroup, NCheckbox, NInput } from 'naive-ui';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useSettings, type ThemeMode } from '../composables/useSettings';
 
@@ -20,6 +21,7 @@ const settings = useSettings();
 
 // Computed for cleaner template bindings
 const currentTheme = computed(() => settings.theme.value);
+
 const compressionEnabled = computed(() => settings.defaultCompression.value);
 const neverOverwrite = computed(() => settings.defaultNeverOverwrite.value);
 const outputDirectory = computed(() => settings.defaultOutputDirectory.value);
@@ -29,20 +31,6 @@ const outputDirectory = computed(() => settings.defaultOutputDirectory.value);
  */
 async function handleThemeChange(newTheme: ThemeMode) {
   await settings.setTheme(newTheme);
-}
-
-/**
- * Toggle compression default
- */
-async function handleCompressionToggle() {
-  await settings.setDefaultCompression(!compressionEnabled.value);
-}
-
-/**
- * Toggle never-overwrite default
- */
-async function handleOverwriteToggle() {
-  await settings.setDefaultNeverOverwrite(!neverOverwrite.value);
 }
 
 /**
@@ -84,32 +72,29 @@ async function handleResetToDefaults() {
 
         <div class="form-group">
           <label class="setting-label">Theme:</label>
-          <div class="theme-toggle">
-            <button
-              class="theme-btn"
-              :class="{ active: currentTheme === 'light' }"
+          <NButtonGroup>
+            <NButton
+              :type="currentTheme === 'light' ? 'primary' : 'default'"
+              :ghost="currentTheme !== 'light'"
               @click="handleThemeChange('light')"
-              title="Use light color scheme"
             >
               Light
-            </button>
-            <button
-              class="theme-btn"
-              :class="{ active: currentTheme === 'dark' }"
+            </NButton>
+            <NButton
+              :type="currentTheme === 'dark' ? 'primary' : 'default'"
+              :ghost="currentTheme !== 'dark'"
               @click="handleThemeChange('dark')"
-              title="Use dark color scheme"
             >
               Dark
-            </button>
-            <button
-              class="theme-btn"
-              :class="{ active: currentTheme === 'system' }"
+            </NButton>
+            <NButton
+              :type="currentTheme === 'system' ? 'primary' : 'default'"
+              :ghost="currentTheme !== 'system'"
               @click="handleThemeChange('system')"
-              title="Follow your operating system's color scheme"
             >
               System
-            </button>
-          </div>
+            </NButton>
+          </NButtonGroup>
         </div>
       </section>
 
@@ -118,30 +103,24 @@ async function handleResetToDefaults() {
         <h2 class="section-title">Encryption Defaults</h2>
 
         <div class="form-group">
-          <label class="checkbox-row">
-            <input
-              type="checkbox"
-              :checked="compressionEnabled"
-              @change="handleCompressionToggle"
-              title="Compress files before encryption to reduce size (may slow down large files)"
-            />
+          <NCheckbox
+            :checked="compressionEnabled"
+            @update:checked="v => settings.setDefaultCompression(v)"
+          >
             Enable compression by default
-          </label>
+          </NCheckbox>
           <p class="hint-text">
             Single file encryption only. Batch mode always uses compression.
           </p>
         </div>
 
         <div class="form-group">
-          <label class="checkbox-row">
-            <input
-              type="checkbox"
-              :checked="neverOverwrite"
-              @change="handleOverwriteToggle"
-              title="Automatically rename output files to avoid overwriting existing files"
-            />
+          <NCheckbox
+            :checked="neverOverwrite"
+            @update:checked="v => settings.setDefaultNeverOverwrite(v)"
+          >
             Never overwrite existing files by default
-          </label>
+          </NCheckbox>
           <p class="hint-text">
             Auto-rename to "name (1)" on conflicts.
           </p>
@@ -150,29 +129,25 @@ async function handleResetToDefaults() {
         <div class="form-group">
           <label class="setting-label">Default Output Directory:</label>
           <div class="file-input-group">
-            <input
-              type="text"
+            <NInput
               :value="outputDirectory || ''"
               readonly
               placeholder="Same as input file (default)"
-              class="file-input"
-              title="Default folder for encrypted/decrypted files"
             />
-            <button
+            <NButton
               v-if="outputDirectory"
               @click="handleClearOutputDir"
-              class="btn btn-secondary"
               title="Clear default directory"
             >
               Clear
-            </button>
-            <button
+            </NButton>
+            <NButton
+              type="primary"
               @click="handleSelectOutputDir"
-              class="btn btn-primary"
               title="Choose a default folder for encrypted/decrypted files"
             >
               Browse
-            </button>
+            </NButton>
           </div>
           <p class="hint-text">
             Leave empty to save files alongside the originals.
@@ -182,13 +157,12 @@ async function handleResetToDefaults() {
 
       <!-- Reset Section -->
       <section class="settings-section reset-section">
-        <button
+        <NButton
           @click="handleResetToDefaults"
-          class="btn btn-secondary"
           title="Restore all settings to their original values"
         >
           Reset to Defaults
-        </button>
+        </NButton>
       </section>
     </div>
   </div>
@@ -247,40 +221,6 @@ async function handleResetToDefaults() {
 
 .form-group:last-child {
   margin-bottom: 0;
-}
-
-/* Theme Toggle (similar to BatchTab mode toggle) */
-.theme-toggle {
-  display: flex;
-  gap: 4px;
-  padding: 4px;
-  background: var(--panel-alt);
-  border-radius: 4px;
-  border: 1px solid var(--border);
-}
-
-.theme-btn {
-  flex: 1;
-  padding: 6px 12px;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 16px;
-  font-weight: 500;
-  cursor: default;
-  transition: all 0.15s;
-  font-family: inherit;
-}
-
-.theme-btn:hover:not(.active) {
-  color: var(--text);
-  background: var(--border);
-}
-
-.theme-btn.active {
-  background: var(--accent);
-  color: white;
 }
 
 /* Reset Section */

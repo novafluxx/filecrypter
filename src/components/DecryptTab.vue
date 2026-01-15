@@ -15,15 +15,14 @@
 
 <script setup lang="ts">
 import { onMounted, watch } from 'vue';
+import { NButton, NCheckbox, NInput } from 'naive-ui';
 import { useFileOps } from '../composables/useFileOps';
 import { useTauri } from '../composables/useTauri';
 import { useProgress } from '../composables/useProgress';
 import { useDragDrop } from '../composables/useDragDrop';
-import { usePasswordVisibility } from '../composables/usePasswordVisibility';
 import { useSettings } from '../composables/useSettings';
 import ProgressBar from './ProgressBar.vue';
-import IconEye from './icons/IconEye.vue';
-import IconEyeOff from './icons/IconEyeOff.vue';
+import StatusMessage from './StatusMessage.vue';
 
 // Initialize composables
 const fileOps = useFileOps();
@@ -67,9 +66,6 @@ function getSuggestedOutputPath(inputPath: string): string {
                    inputPath.substring(0, inputPath.lastIndexOf('\\') + 1);
   return inputDir + outputFilename;
 }
-
-// Password visibility toggle
-const { isPasswordVisible, togglePasswordVisibility } = usePasswordVisibility();
 
 // Progress tracking for decryption operation
 const { progress, isActive: showProgress, startListening, stopListening } = useProgress();
@@ -177,23 +173,20 @@ async function handleDecrypt() {
     <div class="form-group">
       <label for="decrypt-input">Encrypted File:</label>
       <div class="file-input-group">
-        <input
-          id="decrypt-input"
-          type="text"
+        <NInput
+          :input-props="{ id: 'decrypt-input' }"
           :value="fileOps.inputPath.value"
           readonly
           placeholder="Select or drag a .encrypted file..."
-          class="file-input"
-          title="Drag a .encrypted file here or click Browse to select one"
         />
-        <button
+        <NButton
+          type="primary"
           @click="handleSelectFile"
-          class="btn btn-primary"
           :disabled="fileOps.isProcessing.value"
           title="Choose an encrypted file to decrypt"
         >
           Browse
-        </button>
+        </NButton>
       </div>
     </div>
 
@@ -201,69 +194,47 @@ async function handleDecrypt() {
     <div class="form-group">
       <label for="decrypt-output">Save Decrypted File As:</label>
       <div class="file-input-group">
-        <input
-          id="decrypt-output"
-          type="text"
+        <NInput
+          :input-props="{ id: 'decrypt-output' }"
           :value="fileOps.outputPath.value"
           readonly
           placeholder="Will auto-generate from encrypted filename..."
-          class="file-input"
-          title="Auto-generated output path; click Change to pick a different location"
         />
-        <button
+        <NButton
           @click="handleSelectOutput"
-          class="btn btn-secondary"
           :disabled="fileOps.isProcessing.value"
           title="Choose where to save the decrypted file"
         >
           Change
-        </button>
+        </NButton>
       </div>
     </div>
 
     <!-- Output Safety Options -->
     <div class="form-group">
-      <label class="checkbox-row">
-        <input
-          type="checkbox"
-          v-model="fileOps.neverOverwrite.value"
-          :disabled="fileOps.isProcessing.value"
-          title="Prevent overwriting by auto-renaming on name conflicts"
-        />
+      <NCheckbox
+        v-model:checked="fileOps.neverOverwrite.value"
+        :disabled="fileOps.isProcessing.value"
+      >
         Never overwrite existing files (auto-rename on conflicts)
-      </label>
+      </NCheckbox>
       <p class="hint-text">
         If the output name already exists, we'll save as "name (1)".
       </p>
     </div>
 
     <!-- Password Input Section -->
-    <div class="form-group password-section">
+    <div class="form-group">
       <label for="decrypt-password">Password:</label>
-      <div class="password-input-wrapper">
-        <input
-          id="decrypt-password"
-          :type="isPasswordVisible ? 'text' : 'password'"
-          :value="fileOps.password.value"
-          @input="fileOps.setPassword(($event.target as HTMLInputElement).value)"
-          placeholder="Enter decryption password"
-          autocomplete="current-password"
-          class="password-input"
-          :disabled="fileOps.isProcessing.value"
-          title="Enter the password used to encrypt this file"
-        />
-        <button
-          type="button"
-          class="password-toggle-btn"
-          @click="togglePasswordVisibility"
-          :disabled="fileOps.isProcessing.value"
-          :aria-label="isPasswordVisible ? 'Hide password' : 'Show password'"
-          :title="isPasswordVisible ? 'Hide password' : 'Show password'"
-        >
-          <IconEye v-if="!isPasswordVisible" />
-          <IconEyeOff v-else />
-        </button>
-      </div>
+      <NInput
+        :input-props="{ id: 'decrypt-password' }"
+        type="password"
+        show-password-on="click"
+        :value="fileOps.password.value"
+        @update:value="fileOps.setPassword"
+        placeholder="Enter decryption password"
+        :disabled="fileOps.isProcessing.value"
+      />
       <!-- Info hint -->
       <p v-if="fileOps.password.value.length === 0" class="hint-text">
         Enter the password used to encrypt this file
@@ -271,15 +242,18 @@ async function handleDecrypt() {
     </div>
 
     <!-- Decrypt Button -->
-    <button
+    <NButton
+      type="primary"
+      block
+      strong
+      class="action-btn"
       @click="handleDecrypt"
-      class="btn btn-action"
       :disabled="!fileOps.isFormValid.value"
       title="Start decrypting with the selected file and password"
     >
       <span v-if="fileOps.isProcessing.value">Decrypting...</span>
       <span v-else>Decrypt File</span>
-    </button>
+    </NButton>
 
     <!-- Progress Bar (shown during decryption) -->
     <ProgressBar
@@ -289,15 +263,11 @@ async function handleDecrypt() {
     />
 
       <!-- Status Message -->
-      <div
+      <StatusMessage
         v-if="fileOps.statusMessage.value"
-        class="status-message selectable"
-        :class="`status-${fileOps.statusType.value}`"
-        role="status"
-        aria-live="polite"
-      >
-        {{ fileOps.statusMessage.value }}
-      </div>
+        :message="fileOps.statusMessage.value"
+        :type="fileOps.statusType.value"
+      />
     </div>
   </div>
 </template>
@@ -318,5 +288,9 @@ async function handleDecrypt() {
   border-radius: 8px;
   padding: 16px;
   position: relative;
+}
+
+.action-btn {
+  margin-top: 8px;
 }
 </style>

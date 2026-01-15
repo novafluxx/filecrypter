@@ -17,17 +17,16 @@
 
 <script setup lang="ts">
 import { onMounted, watch } from 'vue';
+import { NButton, NCheckbox, NInput } from 'naive-ui';
 import { useFileOps } from '../composables/useFileOps';
 import { useTauri } from '../composables/useTauri';
 import { usePasswordStrength } from '../composables/usePasswordStrength';
 import { useProgress } from '../composables/useProgress';
 import { useDragDrop } from '../composables/useDragDrop';
-import { usePasswordVisibility } from '../composables/usePasswordVisibility';
 import { useSettings } from '../composables/useSettings';
 import PasswordStrengthMeter from './PasswordStrengthMeter.vue';
 import ProgressBar from './ProgressBar.vue';
-import IconEye from './icons/IconEye.vue';
-import IconEyeOff from './icons/IconEyeOff.vue';
+import StatusMessage from './StatusMessage.vue';
 
 // Initialize composables
 // These provide reactive state and methods for file operations
@@ -46,9 +45,6 @@ watch(
   },
   { immediate: true }
 );
-
-// Password visibility toggle
-const { isPasswordVisible, togglePasswordVisibility } = usePasswordVisibility();
 
 // Password strength analysis
 // Provides reactive feedback as user types their password
@@ -156,23 +152,20 @@ async function handleEncrypt() {
     <div class="form-group">
       <label for="encrypt-input">File to Encrypt:</label>
       <div class="file-input-group">
-        <input
-          id="encrypt-input"
-          type="text"
+        <NInput
+          :input-props="{ id: 'encrypt-input' }"
           :value="fileOps.inputPath.value"
           readonly
           placeholder="Select or drag a file..."
-          class="file-input"
-          title="Drag a file here or click Browse to select one"
         />
-        <button
+        <NButton
+          type="primary"
           @click="handleSelectFile"
-          class="btn btn-primary"
           :disabled="fileOps.isProcessing.value"
           title="Choose a file to encrypt"
         >
           Browse
-        </button>
+        </NButton>
       </div>
     </div>
 
@@ -180,37 +173,30 @@ async function handleEncrypt() {
     <div class="form-group">
       <label for="encrypt-output">Save Encrypted File As:</label>
       <div class="file-input-group">
-        <input
-          id="encrypt-output"
-          type="text"
+        <NInput
+          :input-props="{ id: 'encrypt-output' }"
           :value="fileOps.outputPath.value"
           readonly
           placeholder="Will auto-generate from input filename..."
-          class="file-input"
-          title="Auto-generated output path; click Change to pick a different location"
         />
-        <button
+        <NButton
           @click="handleSelectOutput"
-          class="btn btn-secondary"
           :disabled="fileOps.isProcessing.value"
           title="Choose where to save the encrypted file"
         >
           Change
-        </button>
+        </NButton>
       </div>
     </div>
 
     <!-- Output Safety Options -->
     <div class="form-group">
-      <label class="checkbox-row">
-        <input
-          type="checkbox"
-          v-model="fileOps.neverOverwrite.value"
-          :disabled="fileOps.isProcessing.value"
-          title="Prevent overwriting by auto-renaming on name conflicts"
-        />
+      <NCheckbox
+        v-model:checked="fileOps.neverOverwrite.value"
+        :disabled="fileOps.isProcessing.value"
+      >
         Never overwrite existing files (auto-rename on conflicts)
-      </label>
+      </NCheckbox>
       <p class="hint-text">
         If the output name already exists, we'll save as "name (1)".
       </p>
@@ -218,15 +204,12 @@ async function handleEncrypt() {
 
     <!-- Compression Option -->
     <div class="form-group">
-      <label class="checkbox-row">
-        <input
-          type="checkbox"
-          v-model="fileOps.compressionEnabled.value"
-          :disabled="fileOps.isProcessing.value"
-          title="Compress file before encryption to reduce size"
-        />
+      <NCheckbox
+        v-model:checked="fileOps.compressionEnabled.value"
+        :disabled="fileOps.isProcessing.value"
+      >
         Enable compression (ZSTD)
-      </label>
+      </NCheckbox>
       <p class="hint-text">
         Compresses file before encryption. Reduces size by ~70% for text/documents,
         less for images/videos. Slightly slower encryption.
@@ -234,32 +217,17 @@ async function handleEncrypt() {
     </div>
 
     <!-- Password Input Section -->
-    <div class="form-group password-section">
+    <div class="form-group">
       <label for="encrypt-password">Password:</label>
-      <div class="password-input-wrapper">
-        <input
-          id="encrypt-password"
-          :type="isPasswordVisible ? 'text' : 'password'"
-          :value="fileOps.password.value"
-          @input="fileOps.setPassword(($event.target as HTMLInputElement).value)"
-          placeholder="Enter password (min 8 characters)"
-          autocomplete="new-password"
-          class="password-input"
-          :disabled="fileOps.isProcessing.value"
-          title="Enter a strong password (at least 8 characters)"
-        />
-        <button
-          type="button"
-          class="password-toggle-btn"
-          @click="togglePasswordVisibility"
-          :disabled="fileOps.isProcessing.value"
-          :aria-label="isPasswordVisible ? 'Hide password' : 'Show password'"
-          :title="isPasswordVisible ? 'Hide password' : 'Show password'"
-        >
-          <IconEye v-if="!isPasswordVisible" />
-          <IconEyeOff v-else />
-        </button>
-      </div>
+      <NInput
+        :input-props="{ id: 'encrypt-password' }"
+        type="password"
+        show-password-on="click"
+        :value="fileOps.password.value"
+        @update:value="fileOps.setPassword"
+        placeholder="Enter password (min 8 characters)"
+        :disabled="fileOps.isProcessing.value"
+      />
       <!-- Password strength meter -->
       <PasswordStrengthMeter
         v-if="fileOps.password.value.length > 0"
@@ -269,15 +237,18 @@ async function handleEncrypt() {
     </div>
 
     <!-- Encrypt Button -->
-    <button
+    <NButton
+      type="primary"
+      block
+      strong
+      class="action-btn"
       @click="handleEncrypt"
-      class="btn btn-action"
       :disabled="!fileOps.isFormValid.value"
       title="Start encrypting with the selected file and password"
     >
       <span v-if="fileOps.isProcessing.value">Encrypting...</span>
       <span v-else>Encrypt File</span>
-    </button>
+    </NButton>
 
     <!-- Progress Bar (shown during encryption) -->
     <ProgressBar
@@ -287,15 +258,11 @@ async function handleEncrypt() {
     />
 
       <!-- Status Message -->
-      <div
+      <StatusMessage
         v-if="fileOps.statusMessage.value"
-        class="status-message selectable"
-        :class="`status-${fileOps.statusType.value}`"
-        role="status"
-        aria-live="polite"
-      >
-        {{ fileOps.statusMessage.value }}
-      </div>
+        :message="fileOps.statusMessage.value"
+        :type="fileOps.statusType.value"
+      />
     </div>
   </div>
 </template>
@@ -316,5 +283,9 @@ async function handleEncrypt() {
   border-radius: 8px;
   padding: 16px;
   position: relative;
+}
+
+.action-btn {
+  margin-top: 8px;
 }
 </style>

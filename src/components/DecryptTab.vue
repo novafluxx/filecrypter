@@ -22,6 +22,7 @@ import { useDragDrop } from '../composables/useDragDrop';
 import { usePasswordVisibility } from '../composables/usePasswordVisibility';
 import { useSettings } from '../composables/useSettings';
 import ProgressBar from './ProgressBar.vue';
+import StatusMessage from './StatusMessage.vue';
 import IconEye from './icons/IconEye.vue';
 import IconEyeOff from './icons/IconEyeOff.vue';
 
@@ -289,15 +290,11 @@ async function handleDecrypt() {
     />
 
       <!-- Status Message -->
-      <div
+      <StatusMessage
         v-if="fileOps.statusMessage.value"
-        class="status-message selectable"
-        :class="`status-${fileOps.statusType.value}`"
-        role="status"
-        aria-live="polite"
-      >
-        {{ fileOps.statusMessage.value }}
-      </div>
+        :message="fileOps.statusMessage.value"
+        :type="fileOps.statusType.value"
+      />
     </div>
   </div>
 </template>

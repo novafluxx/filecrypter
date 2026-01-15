@@ -20,9 +20,10 @@ import { usePasswordVisibility } from '../composables/usePasswordVisibility';
 import { useSettings } from '../composables/useSettings';
 import { sanitizeErrorMessage } from '../utils/errorSanitizer';
 import PasswordStrengthMeter from './PasswordStrengthMeter.vue';
+import StatusMessage from './StatusMessage.vue';
 import IconEye from './icons/IconEye.vue';
 import IconEyeOff from './icons/IconEyeOff.vue';
-import type { BatchProgress, BatchResult, FileResult } from '../types/crypto';
+import type { BatchProgress, BatchResult } from '../types/crypto';
 import { MIN_PASSWORD_LENGTH } from '../constants';
 
 // Initialize composables
@@ -416,15 +417,11 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
     </div>
 
       <!-- Status Message -->
-      <div
+      <StatusMessage
         v-if="statusMessage"
-        class="status-message selectable"
-        :class="`status-${statusType}`"
-        role="status"
-        aria-live="polite"
-      >
-        {{ statusMessage }}
-      </div>
+        :message="statusMessage"
+        :type="statusType"
+      />
     </div>
   </div>
 </template>

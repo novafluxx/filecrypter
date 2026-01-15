@@ -174,6 +174,7 @@ async function handleDecrypt() {
       <label for="decrypt-input">Encrypted File:</label>
       <div class="file-input-group">
         <NInput
+          :input-props="{ id: 'decrypt-input' }"
           :value="fileOps.inputPath.value"
           readonly
           placeholder="Select or drag a .encrypted file..."
@@ -194,6 +195,7 @@ async function handleDecrypt() {
       <label for="decrypt-output">Save Decrypted File As:</label>
       <div class="file-input-group">
         <NInput
+          :input-props="{ id: 'decrypt-output' }"
           :value="fileOps.outputPath.value"
           readonly
           placeholder="Will auto-generate from encrypted filename..."
@@ -225,6 +227,7 @@ async function handleDecrypt() {
     <div class="form-group">
       <label for="decrypt-password">Password:</label>
       <NInput
+        :input-props="{ id: 'decrypt-password' }"
         type="password"
         show-password-on="click"
         :value="fileOps.password.value"

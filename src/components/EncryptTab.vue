@@ -153,6 +153,7 @@ async function handleEncrypt() {
       <label for="encrypt-input">File to Encrypt:</label>
       <div class="file-input-group">
         <NInput
+          :input-props="{ id: 'encrypt-input' }"
           :value="fileOps.inputPath.value"
           readonly
           placeholder="Select or drag a file..."
@@ -173,6 +174,7 @@ async function handleEncrypt() {
       <label for="encrypt-output">Save Encrypted File As:</label>
       <div class="file-input-group">
         <NInput
+          :input-props="{ id: 'encrypt-output' }"
           :value="fileOps.outputPath.value"
           readonly
           placeholder="Will auto-generate from input filename..."
@@ -218,6 +220,7 @@ async function handleEncrypt() {
     <div class="form-group">
       <label for="encrypt-password">Password:</label>
       <NInput
+        :input-props="{ id: 'encrypt-password' }"
         type="password"
         show-password-on="click"
         :value="fileOps.password.value"

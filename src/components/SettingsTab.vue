@@ -12,7 +12,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { NButton, NCheckbox } from 'naive-ui';
+import { NButton, NCheckbox, NInput } from 'naive-ui';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useSettings, type ThemeMode } from '../composables/useSettings';
 
@@ -131,13 +131,10 @@ async function handleResetToDefaults() {
         <div class="form-group">
           <label class="setting-label">Default Output Directory:</label>
           <div class="file-input-group">
-            <input
-              type="text"
+            <NInput
               :value="outputDirectory || ''"
               readonly
               placeholder="Same as input file (default)"
-              class="file-input"
-              title="Default folder for encrypted/decrypted files"
             />
             <NButton
               v-if="outputDirectory"

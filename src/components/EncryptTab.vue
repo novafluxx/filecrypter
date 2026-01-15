@@ -17,19 +17,16 @@
 
 <script setup lang="ts">
 import { onMounted, watch } from 'vue';
-import { NButton, NCheckbox } from 'naive-ui';
+import { NButton, NCheckbox, NInput } from 'naive-ui';
 import { useFileOps } from '../composables/useFileOps';
 import { useTauri } from '../composables/useTauri';
 import { usePasswordStrength } from '../composables/usePasswordStrength';
 import { useProgress } from '../composables/useProgress';
 import { useDragDrop } from '../composables/useDragDrop';
-import { usePasswordVisibility } from '../composables/usePasswordVisibility';
 import { useSettings } from '../composables/useSettings';
 import PasswordStrengthMeter from './PasswordStrengthMeter.vue';
 import ProgressBar from './ProgressBar.vue';
 import StatusMessage from './StatusMessage.vue';
-import IconEye from './icons/IconEye.vue';
-import IconEyeOff from './icons/IconEyeOff.vue';
 
 // Initialize composables
 // These provide reactive state and methods for file operations
@@ -48,9 +45,6 @@ watch(
   },
   { immediate: true }
 );
-
-// Password visibility toggle
-const { isPasswordVisible, togglePasswordVisibility } = usePasswordVisibility();
 
 // Password strength analysis
 // Provides reactive feedback as user types their password
@@ -158,14 +152,10 @@ async function handleEncrypt() {
     <div class="form-group">
       <label for="encrypt-input">File to Encrypt:</label>
       <div class="file-input-group">
-        <input
-          id="encrypt-input"
-          type="text"
+        <NInput
           :value="fileOps.inputPath.value"
           readonly
           placeholder="Select or drag a file..."
-          class="file-input"
-          title="Drag a file here or click Browse to select one"
         />
         <NButton
           type="primary"
@@ -182,14 +172,10 @@ async function handleEncrypt() {
     <div class="form-group">
       <label for="encrypt-output">Save Encrypted File As:</label>
       <div class="file-input-group">
-        <input
-          id="encrypt-output"
-          type="text"
+        <NInput
           :value="fileOps.outputPath.value"
           readonly
           placeholder="Will auto-generate from input filename..."
-          class="file-input"
-          title="Auto-generated output path; click Change to pick a different location"
         />
         <NButton
           @click="handleSelectOutput"
@@ -231,32 +217,16 @@ async function handleEncrypt() {
     </div>
 
     <!-- Password Input Section -->
-    <div class="form-group password-section">
+    <div class="form-group">
       <label for="encrypt-password">Password:</label>
-      <div class="password-input-wrapper">
-        <input
-          id="encrypt-password"
-          :type="isPasswordVisible ? 'text' : 'password'"
-          :value="fileOps.password.value"
-          @input="fileOps.setPassword(($event.target as HTMLInputElement).value)"
-          placeholder="Enter password (min 8 characters)"
-          autocomplete="new-password"
-          class="password-input"
-          :disabled="fileOps.isProcessing.value"
-          title="Enter a strong password (at least 8 characters)"
-        />
-        <button
-          type="button"
-          class="password-toggle-btn"
-          @click="togglePasswordVisibility"
-          :disabled="fileOps.isProcessing.value"
-          :aria-label="isPasswordVisible ? 'Hide password' : 'Show password'"
-          :title="isPasswordVisible ? 'Hide password' : 'Show password'"
-        >
-          <IconEye v-if="!isPasswordVisible" />
-          <IconEyeOff v-else />
-        </button>
-      </div>
+      <NInput
+        type="password"
+        show-password-on="click"
+        :value="fileOps.password.value"
+        @update:value="fileOps.setPassword"
+        placeholder="Enter password (min 8 characters)"
+        :disabled="fileOps.isProcessing.value"
+      />
       <!-- Password strength meter -->
       <PasswordStrengthMeter
         v-if="fileOps.password.value.length > 0"

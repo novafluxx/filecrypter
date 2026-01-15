@@ -13,26 +13,20 @@
 
 <script setup lang="ts">
 import { ref, computed, onUnmounted, watch } from 'vue';
-import { NButton, NCheckbox } from 'naive-ui';
+import { NButton, NCheckbox, NAlert, NInput } from 'naive-ui';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useTauri } from '../composables/useTauri';
 import { usePasswordStrength } from '../composables/usePasswordStrength';
-import { usePasswordVisibility } from '../composables/usePasswordVisibility';
 import { useSettings } from '../composables/useSettings';
 import { sanitizeErrorMessage } from '../utils/errorSanitizer';
 import PasswordStrengthMeter from './PasswordStrengthMeter.vue';
 import StatusMessage from './StatusMessage.vue';
-import IconEye from './icons/IconEye.vue';
-import IconEyeOff from './icons/IconEyeOff.vue';
 import type { BatchProgress, BatchResult } from '../types/crypto';
 import { MIN_PASSWORD_LENGTH } from '../constants';
 
 // Initialize composables
 const tauri = useTauri();
 const settings = useSettings();
-
-// Password visibility toggle
-const { isPasswordVisible, togglePasswordVisibility } = usePasswordVisibility();
 
 // State
 const mode = ref<'encrypt' | 'decrypt'>('encrypt');
@@ -247,10 +241,10 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
     </div>
 
     <!-- Compression Info Banner (encryption mode only) -->
-    <div v-if="mode === 'encrypt'" class="info-banner">
+    <NAlert v-if="mode === 'encrypt'" type="info" :show-icon="false" class="info-banner">
       Compression is automatically enabled for batch operations.
       Files are compressed with ZSTD before encryption for optimal size reduction.
-    </div>
+    </NAlert>
 
     <!-- File Selection -->
     <div class="form-group">
@@ -312,13 +306,10 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
     <div class="form-group">
       <label>Output Directory:</label>
       <div class="file-input-group">
-        <input
-          type="text"
+        <NInput
           :value="outputDir"
           readonly
           placeholder="Select output directory..."
-          class="file-input"
-          title="Auto-filled output folder; click Browse to pick a different one"
         />
         <NButton
           @click="handleSelectOutputDir"
@@ -344,30 +335,15 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
     </div>
 
     <!-- Password Input -->
-    <div class="form-group password-section">
+    <div class="form-group">
       <label>Password:</label>
-      <div class="password-input-wrapper">
-        <input
-          :type="isPasswordVisible ? 'text' : 'password'"
-          v-model="password"
-          :placeholder="mode === 'encrypt' ? 'Enter password (min 8 characters)' : 'Enter decryption password'"
-          :autocomplete="mode === 'encrypt' ? 'new-password' : 'current-password'"
-          class="password-input"
-          :disabled="isProcessing"
-          :title="mode === 'encrypt' ? 'Enter a strong password (at least 8 characters)' : 'Enter the password used to encrypt these files'"
-        />
-        <button
-          type="button"
-          class="password-toggle-btn"
-          @click="togglePasswordVisibility"
-          :disabled="isProcessing"
-          :aria-label="isPasswordVisible ? 'Hide password' : 'Show password'"
-          :title="isPasswordVisible ? 'Hide password' : 'Show password'"
-        >
-          <IconEye v-if="!isPasswordVisible" />
-          <IconEyeOff v-else />
-        </button>
-      </div>
+      <NInput
+        type="password"
+        show-password-on="click"
+        v-model:value="password"
+        :placeholder="mode === 'encrypt' ? 'Enter password (min 8 characters)' : 'Enter decryption password'"
+        :disabled="isProcessing"
+      />
       <!-- Password strength meter (encryption only) -->
       <PasswordStrengthMeter
         v-if="mode === 'encrypt' && password.length > 0"
@@ -635,15 +611,7 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
 
 /* Info Banner */
 .info-banner {
-  padding: 12px 16px;
   margin-bottom: 16px;
-  background: var(--panel-alt);
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
-  border-radius: 4px;
-  font-size: 14px;
-  color: var(--muted);
-  line-height: 1.5;
 }
 
 .action-btn {

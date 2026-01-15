@@ -15,17 +15,14 @@
 
 <script setup lang="ts">
 import { onMounted, watch } from 'vue';
-import { NButton, NCheckbox } from 'naive-ui';
+import { NButton, NCheckbox, NInput } from 'naive-ui';
 import { useFileOps } from '../composables/useFileOps';
 import { useTauri } from '../composables/useTauri';
 import { useProgress } from '../composables/useProgress';
 import { useDragDrop } from '../composables/useDragDrop';
-import { usePasswordVisibility } from '../composables/usePasswordVisibility';
 import { useSettings } from '../composables/useSettings';
 import ProgressBar from './ProgressBar.vue';
 import StatusMessage from './StatusMessage.vue';
-import IconEye from './icons/IconEye.vue';
-import IconEyeOff from './icons/IconEyeOff.vue';
 
 // Initialize composables
 const fileOps = useFileOps();
@@ -69,9 +66,6 @@ function getSuggestedOutputPath(inputPath: string): string {
                    inputPath.substring(0, inputPath.lastIndexOf('\\') + 1);
   return inputDir + outputFilename;
 }
-
-// Password visibility toggle
-const { isPasswordVisible, togglePasswordVisibility } = usePasswordVisibility();
 
 // Progress tracking for decryption operation
 const { progress, isActive: showProgress, startListening, stopListening } = useProgress();
@@ -179,14 +173,10 @@ async function handleDecrypt() {
     <div class="form-group">
       <label for="decrypt-input">Encrypted File:</label>
       <div class="file-input-group">
-        <input
-          id="decrypt-input"
-          type="text"
+        <NInput
           :value="fileOps.inputPath.value"
           readonly
           placeholder="Select or drag a .encrypted file..."
-          class="file-input"
-          title="Drag a .encrypted file here or click Browse to select one"
         />
         <NButton
           type="primary"
@@ -203,14 +193,10 @@ async function handleDecrypt() {
     <div class="form-group">
       <label for="decrypt-output">Save Decrypted File As:</label>
       <div class="file-input-group">
-        <input
-          id="decrypt-output"
-          type="text"
+        <NInput
           :value="fileOps.outputPath.value"
           readonly
           placeholder="Will auto-generate from encrypted filename..."
-          class="file-input"
-          title="Auto-generated output path; click Change to pick a different location"
         />
         <NButton
           @click="handleSelectOutput"
@@ -237,32 +223,16 @@ async function handleDecrypt() {
     </div>
 
     <!-- Password Input Section -->
-    <div class="form-group password-section">
+    <div class="form-group">
       <label for="decrypt-password">Password:</label>
-      <div class="password-input-wrapper">
-        <input
-          id="decrypt-password"
-          :type="isPasswordVisible ? 'text' : 'password'"
-          :value="fileOps.password.value"
-          @input="fileOps.setPassword(($event.target as HTMLInputElement).value)"
-          placeholder="Enter decryption password"
-          autocomplete="current-password"
-          class="password-input"
-          :disabled="fileOps.isProcessing.value"
-          title="Enter the password used to encrypt this file"
-        />
-        <button
-          type="button"
-          class="password-toggle-btn"
-          @click="togglePasswordVisibility"
-          :disabled="fileOps.isProcessing.value"
-          :aria-label="isPasswordVisible ? 'Hide password' : 'Show password'"
-          :title="isPasswordVisible ? 'Hide password' : 'Show password'"
-        >
-          <IconEye v-if="!isPasswordVisible" />
-          <IconEyeOff v-else />
-        </button>
-      </div>
+      <NInput
+        type="password"
+        show-password-on="click"
+        :value="fileOps.password.value"
+        @update:value="fileOps.setPassword"
+        placeholder="Enter decryption password"
+        :disabled="fileOps.isProcessing.value"
+      />
       <!-- Info hint -->
       <p v-if="fileOps.password.value.length === 0" class="hint-text">
         Enter the password used to encrypt this file

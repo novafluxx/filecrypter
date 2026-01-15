@@ -270,6 +270,7 @@ body {
   background: var(--panel);
   padding: 0 16px;
   flex-shrink: 0;
+  flex-grow: 0;
 }
 
 /* Tab Content Area */

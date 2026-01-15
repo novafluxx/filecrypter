@@ -12,6 +12,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { NButton } from 'naive-ui';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useSettings, type ThemeMode } from '../composables/useSettings';
 
@@ -158,21 +159,20 @@ async function handleResetToDefaults() {
               class="file-input"
               title="Default folder for encrypted/decrypted files"
             />
-            <button
+            <NButton
               v-if="outputDirectory"
               @click="handleClearOutputDir"
-              class="btn btn-secondary"
               title="Clear default directory"
             >
               Clear
-            </button>
-            <button
+            </NButton>
+            <NButton
+              type="primary"
               @click="handleSelectOutputDir"
-              class="btn btn-primary"
               title="Choose a default folder for encrypted/decrypted files"
             >
               Browse
-            </button>
+            </NButton>
           </div>
           <p class="hint-text">
             Leave empty to save files alongside the originals.
@@ -182,13 +182,12 @@ async function handleResetToDefaults() {
 
       <!-- Reset Section -->
       <section class="settings-section reset-section">
-        <button
+        <NButton
           @click="handleResetToDefaults"
-          class="btn btn-secondary"
           title="Restore all settings to their original values"
         >
           Reset to Defaults
-        </button>
+        </NButton>
       </section>
     </div>
   </div>

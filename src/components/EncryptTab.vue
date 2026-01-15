@@ -17,6 +17,7 @@
 
 <script setup lang="ts">
 import { onMounted, watch } from 'vue';
+import { NButton } from 'naive-ui';
 import { useFileOps } from '../composables/useFileOps';
 import { useTauri } from '../composables/useTauri';
 import { usePasswordStrength } from '../composables/usePasswordStrength';
@@ -166,14 +167,14 @@ async function handleEncrypt() {
           class="file-input"
           title="Drag a file here or click Browse to select one"
         />
-        <button
+        <NButton
+          type="primary"
           @click="handleSelectFile"
-          class="btn btn-primary"
           :disabled="fileOps.isProcessing.value"
           title="Choose a file to encrypt"
         >
           Browse
-        </button>
+        </NButton>
       </div>
     </div>
 
@@ -190,14 +191,13 @@ async function handleEncrypt() {
           class="file-input"
           title="Auto-generated output path; click Change to pick a different location"
         />
-        <button
+        <NButton
           @click="handleSelectOutput"
-          class="btn btn-secondary"
           :disabled="fileOps.isProcessing.value"
           title="Choose where to save the encrypted file"
         >
           Change
-        </button>
+        </NButton>
       </div>
     </div>
 
@@ -270,15 +270,18 @@ async function handleEncrypt() {
     </div>
 
     <!-- Encrypt Button -->
-    <button
+    <NButton
+      type="primary"
+      block
+      strong
+      class="action-btn"
       @click="handleEncrypt"
-      class="btn btn-action"
       :disabled="!fileOps.isFormValid.value"
       title="Start encrypting with the selected file and password"
     >
       <span v-if="fileOps.isProcessing.value">Encrypting...</span>
       <span v-else>Encrypt File</span>
-    </button>
+    </NButton>
 
     <!-- Progress Bar (shown during encryption) -->
     <ProgressBar
@@ -313,5 +316,9 @@ async function handleEncrypt() {
   border-radius: 8px;
   padding: 16px;
   position: relative;
+}
+
+.action-btn {
+  margin-top: 8px;
 }
 </style>

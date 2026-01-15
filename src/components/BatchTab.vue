@@ -13,6 +13,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onUnmounted, watch } from 'vue';
+import { NButton } from 'naive-ui';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useTauri } from '../composables/useTauri';
 import { usePasswordStrength } from '../composables/usePasswordStrength';
@@ -258,14 +259,14 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
         <div class="file-count-display">
           {{ fileCount }} file{{ fileCount !== 1 ? 's' : '' }} selected
         </div>
-        <button
+        <NButton
+          type="primary"
           @click="handleSelectFiles"
-          class="btn btn-primary"
           :disabled="isProcessing"
           title="Choose multiple files to process"
         >
           Browse
-        </button>
+        </NButton>
       </div>
 
       <!-- Selected Files List -->
@@ -319,14 +320,13 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
           class="file-input"
           title="Auto-filled output folder; click Browse to pick a different one"
         />
-        <button
+        <NButton
           @click="handleSelectOutputDir"
-          class="btn btn-secondary"
           :disabled="isProcessing"
           title="Choose the output folder"
         >
           Browse
-        </button>
+        </NButton>
       </div>
     </div>
 
@@ -384,9 +384,12 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
     </div>
 
     <!-- Action Button -->
-    <button
+    <NButton
+      type="primary"
+      block
+      strong
+      class="action-btn"
       @click="handleBatchOperation"
-      class="btn btn-action"
       :disabled="!isFormValid"
       :title="mode === 'encrypt' ? 'Encrypt all selected files' : 'Decrypt all selected files'"
     >
@@ -396,7 +399,7 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
       <span v-else>
         {{ mode === 'encrypt' ? 'Encrypt' : 'Decrypt' }} {{ fileCount }} File{{ fileCount !== 1 ? 's' : '' }}
       </span>
-    </button>
+    </NButton>
 
     <!-- Progress Bar -->
     <div v-if="showProgress && batchProgress" class="progress-container">
@@ -644,5 +647,9 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
   font-size: 14px;
   color: var(--muted);
   line-height: 1.5;
+}
+
+.action-btn {
+  margin-top: 8px;
 }
 </style>

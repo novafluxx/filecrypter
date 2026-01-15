@@ -15,6 +15,7 @@
 
 <script setup lang="ts">
 import { onMounted, watch } from 'vue';
+import { NButton } from 'naive-ui';
 import { useFileOps } from '../composables/useFileOps';
 import { useTauri } from '../composables/useTauri';
 import { useProgress } from '../composables/useProgress';
@@ -187,14 +188,14 @@ async function handleDecrypt() {
           class="file-input"
           title="Drag a .encrypted file here or click Browse to select one"
         />
-        <button
+        <NButton
+          type="primary"
           @click="handleSelectFile"
-          class="btn btn-primary"
           :disabled="fileOps.isProcessing.value"
           title="Choose an encrypted file to decrypt"
         >
           Browse
-        </button>
+        </NButton>
       </div>
     </div>
 
@@ -211,14 +212,13 @@ async function handleDecrypt() {
           class="file-input"
           title="Auto-generated output path; click Change to pick a different location"
         />
-        <button
+        <NButton
           @click="handleSelectOutput"
-          class="btn btn-secondary"
           :disabled="fileOps.isProcessing.value"
           title="Choose where to save the decrypted file"
         >
           Change
-        </button>
+        </NButton>
       </div>
     </div>
 
@@ -272,15 +272,18 @@ async function handleDecrypt() {
     </div>
 
     <!-- Decrypt Button -->
-    <button
+    <NButton
+      type="primary"
+      block
+      strong
+      class="action-btn"
       @click="handleDecrypt"
-      class="btn btn-action"
       :disabled="!fileOps.isFormValid.value"
       title="Start decrypting with the selected file and password"
     >
       <span v-if="fileOps.isProcessing.value">Decrypting...</span>
       <span v-else>Decrypt File</span>
-    </button>
+    </NButton>
 
     <!-- Progress Bar (shown during decryption) -->
     <ProgressBar
@@ -315,5 +318,9 @@ async function handleDecrypt() {
   border-radius: 8px;
   padding: 16px;
   position: relative;
+}
+
+.action-btn {
+  margin-top: 8px;
 }
 </style>

@@ -15,7 +15,7 @@
 
 <script setup lang="ts">
 import { onMounted, watch } from 'vue';
-import { NButton } from 'naive-ui';
+import { NButton, NCheckbox } from 'naive-ui';
 import { useFileOps } from '../composables/useFileOps';
 import { useTauri } from '../composables/useTauri';
 import { useProgress } from '../composables/useProgress';
@@ -224,15 +224,13 @@ async function handleDecrypt() {
 
     <!-- Output Safety Options -->
     <div class="form-group">
-      <label class="checkbox-row">
-        <input
-          type="checkbox"
-          v-model="fileOps.neverOverwrite.value"
-          :disabled="fileOps.isProcessing.value"
-          title="Prevent overwriting by auto-renaming on name conflicts"
-        />
+      <NCheckbox
+        :checked="fileOps.neverOverwrite.value"
+        @update:checked="v => fileOps.neverOverwrite.value = v"
+        :disabled="fileOps.isProcessing.value"
+      >
         Never overwrite existing files (auto-rename on conflicts)
-      </label>
+      </NCheckbox>
       <p class="hint-text">
         If the output name already exists, we'll save as "name (1)".
       </p>

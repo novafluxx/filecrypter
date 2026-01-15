@@ -12,7 +12,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { NButton } from 'naive-ui';
+import { NButton, NCheckbox } from 'naive-ui';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useSettings, type ThemeMode } from '../composables/useSettings';
 
@@ -30,20 +30,6 @@ const outputDirectory = computed(() => settings.defaultOutputDirectory.value);
  */
 async function handleThemeChange(newTheme: ThemeMode) {
   await settings.setTheme(newTheme);
-}
-
-/**
- * Toggle compression default
- */
-async function handleCompressionToggle() {
-  await settings.setDefaultCompression(!compressionEnabled.value);
-}
-
-/**
- * Toggle never-overwrite default
- */
-async function handleOverwriteToggle() {
-  await settings.setDefaultNeverOverwrite(!neverOverwrite.value);
 }
 
 /**
@@ -119,30 +105,24 @@ async function handleResetToDefaults() {
         <h2 class="section-title">Encryption Defaults</h2>
 
         <div class="form-group">
-          <label class="checkbox-row">
-            <input
-              type="checkbox"
-              :checked="compressionEnabled"
-              @change="handleCompressionToggle"
-              title="Compress files before encryption to reduce size (may slow down large files)"
-            />
+          <NCheckbox
+            :checked="compressionEnabled"
+            @update:checked="v => settings.setDefaultCompression(v)"
+          >
             Enable compression by default
-          </label>
+          </NCheckbox>
           <p class="hint-text">
             Single file encryption only. Batch mode always uses compression.
           </p>
         </div>
 
         <div class="form-group">
-          <label class="checkbox-row">
-            <input
-              type="checkbox"
-              :checked="neverOverwrite"
-              @change="handleOverwriteToggle"
-              title="Automatically rename output files to avoid overwriting existing files"
-            />
+          <NCheckbox
+            :checked="neverOverwrite"
+            @update:checked="v => settings.setDefaultNeverOverwrite(v)"
+          >
             Never overwrite existing files by default
-          </label>
+          </NCheckbox>
           <p class="hint-text">
             Auto-rename to "name (1)" on conflicts.
           </p>

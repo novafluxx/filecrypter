@@ -13,7 +13,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onUnmounted, watch } from 'vue';
-import { NButton } from 'naive-ui';
+import { NButton, NCheckbox } from 'naive-ui';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useTauri } from '../composables/useTauri';
 import { usePasswordStrength } from '../composables/usePasswordStrength';
@@ -332,15 +332,12 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
 
     <!-- Output Safety Options -->
     <div class="form-group">
-      <label class="checkbox-row">
-        <input
-          type="checkbox"
-          v-model="neverOverwrite"
-          :disabled="isProcessing"
-          title="Prevent overwriting by auto-renaming on name conflicts"
-        />
+      <NCheckbox
+        v-model:checked="neverOverwrite"
+        :disabled="isProcessing"
+      >
         Never overwrite existing files (auto-rename on conflicts)
-      </label>
+      </NCheckbox>
       <p class="hint-text">
         If a filename already exists, we'll save as "name (1)".
       </p>

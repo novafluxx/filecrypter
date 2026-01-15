@@ -22,6 +22,29 @@ select {
   cursor: default;
 }
 
+/* === NAIVE UI CURSOR OVERRIDES === */
+/* Override Naive UI's web-style pointer cursors for desktop app feel */
+.n-button,
+.n-checkbox,
+.n-checkbox__label,
+.n-input,
+.n-input__input-el,
+.n-tabs,
+.n-tabs-tab,
+.n-tab-pane,
+.n-alert,
+.n-progress,
+.n-radio-button,
+.n-radio-group {
+  cursor: default !important;
+}
+
+/* Keep text cursor for input fields */
+.n-input .n-input__input-el,
+.n-input .n-input__textarea-el {
+  cursor: text !important;
+}
+
 /* === FORM LAYOUTS === */
 
 .form-group {

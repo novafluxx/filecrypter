@@ -12,7 +12,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { NButton, NCheckbox, NInput, NRadioGroup, NRadioButton } from 'naive-ui';
+import { NButton, NButtonGroup, NCheckbox, NInput } from 'naive-ui';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useSettings, type ThemeMode } from '../composables/useSettings';
 
@@ -21,6 +21,7 @@ const settings = useSettings();
 
 // Computed for cleaner template bindings
 const currentTheme = computed(() => settings.theme.value);
+
 const compressionEnabled = computed(() => settings.defaultCompression.value);
 const neverOverwrite = computed(() => settings.defaultNeverOverwrite.value);
 const outputDirectory = computed(() => settings.defaultOutputDirectory.value);
@@ -71,15 +72,29 @@ async function handleResetToDefaults() {
 
         <div class="form-group">
           <label class="setting-label">Theme:</label>
-          <NRadioGroup
-            :value="currentTheme"
-            @update:value="handleThemeChange"
-            name="theme"
-          >
-            <NRadioButton value="light" label="Light" />
-            <NRadioButton value="dark" label="Dark" />
-            <NRadioButton value="system" label="System" />
-          </NRadioGroup>
+          <NButtonGroup>
+            <NButton
+              :type="currentTheme === 'light' ? 'primary' : 'default'"
+              :ghost="currentTheme !== 'light'"
+              @click="handleThemeChange('light')"
+            >
+              Light
+            </NButton>
+            <NButton
+              :type="currentTheme === 'dark' ? 'primary' : 'default'"
+              :ghost="currentTheme !== 'dark'"
+              @click="handleThemeChange('dark')"
+            >
+              Dark
+            </NButton>
+            <NButton
+              :type="currentTheme === 'system' ? 'primary' : 'default'"
+              :ghost="currentTheme !== 'system'"
+              @click="handleThemeChange('system')"
+            >
+              System
+            </NButton>
+          </NButtonGroup>
         </div>
       </section>
 

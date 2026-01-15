@@ -13,7 +13,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onUnmounted, watch } from 'vue';
-import { NButton, NCheckbox, NAlert, NInput, NRadioGroup, NRadioButton } from 'naive-ui';
+import { NButton, NButtonGroup, NCheckbox, NAlert, NInput } from 'naive-ui';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useTauri } from '../composables/useTauri';
 import { usePasswordStrength } from '../composables/usePasswordStrength';
@@ -219,16 +219,24 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
   <div class="tab-content">
     <div class="content-panel">
       <!-- Mode Toggle -->
-      <NRadioGroup
-        :value="mode"
-        @update:value="switchMode"
-        name="batch-mode"
-        class="mode-toggle"
-        :disabled="isProcessing"
-      >
-        <NRadioButton value="encrypt" label="Encrypt" />
-        <NRadioButton value="decrypt" label="Decrypt" />
-      </NRadioGroup>
+      <NButtonGroup class="mode-toggle">
+        <NButton
+          :type="mode === 'encrypt' ? 'primary' : 'default'"
+          :ghost="mode !== 'encrypt'"
+          :disabled="isProcessing"
+          @click="switchMode('encrypt')"
+        >
+          Encrypt
+        </NButton>
+        <NButton
+          :type="mode === 'decrypt' ? 'primary' : 'default'"
+          :ghost="mode !== 'decrypt'"
+          :disabled="isProcessing"
+          @click="switchMode('decrypt')"
+        >
+          Decrypt
+        </NButton>
+      </NButtonGroup>
 
     <!-- Compression Info Banner (encryption mode only) -->
     <NAlert v-if="mode === 'encrypt'" type="info" :show-icon="false" class="info-banner">

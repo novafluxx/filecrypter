@@ -232,6 +232,14 @@ body {
   flex-direction: column;
   overflow: hidden;
 }
+
+/* Ensure NConfigProvider wrapper doesn't break flex layout */
+#app > .n-config-provider {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
 </style>
 
 <style scoped>

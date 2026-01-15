@@ -25,6 +25,7 @@ import BottomNav from './components/BottomNav.vue';
 import { useTheme } from './composables/useTheme';
 import { useSettings } from './composables/useSettings';
 import { usePlatform } from './composables/usePlatform';
+import { FONT_FAMILY, LIGHT_THEME, DARK_THEME } from './constants';
 import type { TabName } from './types/tabs';
 
 // Active tab state
@@ -38,16 +39,18 @@ const { appliedTheme } = useTheme();
 const naiveTheme = computed(() => appliedTheme.value === 'dark' ? darkTheme : null);
 
 // Theme overrides to match app's CSS variable colors
-const themeOverrides = computed<GlobalThemeOverrides>(() => ({
-  common: {
-    // Match app's accent color
-    primaryColor: appliedTheme.value === 'dark' ? '#4a9eff' : '#0066cc',
-    primaryColorHover: appliedTheme.value === 'dark' ? '#5fb0ff' : '#0077ee',
-    primaryColorPressed: appliedTheme.value === 'dark' ? '#3d8ee8' : '#0055aa',
-    // Match app's font settings
-    fontFamily: "system-ui, -apple-system, 'Segoe UI', 'Roboto', 'Ubuntu', 'Cantarell', 'Noto Sans', sans-serif",
-  },
-}));
+// Colors are defined in src/constants.ts to maintain a single source of truth
+const themeOverrides = computed<GlobalThemeOverrides>(() => {
+  const colors = appliedTheme.value === 'dark' ? DARK_THEME : LIGHT_THEME;
+  return {
+    common: {
+      primaryColor: colors.accent,
+      primaryColorHover: colors.accentHover,
+      primaryColorPressed: colors.accentPressed,
+      fontFamily: FONT_FAMILY,
+    },
+  };
+});
 
 // Platform detection for conditional navigation
 // isInitialized prevents UI flash before detection completes

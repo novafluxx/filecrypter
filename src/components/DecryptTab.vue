@@ -211,8 +211,7 @@ async function handleDecrypt() {
     <!-- Output Safety Options -->
     <div class="form-group">
       <NCheckbox
-        :checked="fileOps.neverOverwrite.value"
-        @update:checked="v => fileOps.neverOverwrite.value = v"
+        v-model:checked="fileOps.neverOverwrite.value"
         :disabled="fileOps.isProcessing.value"
       >
         Never overwrite existing files (auto-rename on conflicts)

@@ -13,7 +13,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onUnmounted, watch } from 'vue';
-import { NButton, NCheckbox, NAlert, NInput } from 'naive-ui';
+import { NButton, NCheckbox, NAlert, NInput, NRadioGroup, NRadioButton } from 'naive-ui';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useTauri } from '../composables/useTauri';
 import { usePasswordStrength } from '../composables/usePasswordStrength';
@@ -219,26 +219,16 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
   <div class="tab-content">
     <div class="content-panel">
       <!-- Mode Toggle -->
-      <div class="mode-toggle">
-      <button
-        class="mode-btn"
-        :class="{ active: mode === 'encrypt' }"
-        @click="switchMode('encrypt')"
+      <NRadioGroup
+        :value="mode"
+        @update:value="switchMode"
+        name="batch-mode"
+        class="mode-toggle"
         :disabled="isProcessing"
-        title="Batch encrypt multiple files"
       >
-        Encrypt
-      </button>
-      <button
-        class="mode-btn"
-        :class="{ active: mode === 'decrypt' }"
-        @click="switchMode('decrypt')"
-        :disabled="isProcessing"
-        title="Batch decrypt multiple files"
-      >
-        Decrypt
-      </button>
-    </div>
+        <NRadioButton value="encrypt" label="Encrypt" />
+        <NRadioButton value="decrypt" label="Decrypt" />
+      </NRadioGroup>
 
     <!-- Compression Info Banner (encryption mode only) -->
     <NAlert v-if="mode === 'encrypt'" type="info" :show-icon="false" class="info-banner">
@@ -420,44 +410,9 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
   position: relative;
 }
 
-/* Mode Toggle (unique to BatchTab) */
+/* Mode Toggle */
 .mode-toggle {
-  display: flex;
-  gap: 4px;
   margin-bottom: 16px;
-  padding: 4px;
-  background: var(--panel-alt);
-  border-radius: 4px;
-  border: 1px solid var(--border);
-}
-
-.mode-btn {
-  flex: 1;
-  padding: 6px 12px;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 17px;
-  font-weight: 500;
-  cursor: default;
-  transition: all 0.15s;
-  font-family: inherit;
-}
-
-.mode-btn:hover:not(:disabled):not(.active) {
-  color: var(--text);
-  background: var(--border);
-}
-
-.mode-btn.active {
-  background: var(--accent);
-  color: white;
-}
-
-.mode-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 /* File Count Display */

@@ -12,7 +12,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { NButton, NCheckbox, NInput } from 'naive-ui';
+import { NButton, NCheckbox, NInput, NRadioGroup, NRadioButton } from 'naive-ui';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useSettings, type ThemeMode } from '../composables/useSettings';
 
@@ -71,32 +71,15 @@ async function handleResetToDefaults() {
 
         <div class="form-group">
           <label class="setting-label">Theme:</label>
-          <div class="theme-toggle">
-            <button
-              class="theme-btn"
-              :class="{ active: currentTheme === 'light' }"
-              @click="handleThemeChange('light')"
-              title="Use light color scheme"
-            >
-              Light
-            </button>
-            <button
-              class="theme-btn"
-              :class="{ active: currentTheme === 'dark' }"
-              @click="handleThemeChange('dark')"
-              title="Use dark color scheme"
-            >
-              Dark
-            </button>
-            <button
-              class="theme-btn"
-              :class="{ active: currentTheme === 'system' }"
-              @click="handleThemeChange('system')"
-              title="Follow your operating system's color scheme"
-            >
-              System
-            </button>
-          </div>
+          <NRadioGroup
+            :value="currentTheme"
+            @update:value="handleThemeChange"
+            name="theme"
+          >
+            <NRadioButton value="light" label="Light" />
+            <NRadioButton value="dark" label="Dark" />
+            <NRadioButton value="system" label="System" />
+          </NRadioGroup>
         </div>
       </section>
 
@@ -223,40 +206,6 @@ async function handleResetToDefaults() {
 
 .form-group:last-child {
   margin-bottom: 0;
-}
-
-/* Theme Toggle (similar to BatchTab mode toggle) */
-.theme-toggle {
-  display: flex;
-  gap: 4px;
-  padding: 4px;
-  background: var(--panel-alt);
-  border-radius: 4px;
-  border: 1px solid var(--border);
-}
-
-.theme-btn {
-  flex: 1;
-  padding: 6px 12px;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 16px;
-  font-weight: 500;
-  cursor: default;
-  transition: all 0.15s;
-  font-family: inherit;
-}
-
-.theme-btn:hover:not(.active) {
-  color: var(--text);
-  background: var(--border);
-}
-
-.theme-btn.active {
-  background: var(--accent);
-  color: white;
 }
 
 /* Reset Section */

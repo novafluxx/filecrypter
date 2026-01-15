@@ -14,7 +14,8 @@
 -->
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { NConfigProvider, darkTheme, type GlobalThemeOverrides } from 'naive-ui';
 import EncryptTab from './components/EncryptTab.vue';
 import DecryptTab from './components/DecryptTab.vue';
 import BatchTab from './components/BatchTab.vue';
@@ -30,7 +31,23 @@ import type { TabName } from './types/tabs';
 const activeTab = ref<TabName>('encrypt');
 
 // Initialize theme (applies theme from settings)
-useTheme();
+// appliedTheme is 'light' or 'dark' (resolved from system preference if needed)
+const { appliedTheme } = useTheme();
+
+// Naive UI theme - use dark theme when app is in dark mode
+const naiveTheme = computed(() => appliedTheme.value === 'dark' ? darkTheme : null);
+
+// Theme overrides to match app's CSS variable colors
+const themeOverrides = computed<GlobalThemeOverrides>(() => ({
+  common: {
+    // Match app's accent color
+    primaryColor: appliedTheme.value === 'dark' ? '#4a9eff' : '#0066cc',
+    primaryColorHover: appliedTheme.value === 'dark' ? '#5fb0ff' : '#0077ee',
+    primaryColorPressed: appliedTheme.value === 'dark' ? '#3d8ee8' : '#0055aa',
+    // Match app's font settings
+    fontFamily: "system-ui, -apple-system, 'Segoe UI', 'Roboto', 'Ubuntu', 'Cantarell', 'Noto Sans', sans-serif",
+  },
+}));
 
 // Platform detection for conditional navigation
 // isInitialized prevents UI flash before detection completes
@@ -67,91 +84,93 @@ function switchTab(tab: TabName) {
 </script>
 
 <template>
-  <div class="app-container">
-    <!-- Toolbar -->
-    <div class="app-toolbar">
-      <h1 class="app-title">FileCrypter</h1>
+  <NConfigProvider :theme="naiveTheme" :theme-overrides="themeOverrides">
+    <div class="app-container">
+      <!-- Toolbar -->
+      <div class="app-toolbar">
+        <h1 class="app-title">FileCrypter</h1>
+      </div>
+
+      <!-- Desktop Tab Navigation (hidden on mobile, waits for platform detection) -->
+      <div v-if="isInitialized && !isMobile" class="tabs">
+        <button
+          class="tab-button"
+          :class="{ active: activeTab === 'encrypt' }"
+          @click="switchTab('encrypt')"
+          title="Switch to file encryption"
+        >
+          Encrypt
+        </button>
+        <button
+          class="tab-button"
+          :class="{ active: activeTab === 'decrypt' }"
+          @click="switchTab('decrypt')"
+          title="Switch to file decryption"
+        >
+          Decrypt
+        </button>
+        <button
+          class="tab-button"
+          :class="{ active: activeTab === 'batch' }"
+          @click="switchTab('batch')"
+          title="Switch to batch processing"
+        >
+          Batch
+        </button>
+        <button
+          class="tab-button"
+          :class="{ active: activeTab === 'settings' }"
+          @click="switchTab('settings')"
+          title="Configure application settings"
+        >
+          Settings
+        </button>
+        <button
+          class="tab-button"
+          :class="{ active: activeTab === 'help' }"
+          @click="switchTab('help')"
+          title="Open the FileCrypter user guide"
+        >
+          Help
+        </button>
+      </div>
+
+      <!-- Tab Content Area -->
+      <div class="tab-panels">
+        <!-- Encrypt Tab Panel -->
+        <div v-if="activeTab === 'encrypt'" class="tab-panel">
+          <EncryptTab />
+        </div>
+
+        <!-- Decrypt Tab Panel -->
+        <div v-if="activeTab === 'decrypt'" class="tab-panel">
+          <DecryptTab />
+        </div>
+
+        <!-- Batch Tab Panel -->
+        <div v-if="activeTab === 'batch'" class="tab-panel">
+          <BatchTab />
+        </div>
+
+        <!-- Settings Tab Panel -->
+        <div v-if="activeTab === 'settings'" class="tab-panel">
+          <SettingsTab />
+        </div>
+
+        <!-- Help Tab Panel -->
+        <div v-if="activeTab === 'help'" class="tab-panel">
+          <HelpTab />
+        </div>
+      </div>
+
+      <!-- Mobile Bottom Navigation (shown only on iOS/Android, waits for platform detection) -->
+      <BottomNav
+        v-if="isInitialized && isMobile"
+        :active-tab="activeTab"
+        @switch-tab="switchTab"
+      />
     </div>
-
-    <!-- Desktop Tab Navigation (hidden on mobile, waits for platform detection) -->
-    <div v-if="isInitialized && !isMobile" class="tabs">
-      <button
-        class="tab-button"
-        :class="{ active: activeTab === 'encrypt' }"
-        @click="switchTab('encrypt')"
-        title="Switch to file encryption"
-      >
-        Encrypt
-      </button>
-      <button
-        class="tab-button"
-        :class="{ active: activeTab === 'decrypt' }"
-        @click="switchTab('decrypt')"
-        title="Switch to file decryption"
-      >
-        Decrypt
-      </button>
-      <button
-        class="tab-button"
-        :class="{ active: activeTab === 'batch' }"
-        @click="switchTab('batch')"
-        title="Switch to batch processing"
-      >
-        Batch
-      </button>
-      <button
-        class="tab-button"
-        :class="{ active: activeTab === 'settings' }"
-        @click="switchTab('settings')"
-        title="Configure application settings"
-      >
-        Settings
-      </button>
-      <button
-        class="tab-button"
-        :class="{ active: activeTab === 'help' }"
-        @click="switchTab('help')"
-        title="Open the FileCrypter user guide"
-      >
-        Help
-      </button>
-    </div>
-
-    <!-- Tab Content Area -->
-    <div class="tab-panels">
-      <!-- Encrypt Tab Panel -->
-      <div v-if="activeTab === 'encrypt'" class="tab-panel">
-        <EncryptTab />
-      </div>
-
-      <!-- Decrypt Tab Panel -->
-      <div v-if="activeTab === 'decrypt'" class="tab-panel">
-        <DecryptTab />
-      </div>
-
-      <!-- Batch Tab Panel -->
-      <div v-if="activeTab === 'batch'" class="tab-panel">
-        <BatchTab />
-      </div>
-
-      <!-- Settings Tab Panel -->
-      <div v-if="activeTab === 'settings'" class="tab-panel">
-        <SettingsTab />
-      </div>
-
-      <!-- Help Tab Panel -->
-      <div v-if="activeTab === 'help'" class="tab-panel">
-        <HelpTab />
-      </div>
-    </div>
-
-    <!-- Mobile Bottom Navigation (shown only on iOS/Android, waits for platform detection) -->
-    <BottomNav
-      v-if="isInitialized && isMobile"
-      :active-tab="activeTab"
-      @switch-tab="switchTab"
-    />
-  </div>
+  </NConfigProvider>
 </template>
 
 <style>

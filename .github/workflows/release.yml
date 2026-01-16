@@ -277,3 +277,4 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+          releaseAssetNamePattern: "FileCrypter-v[version]-[platform]-[arch][setup][ext]"

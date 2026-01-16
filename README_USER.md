@@ -1,6 +1,6 @@
 # FileCrypter (User Guide)
 
-FileCrypter is a desktop app that password-encrypts files and can decrypt them later.
+FileCrypter is an app that password-encrypts files and can decrypt them later.
 
 By default, the app creates a new encrypted file (with a `.encrypted` extension) and leaves your original file unchanged. It only overwrites a destination file if you turn off **Never overwrite existing files** and choose an output path that already exists.
 

@@ -94,6 +94,19 @@ async function handleSelectFile() {
 }
 
 /**
+ * Handle click on the readonly input
+ *
+ * Mirrors the Browse button behavior for easier file selection
+ */
+async function handleSelectFileInputClick() {
+  if (fileOps.isProcessing.value) {
+    return;
+  }
+
+  await handleSelectFile();
+}
+
+/**
  * Handle output path selection
  *
  * Allows user to change the auto-suggested output path
@@ -153,10 +166,12 @@ async function handleEncrypt() {
       <label for="encrypt-input">File to Encrypt:</label>
       <div class="file-input-group">
         <NInput
-          :input-props="{ id: 'encrypt-input' }"
+          :input-props="{ id: 'encrypt-input', title: 'Click to choose a file' }"
           :value="fileOps.inputPath.value"
           readonly
+          class="clickable-input"
           placeholder="Select or drag a file..."
+          @click="handleSelectFileInputClick"
         />
         <NButton
           type="primary"
@@ -287,5 +302,9 @@ async function handleEncrypt() {
 
 .action-btn {
   margin-top: 8px;
+}
+
+.clickable-input :deep(input) {
+  cursor: pointer;
 }
 </style>

@@ -62,7 +62,7 @@ jobs:
             else
               # Use git-cliff to determine bump type based on commits
               echo "Running git-cliff --bumped-version..."
-              BUMP_VERSION=$(git-cliff --config cliff.toml --bumped-version 2>&1) || true
+              BUMP_VERSION=$(GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}" git-cliff --config cliff.toml --github-repo novafluxx/filecrypter --bumped-version 2>&1) || true
               echo "git-cliff output: $BUMP_VERSION"
 
               # Clean the version (remove 'v' prefix if present)
@@ -164,7 +164,7 @@ jobs:
       - name: Generate changelog
         run: |
           VERSION="${{ steps.calculate-version.outputs.version }}"
-          git-cliff --config cliff.toml --tag "v$VERSION" --output CHANGELOG.md
+          GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}" git-cliff --config cliff.toml --github-repo novafluxx/filecrypter --tag "v$VERSION" --output CHANGELOG.md
           echo "✅ Changelog generated"
 
       - name: Generate release notes
@@ -173,7 +173,7 @@ jobs:
           VERSION="${{ steps.calculate-version.outputs.version }}"
 
           # Generate changelog for just this release (unreleased changes)
-          CHANGELOG=$(git-cliff --config cliff.toml --tag "v$VERSION" --unreleased --strip header)
+          CHANGELOG=$(GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}" git-cliff --config cliff.toml --github-repo novafluxx/filecrypter --tag "v$VERSION" --unreleased --strip header)
 
           # Handle multiline output for GitHub Actions
           echo "changelog<<EOF" >> "$GITHUB_OUTPUT"

@@ -263,8 +263,20 @@ body {
 .tab-panels {
   flex: 1;
   min-height: 0; /* Required for flex item to respect overflow */
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   background: var(--bg);
 }
 
+.tab-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Bold tab labels */
+.desktop-tabs :deep(.n-tabs-tab__label) {
+  font-weight: 600;
+}
 </style>

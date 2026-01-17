@@ -288,8 +288,12 @@ async function handleEncrypt() {
 .tab-content {
   padding: 16px;
   max-width: 800px;
+  width: 100%;
   margin: 0 auto;
-  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .content-panel {
@@ -298,6 +302,10 @@ async function handleEncrypt() {
   border-radius: 8px;
   padding: 16px;
   position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
 }
 
 .action-btn {

@@ -163,7 +163,7 @@ async function handleEncrypt() {
 
       <!-- File Input Section -->
     <div class="form-group">
-      <label for="encrypt-input">File to Encrypt:</label>
+      <label>File to Encrypt:</label>
       <div class="file-input-group">
         <NInput
           :input-props="{ id: 'encrypt-input', title: 'Click to choose a file' }"

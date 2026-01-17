@@ -105,30 +105,31 @@ function switchTab(tab: TabName) {
 
       <!-- Tab Content Area -->
       <div class="tab-panels">
-        <!-- Encrypt Tab Panel -->
-        <div v-if="activeTab === 'encrypt'" class="tab-panel">
-          <EncryptTab />
-        </div>
-
-        <!-- Decrypt Tab Panel -->
-        <div v-if="activeTab === 'decrypt'" class="tab-panel">
-          <DecryptTab />
-        </div>
-
-        <!-- Batch Tab Panel -->
-        <div v-if="activeTab === 'batch'" class="tab-panel">
-          <BatchTab />
-        </div>
-
-        <!-- Settings Tab Panel -->
-        <div v-if="activeTab === 'settings'" class="tab-panel">
-          <SettingsTab />
-        </div>
-
-        <!-- Help Tab Panel -->
-        <div v-if="activeTab === 'help'" class="tab-panel">
-          <HelpTab />
-        </div>
+        <KeepAlive>
+          <div v-show="activeTab === 'encrypt'" class="tab-panel">
+            <EncryptTab />
+          </div>
+        </KeepAlive>
+        <KeepAlive>
+          <div v-show="activeTab === 'decrypt'" class="tab-panel">
+            <DecryptTab />
+          </div>
+        </KeepAlive>
+        <KeepAlive>
+          <div v-show="activeTab === 'batch'" class="tab-panel">
+            <BatchTab />
+          </div>
+        </KeepAlive>
+        <KeepAlive>
+          <div v-show="activeTab === 'settings'" class="tab-panel">
+            <SettingsTab />
+          </div>
+        </KeepAlive>
+        <KeepAlive>
+          <div v-show="activeTab === 'help'" class="tab-panel">
+            <HelpTab />
+          </div>
+        </KeepAlive>
       </div>
 
       <!-- Mobile Bottom Navigation (shown only on iOS/Android, waits for platform detection) -->
@@ -266,18 +267,4 @@ body {
   background: var(--bg);
 }
 
-.tab-panel {
-  animation: fadeIn 0.15s ease-out;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
 </style>

@@ -31,7 +31,7 @@
 - Preferred test command: `cd src-tauri && cargo test`.
 
 ## Commit & Pull Request Guidelines
-- Commit messages are short, imperative, and lowercase (e.g., “updated deps”).
+- Follow the Conventional Commits format documented in `CLAUDE.md` (e.g., `feat:`, `fix:`, `docs:`).
 - Keep PRs focused; include a clear description and any relevant screenshots for UI changes.
 - If modifying cryptography or file I/O, mention how the change affects security or performance.
 

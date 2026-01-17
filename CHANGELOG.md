@@ -5,6 +5,25 @@ All notable changes to FileCrypter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6] - 2026-01-17
+
+
+
+### Bug Fixes
+
+- No more flashing in the UI when you change tabs ([346cc51](https://github.com/novafluxx/filecrypter/commit/346cc5159bc950a619902b30abe4c9c0a6fe2a9b))
+
+
+### Miscellaneous
+
+- Minor window vertical size change ([7a0397a](https://github.com/novafluxx/filecrypter/commit/7a0397a561a1ee42944ff54559d51d749f69280d))
+- More minor sizing changes ([939e01b](https://github.com/novafluxx/filecrypter/commit/939e01b59886aa9434b2bb2519905844b938f772))
+
+
+### ui
+
+- Removed title banner along top of the app. It was serving no purpose. ([4454097](https://github.com/novafluxx/filecrypter/commit/445409711a8fe436d819c288b7896ee41a3c29eb))
+- More ui changes, bold tab names, better looking cards in each tab ([50f0f9c](https://github.com/novafluxx/filecrypter/commit/50f0f9c018b35546564d4519b6e9b39476d1ca1a))
 ## [0.1.5] - 2026-01-17
 
 

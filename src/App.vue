@@ -6,7 +6,6 @@
   - Tab-based navigation (Encrypt / Decrypt / Batch / Help)
   - Responsive layout
   - Clean, modern design
-  - Header with branding
 
   Vue Composition API:
   - ref() for reactive tab state
@@ -89,11 +88,6 @@ function switchTab(tab: TabName) {
 <template>
   <NConfigProvider :theme="naiveTheme" :theme-overrides="themeOverrides">
     <div class="app-container">
-      <!-- Toolbar -->
-      <div class="app-toolbar">
-        <h1 class="app-title">FileCrypter</h1>
-      </div>
-
       <!-- Desktop Tab Navigation (hidden on mobile, waits for platform detection) -->
       <NTabs
         v-if="isInitialized && !isMobile"
@@ -254,26 +248,6 @@ body {
   height: 100%;
   background: var(--bg);
   overflow: hidden;
-}
-
-/* Toolbar Styles */
-.app-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 48px;
-  padding: 0 16px;
-  background: var(--panel);
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.app-title {
-  font-size: 19px;
-  font-weight: 600;
-  color: var(--text);
-  letter-spacing: 0;
-  margin: 0;
 }
 
 /* Desktop Tab Navigation */

@@ -3,7 +3,7 @@
 // This composable provides persistent settings storage using Tauri Store Plugin.
 // Settings are automatically saved to a JSON file in the app data directory.
 
-import { ref, readonly, watch } from 'vue';
+import { ref, readonly } from 'vue';
 import { Store } from '@tauri-apps/plugin-store';
 
 /**

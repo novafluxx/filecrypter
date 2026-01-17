@@ -26,7 +26,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
+  # Detect which files changed to determine which jobs to run
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      rust: ${{ steps.filter.outputs.rust }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            rust:
+              - 'src-tauri/**'
+            frontend:
+              - 'src/**'
+              - 'package.json'
+              - 'bun.lockb'
+
+  # Rust tests - only run when Rust files change
+  rust-tests:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -57,3 +79,24 @@ jobs:
       - name: Run Rust tests
         working-directory: src-tauri
         run: cargo test --all-features
+
+  # Frontend tests - only run when frontend files change
+  frontend-tests:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Type check
+        run: bun run vue-tsc --noEmit
+
+      - name: Lint
+        run: bun run lint

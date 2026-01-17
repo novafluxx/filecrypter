@@ -8,7 +8,7 @@
 // - Override in [data-theme="dark"] for dark theme
 // - Components use var(--*) for colors
 
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { useSettings, type ThemeMode } from './useSettings';
 
 /**

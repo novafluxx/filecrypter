@@ -8,7 +8,7 @@
 // - Tauri's onDragDropEvent provides native file paths
 // - We listen to window-level drag events for visual feedback
 
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onUnmounted } from 'vue';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
 /**

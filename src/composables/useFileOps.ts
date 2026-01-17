@@ -10,7 +10,7 @@
 // - This composable can be used in any component
 
 import { ref, computed } from 'vue';
-import type { CryptoResponse, StatusType } from '../types/crypto';
+import type { StatusType } from '../types/crypto';
 import { useTauri } from './useTauri';
 import {
   MIN_PASSWORD_LENGTH,

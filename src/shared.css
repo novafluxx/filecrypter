@@ -6,6 +6,7 @@
   cursor: default;
   user-select: none;
   -webkit-user-select: none;
+  touch-action: pan-x pan-y;
 }
 
 /* Re-enable text selection for inputs */

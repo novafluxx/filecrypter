@@ -34,7 +34,7 @@ const fileOps = useFileOps();
 const tauri = useTauri();
 const settings = useSettings();
 
-// Apply default settings when initialized
+// Apply default settings when initialized and sync when they change
 watch(
   () => settings.isInitialized.value,
   (initialized) => {
@@ -44,6 +44,25 @@ watch(
     }
   },
   { immediate: true }
+);
+
+// Sync settings changes from Settings tab to this tab
+watch(
+  () => settings.defaultCompression.value,
+  (newValue) => {
+    if (settings.isInitialized.value) {
+      fileOps.compressionEnabled.value = newValue;
+    }
+  }
+);
+
+watch(
+  () => settings.defaultNeverOverwrite.value,
+  (newValue) => {
+    if (settings.isInitialized.value) {
+      fileOps.neverOverwrite.value = newValue;
+    }
+  }
 );
 
 // Password strength analysis

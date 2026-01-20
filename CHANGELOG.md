@@ -5,6 +5,18 @@ All notable changes to FileCrypter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.10] - 2026-01-20
+
+
+
+### Bug Fixes
+
+- **build:** Add app target for macOS updater artifacts, remove appimage ([d68d1c7](https://github.com/novafluxx/filecrypter/commit/d68d1c702e0a6f92bf77ef60828b8f162156b8af))
+
+
+### Documentation
+
+- Add Android development and auto-updater sections to CLAUDE.md ([fe7cf6d](https://github.com/novafluxx/filecrypter/commit/fe7cf6dc49327157c7c52ef9b4480219f85cca07))
 ## [0.1.9] - 2026-01-20
 
 

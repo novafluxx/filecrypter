@@ -43,6 +43,19 @@ bun tauri ios dev --device     # Run on physical device (requires signing)
 bun tauri ios build --open     # Build and open in Xcode
 ```
 
+### Android Development
+```bash
+# Prerequisites (one-time setup):
+# 1. Install Android Studio with SDK Manager components:
+#    - Android SDK Platform, Platform-Tools, NDK (Side by side), Build-Tools, Command-line Tools
+# 2. Set environment variables: JAVA_HOME, ANDROID_HOME, NDK_HOME
+# 3. rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+
+bun tauri android init         # Initialize Android project (one-time)
+bun tauri android dev          # Run in Android Emulator
+bun tauri android build --apk  # Build APK for testing/distribution
+```
+
 ### Rust Testing
 ```bash
 cd src-tauri
@@ -194,6 +207,31 @@ The app uses platform-aware navigation that adapts to the device:
 - iOS icons are stored in `src-tauri/icons/ios/` and must be manually copied to `src-tauri/gen/apple/Assets.xcassets/AppIcon.appiconset/` after init
 - Physical device testing requires an Apple Developer account and code signing configured in Xcode
 - The iOS Simulator requires Xcode to be fully installed and launched at least once
+
+### Auto-Updater (Desktop Only)
+
+The app includes automatic update checking for desktop platforms using Tauri's updater plugin.
+
+**Configuration (`src-tauri/tauri.conf.json`):**
+- Update endpoint: GitHub releases (`/releases/latest/download/latest.json`)
+- Code signing: Updates are verified with a public key
+- Windows install mode: Passive (minimal user interaction)
+
+**Implementation:**
+- `src/composables/useUpdater.ts`: Reactive composable providing update state, download progress, and install/dismiss methods
+- `src/components/UpdateNotification.vue`: Banner UI that appears when an update is available
+
+**Behavior:**
+- Checks for updates 2 seconds after app launch (non-blocking)
+- Shows notification banner with version info when update available
+- Tracks download progress (0-100%) during installation
+- Auto-relaunches app after update installation
+- Mobile platforms skip update checks (app stores handle updates)
+
+**Dependencies:**
+- `@tauri-apps/plugin-updater`: Update checking and installation
+- `@tauri-apps/plugin-process`: App relaunch after update
+- Desktop-only: These plugins are excluded from mobile builds via conditional compilation in `Cargo.toml`
 
 ## Testing
 

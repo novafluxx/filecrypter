@@ -34,6 +34,15 @@ pub fn run() {
                         .build(),
                 )?;
             }
+
+            // Register desktop-only plugins (updater not supported on mobile)
+            #[cfg(desktop)]
+            {
+                app.handle()
+                    .plugin(tauri_plugin_updater::Builder::new().build())?;
+                app.handle().plugin(tauri_plugin_process::init())?;
+            }
+
             Ok(())
         })
         // Register Tauri commands that can be called from the frontend

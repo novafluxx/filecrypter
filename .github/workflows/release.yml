@@ -221,6 +221,7 @@ jobs:
   # Stage 2: Build binaries and create GitHub Release
   build-and-release:
     needs: prepare-release
+    environment: release
     permissions:
       contents: write
     strategy:
@@ -270,11 +271,14 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ needs.prepare-release.outputs.tag }}
           releaseName: "FileCrypter ${{ needs.prepare-release.outputs.tag }}"
           releaseBody: ${{ needs.prepare-release.outputs.changelog }}
           releaseDraft: true
           prerelease: false
+          includeUpdaterJson: true
           args: ${{ matrix.args }}
           assetNamePattern: "FileCrypter-v[version]-[platform]-[arch][setup][ext]"

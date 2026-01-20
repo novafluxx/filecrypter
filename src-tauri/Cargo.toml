@@ -52,6 +52,11 @@ anyhow = "1"
 log = "0.4"
 tauri-plugin-os = "2.3.2"
 
+# Desktop-only dependencies (updater not supported on mobile)
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+
 # Windows-specific dependencies
 [target.'cfg(windows)'.dependencies]
 windows-acl = "0.3"

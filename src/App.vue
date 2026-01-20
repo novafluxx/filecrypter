@@ -21,9 +21,11 @@ import BatchTab from './components/BatchTab.vue';
 import SettingsTab from './components/SettingsTab.vue';
 import HelpTab from './components/HelpTab.vue';
 import BottomNav from './components/BottomNav.vue';
+import UpdateNotification from './components/UpdateNotification.vue';
 import { useTheme } from './composables/useTheme';
 import { useSettings } from './composables/useSettings';
 import { usePlatform } from './composables/usePlatform';
+import { useUpdater } from './composables/useUpdater';
 import { FONT_FAMILY, LIGHT_THEME, DARK_THEME } from './constants';
 import type { TabName } from './types/tabs';
 
@@ -58,6 +60,9 @@ const { isMobile, isInitialized } = usePlatform();
 // Settings management
 const { initSettings } = useSettings();
 
+// Auto-updater (desktop only)
+const { checkForUpdates } = useUpdater();
+
 // Context menu handler (stored for cleanup)
 const preventContextMenu = (event: Event) => event.preventDefault();
 
@@ -67,6 +72,19 @@ onMounted(async () => {
 
   // Disable context menu (right-click) for desktop-like feel
   document.addEventListener('contextmenu', preventContextMenu);
+
+  // Check for updates on desktop platforms (not on mobile - app stores handle updates)
+  // Delay slightly to not block initial render
+  window.setTimeout(async () => {
+    if (!isMobile.value) {
+      try {
+        await checkForUpdates();
+      } catch (err) {
+        // Silently fail - update check is non-critical
+        console.warn('Update check failed:', err);
+      }
+    }
+  }, 2000);
 });
 
 // Clean up global event listeners
@@ -87,6 +105,9 @@ function switchTab(tab: TabName) {
 
 <template>
   <NConfigProvider :theme="naiveTheme" :theme-overrides="themeOverrides">
+    <!-- Update notification banner (desktop only) -->
+    <UpdateNotification v-if="isInitialized && !isMobile" />
+
     <div class="app-container">
       <!-- Desktop Tab Navigation (hidden on mobile, waits for platform detection) -->
       <NTabs

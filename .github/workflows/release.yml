@@ -221,6 +221,7 @@ jobs:
   # Stage 2: Build binaries and create GitHub Release
   build-and-release:
     needs: prepare-release
+    environment: release
     permissions:
       contents: write
     strategy:

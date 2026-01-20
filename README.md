@@ -62,6 +62,18 @@ Platform note:
 - `bun run tauri:build` builds bundles for the host OS only (Linux builds on Linux, Windows builds on Windows, macOS builds on macOS).
 - Cross-building for other OSes typically requires building on that OS with its toolchain/SDK.
 
+## Installation
+
+### macOS (Unsigned Builds)
+
+Pre-built releases are not notarized with Apple. macOS will block the app from opening by default. To allow it, run this command in Terminal after downloading:
+
+```bash
+xattr -r -d com.apple.quarantine /Applications/FileCrypter.app
+```
+
+Adjust the path if you installed the app elsewhere.
+
 ## Testing & Linting
 Run Rust tests (unit + integration):
 ```bash

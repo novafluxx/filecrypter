@@ -5,6 +5,19 @@ All notable changes to FileCrypter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.8] - 2026-01-20
+
+
+
+### Bug Fixes
+
+- **settings:** Sync default settings changes to Encrypt/Decrypt tabs in real-time ([accab0f](https://github.com/novafluxx/filecrypter/commit/accab0f5c29b174a67223250b0b5f004fdfd1124))
+- **mobile:** Disable pinch-to-zoom and configure touch actions ([93dbd8f](https://github.com/novafluxx/filecrypter/commit/93dbd8f85bd503a8966f5f0c9886bb8897891b28))
+
+
+### Dependencies
+
+- Update dev dependencies ([6d6828c](https://github.com/novafluxx/filecrypter/commit/6d6828c94d9a150b72b4730ce7e0380b3a4da911))
 ## [0.1.7] - 2026-01-18
 
 

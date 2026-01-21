@@ -26,6 +26,7 @@ import { useTheme } from './composables/useTheme';
 import { useSettings } from './composables/useSettings';
 import { usePlatform } from './composables/usePlatform';
 import { useUpdater } from './composables/useUpdater';
+import { useVersion } from './composables/useVersion';
 import { FONT_FAMILY, LIGHT_THEME, DARK_THEME } from './constants';
 import type { TabName } from './types/tabs';
 
@@ -62,6 +63,9 @@ const { initSettings } = useSettings();
 
 // Auto-updater (desktop only)
 const { checkForUpdates } = useUpdater();
+
+// App version (desktop only)
+const { version } = useVersion();
 
 // Context menu handler (stored for cleanup)
 const preventContextMenu = (event: Event) => event.preventDefault();
@@ -109,20 +113,22 @@ function switchTab(tab: TabName) {
     <UpdateNotification v-if="isInitialized && !isMobile" />
 
     <div class="app-container">
-      <!-- Desktop Tab Navigation (hidden on mobile, waits for platform detection) -->
-      <NTabs
-        v-if="isInitialized && !isMobile"
-        :value="activeTab"
-        @update:value="switchTab"
-        type="line"
-        class="desktop-tabs"
-      >
-        <NTab name="encrypt">Encrypt</NTab>
-        <NTab name="decrypt">Decrypt</NTab>
-        <NTab name="batch">Batch</NTab>
-        <NTab name="settings">Settings</NTab>
-        <NTab name="help">Help</NTab>
-      </NTabs>
+      <!-- Desktop Header with Tab Navigation (hidden on mobile, waits for platform detection) -->
+      <div v-if="isInitialized && !isMobile" class="desktop-header">
+        <NTabs
+          :value="activeTab"
+          @update:value="switchTab"
+          type="line"
+          class="desktop-tabs"
+        >
+          <NTab name="encrypt">Encrypt</NTab>
+          <NTab name="decrypt">Decrypt</NTab>
+          <NTab name="batch">Batch</NTab>
+          <NTab name="settings">Settings</NTab>
+          <NTab name="help">Help</NTab>
+        </NTabs>
+        <span v-if="version" class="version-display">v{{ version }}</span>
+      </div>
 
       <!-- Tab Content Area -->
       <div class="tab-panels">
@@ -272,12 +278,30 @@ body {
   overflow: hidden;
 }
 
-/* Desktop Tab Navigation */
-.desktop-tabs {
+/* Desktop Header with Tabs and Version */
+.desktop-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   background: var(--panel);
-  padding: 0 16px;
+  padding-right: 16px;
   flex-shrink: 0;
   flex-grow: 0;
+}
+
+/* Desktop Tab Navigation */
+.desktop-tabs {
+  padding: 0 16px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Version Display */
+.version-display {
+  font-size: 1rem;
+  color: var(--muted);
+  white-space: nowrap;
+  user-select: none;
 }
 
 /* Tab Content Area */

@@ -80,17 +80,25 @@ function getSuggestedOutputPath(inputPath: string): string {
 // Progress tracking for decryption operation
 const { progress, isActive: showProgress, startListening, stopListening } = useProgress();
 
+// Drop zone element reference for drag-and-drop
+const dropZoneRef = ref<HTMLElement>();
+
 // Drag-and-drop file handling
 const { isDragging, handleDragOver, handleDragLeave, handleDrop, setupDragDrop } = useDragDrop(
-  (path) => {
-    fileOps.setInputPath(path, false); // false = decryption mode
+  (paths) => {
+    // For single file decryption, use the first dropped file
+    const path = paths[0];
+    if (path) {
+      fileOps.setInputPath(path, false); // false = decryption mode
 
-    // If a default output directory is set, use it
-    const defaultDir = settings.defaultOutputDirectory.value;
-    if (defaultDir) {
-      fileOps.setOutputPath(getSuggestedOutputPath(path));
+      // If a default output directory is set, use it
+      const defaultDir = settings.defaultOutputDirectory.value;
+      if (defaultDir) {
+        fileOps.setOutputPath(getSuggestedOutputPath(path));
+      }
     }
-  }
+  },
+  dropZoneRef
 );
 
 // Setup drag-drop on mount
@@ -168,6 +176,7 @@ async function handleDecrypt() {
 <template>
   <div class="tab-content">
     <div
+      ref="dropZoneRef"
       class="content-panel"
       :class="{ 'drop-zone-active': isDragging }"
       @dragover="handleDragOver"

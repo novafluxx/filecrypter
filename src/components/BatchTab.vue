@@ -12,11 +12,12 @@
 -->
 
 <script setup lang="ts">
-import { ref, computed, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { NButton, NButtonGroup, NCheckbox, NAlert, NInput } from 'naive-ui';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useTauri } from '../composables/useTauri';
 import { usePasswordStrength } from '../composables/usePasswordStrength';
+import { useDragDrop } from '../composables/useDragDrop';
 import { useSettings } from '../composables/useSettings';
 import { sanitizeErrorMessage } from '../utils/errorSanitizer';
 import PasswordStrengthMeter from './PasswordStrengthMeter.vue';
@@ -60,6 +61,28 @@ const showProgress = ref(false);
 
 // Password strength (only relevant for encryption)
 const { strength: passwordStrength } = usePasswordStrength(password);
+
+// Drop zone element reference for drag-and-drop
+const dropZoneRef = ref<HTMLElement>();
+
+// Drag-and-drop file handling
+const { isDragging, handleDragOver, handleDragLeave, handleDrop, setupDragDrop } = useDragDrop(
+  (paths) => {
+    // Add all dropped files to the input paths (avoid duplicates)
+    const newPaths = paths.filter(path => !inputPaths.value.includes(path));
+    if (newPaths.length > 0) {
+      inputPaths.value = [...inputPaths.value, ...newPaths];
+      batchResult.value = null;
+      statusMessage.value = '';
+    }
+  },
+  dropZoneRef
+);
+
+// Setup drag-drop on mount
+onMounted(() => {
+  setupDragDrop();
+});
 
 // Event listener cleanup
 let unlistenProgress: UnlistenFn | null = null;
@@ -217,7 +240,19 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
 
 <template>
   <div class="tab-content">
-    <div class="content-panel">
+    <div
+      ref="dropZoneRef"
+      class="content-panel"
+      :class="{ 'drop-zone-active': isDragging }"
+      @dragover="handleDragOver"
+      @dragleave="handleDragLeave"
+      @drop="handleDrop"
+    >
+      <!-- Drop overlay (shown when dragging file over) -->
+      <div v-if="isDragging" class="drop-overlay">
+        Drop files here to add to batch
+      </div>
+
       <!-- Mode Toggle -->
       <NButtonGroup class="mode-toggle">
         <NButton

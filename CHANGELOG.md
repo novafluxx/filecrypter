@@ -5,6 +5,18 @@ All notable changes to FileCrypter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.11] - 2026-01-21
+
+
+
+### Features
+
+- **ui:** Display app version in desktop header ([4e3f37a](https://github.com/novafluxx/filecrypter/commit/4e3f37a41e7f94ee7425bb021982618d66e77126))
+
+
+### Documentation
+
+- Add macOS installation instructions for unsigned builds ([b34b660](https://github.com/novafluxx/filecrypter/commit/b34b660af0df0af331003ccef2b7024c622a34ac))
 ## [0.1.10] - 2026-01-20
 
 

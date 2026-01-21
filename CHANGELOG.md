@@ -5,13 +5,6 @@ All notable changes to FileCrypter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.12] - 2026-01-21
-
-
-
-### Bug Fixes
-
-- Resolve drag & drop conflicts between tabs ([fddcc4a](https://github.com/novafluxx/filecrypter/commit/fddcc4aed7b3170ef6d58faed93fdb02bcade421)) in [#21](https://github.com/novafluxx/filecrypter/pull/21)
 ## [0.1.11] - 2026-01-21
 
 

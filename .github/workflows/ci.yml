@@ -6,6 +6,10 @@ on:
     paths:
       - 'src-tauri/**'
       - 'src/**'
+      - 'vite.config.ts'
+      - 'tsconfig.json'
+      - 'eslint.config.js'
+      - 'index.html'
       - 'package.json'
       - 'bun.lock'
       - '.github/workflows/ci.yml'
@@ -14,6 +18,10 @@ on:
     paths:
       - 'src-tauri/**'
       - 'src/**'
+      - 'vite.config.ts'
+      - 'tsconfig.json'
+      - 'eslint.config.js'
+      - 'index.html'
       - 'package.json'
       - 'bun.lock'
       - '.github/workflows/ci.yml'
@@ -44,12 +52,16 @@ jobs:
               - '.github/workflows/ci.yml'
             frontend:
               - 'src/**'
+              - 'vite.config.ts'
+              - 'tsconfig.json'
+              - 'eslint.config.js'
+              - 'index.html'
               - 'package.json'
               - 'bun.lock'
               - '.github/workflows/ci.yml'
 
-  # Rust tests - only run when Rust files change
-  rust-tests:
+  # Rust checks/tests - only run when Rust files change
+  rust-checks:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-24.04
@@ -78,14 +90,12 @@ jobs:
           version: 1.0
 
       - name: Check Rust formatting
+        if: github.event_name == 'pull_request'
         working-directory: src-tauri
         run: cargo fmt --check
 
-      - name: Check Rust code compiles
-        working-directory: src-tauri
-        run: cargo check --locked --all-features
-
       - name: Run Rust linter
+        if: github.event_name == 'pull_request'
         working-directory: src-tauri
         run: cargo clippy --locked --all-features -- -D warnings
 

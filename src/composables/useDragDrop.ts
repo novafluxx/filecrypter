@@ -14,19 +14,22 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 /**
  * Composable for handling file drag-and-drop
  *
- * @param onFileDrop - Callback when file is dropped
+ * @param onFileDrop - Callback when file(s) are dropped (receives array of paths)
+ * @param elementRef - Optional ref to the drop zone element (to check if drop is within this element)
  * @returns Object containing drag state and event handlers
  *
  * @example
  * ```ts
- * const { isDragging, setupDragDrop } = useDragDrop((path) => {
- *   fileOps.setInputPath(path, true);
- * });
+ * const dropZoneRef = ref<HTMLElement>();
+ * const { isDragging, setupDragDrop } = useDragDrop((paths) => {
+ *   // Handle single file: use paths[0]
+ *   // Handle multiple files: iterate over paths
+ * }, dropZoneRef);
  *
  * onMounted(() => setupDragDrop());
  * ```
  */
-export function useDragDrop(onFileDrop: (path: string) => void) {
+export function useDragDrop(onFileDrop: (paths: string[]) => void, elementRef?: { value: HTMLElement | undefined }) {
   /** Whether a file is currently being dragged over the drop zone */
   const isDragging = ref(false);
 
@@ -76,24 +79,49 @@ export function useDragDrop(onFileDrop: (path: string) => void) {
       // Listen for native file drops
       unlistenDrop = await appWindow.onDragDropEvent((event) => {
         if (event.payload.type === 'over' || event.payload.type === 'enter') {
-          isDragging.value = true;
+          // Only show dragging state if this is the target element
+          if (elementRef?.value && isDropWithinElement(event.payload.position)) {
+            isDragging.value = true;
+          }
         } else if (event.payload.type === 'leave') {
           isDragging.value = false;
         } else if (event.payload.type === 'drop') {
           isDragging.value = false;
 
+          // Only handle drop if it occurred within this element's bounds
+          if (elementRef?.value && !isDropWithinElement(event.payload.position)) {
+            return;
+          }
+
           // Get the dropped file paths
           const paths = event.payload.paths;
-          const firstPath = paths[0];
-          if (firstPath) {
-            // Use the first dropped file
-            onFileDrop(firstPath);
+          if (paths && paths.length > 0) {
+            // Pass all dropped files to the callback
+            onFileDrop(paths);
           }
         }
       });
     } catch (error) {
       console.error('Failed to setup drag-drop listener:', error);
     }
+  }
+
+  /**
+   * Check if drop position is within the element bounds
+   */
+  function isDropWithinElement(position?: { x: number; y: number }): boolean {
+    if (!elementRef?.value || !position) {
+      // If no element ref provided, accept all drops (backward compatible)
+      return true;
+    }
+
+    const rect = elementRef.value.getBoundingClientRect();
+    return (
+      position.x >= rect.left &&
+      position.x <= rect.right &&
+      position.y >= rect.top &&
+      position.y <= rect.bottom
+    );
   }
 
   /**

@@ -16,7 +16,7 @@
 -->
 
 <script setup lang="ts">
-import { onMounted, watch } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { NButton, NCheckbox, NInput } from 'naive-ui';
 import { useFileOps } from '../composables/useFileOps';
 import { useTauri } from '../composables/useTauri';
@@ -72,18 +72,26 @@ const { strength: passwordStrength } = usePasswordStrength(fileOps.password);
 // Progress tracking for encryption operation
 const { progress, isActive: showProgress, startListening, stopListening } = useProgress();
 
+// Drop zone element reference for drag-and-drop
+const dropZoneRef = ref<HTMLElement>();
+
 // Drag-and-drop file handling
 const { isDragging, handleDragOver, handleDragLeave, handleDrop, setupDragDrop } = useDragDrop(
-  (path) => {
-    fileOps.setInputPath(path, true); // true = encryption mode
+  (paths) => {
+    // For single file encryption, use the first dropped file
+    const path = paths[0];
+    if (path) {
+      fileOps.setInputPath(path, true); // true = encryption mode
 
-    // If a default output directory is set, use it instead of the input file's directory
-    const defaultDir = settings.defaultOutputDirectory.value;
-    if (defaultDir) {
-      const filename = path.split(/[/\\]/).pop() ?? '';
-      fileOps.setOutputPath(`${defaultDir}/${filename}.encrypted`);
+      // If a default output directory is set, use it instead of the input file's directory
+      const defaultDir = settings.defaultOutputDirectory.value;
+      if (defaultDir) {
+        const filename = path.split(/[/\\]/).pop() ?? '';
+        fileOps.setOutputPath(`${defaultDir}/${filename}.encrypted`);
+      }
     }
-  }
+  },
+  dropZoneRef
 );
 
 // Setup drag-drop on mount
@@ -169,6 +177,7 @@ async function handleEncrypt() {
 <template>
   <div class="tab-content">
     <div
+      ref="dropZoneRef"
       class="content-panel"
       :class="{ 'drop-zone-active': isDragging }"
       @dragover="handleDragOver"

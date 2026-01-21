@@ -22,6 +22,7 @@ export default tseslint.config(
         document: 'readonly',
         window: 'readonly',
         Event: 'readonly',
+        HTMLElement: 'readonly',
         console: 'readonly',
       },
     },

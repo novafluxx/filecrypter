@@ -28,7 +28,9 @@ use std::path::Path;
 use tauri::{command, AppHandle, Emitter};
 
 use crate::commands::file_utils::{resolve_output_path, validate_batch_count, validate_input_path};
-use crate::crypto::{decrypt_file_streaming, encrypt_file_streaming, CompressionConfig, Password, DEFAULT_CHUNK_SIZE};
+use crate::crypto::{
+    decrypt_file_streaming, encrypt_file_streaming, CompressionConfig, Password, DEFAULT_CHUNK_SIZE,
+};
 use crate::error::{CryptoError, CryptoResult};
 
 /// Progress event for batch operations.
@@ -536,10 +538,10 @@ mod tests {
             .to_string();
         let password = Password::new("password123".to_string());
 
-        let first_output = encrypt_single_file(&password, &input_path, &output_dir_str, false)
-            .unwrap();
-        let second_output = encrypt_single_file(&password, &input_path, &output_dir_str, false)
-            .unwrap();
+        let first_output =
+            encrypt_single_file(&password, &input_path, &output_dir_str, false).unwrap();
+        let second_output =
+            encrypt_single_file(&password, &input_path, &output_dir_str, false).unwrap();
 
         assert_ne!(first_output, second_output);
         assert!(Path::new(&first_output).exists());

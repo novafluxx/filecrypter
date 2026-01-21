@@ -108,7 +108,8 @@ impl CompressionConfig {
 /// # Returns
 /// Compressed data as Vec<u8>
 pub fn compress_zstd(data: &[u8], level: i32) -> CryptoResult<Vec<u8>> {
-    zstd::encode_all(data, level).map_err(|e| CryptoError::FormatError(format!("Compression failed: {}", e)))
+    zstd::encode_all(data, level)
+        .map_err(|e| CryptoError::FormatError(format!("Compression failed: {}", e)))
 }
 
 /// Decompress ZSTD-compressed data
@@ -119,7 +120,8 @@ pub fn compress_zstd(data: &[u8], level: i32) -> CryptoResult<Vec<u8>> {
 /// # Returns
 /// Decompressed data as Vec<u8>
 pub fn decompress_zstd(data: &[u8]) -> CryptoResult<Vec<u8>> {
-    zstd::decode_all(data).map_err(|e| CryptoError::FormatError(format!("Decompression failed: {}", e)))
+    zstd::decode_all(data)
+        .map_err(|e| CryptoError::FormatError(format!("Decompression failed: {}", e)))
 }
 
 /// Decompress ZSTD-compressed data with a hard output size limit
@@ -234,7 +236,9 @@ pub fn create_encoder<W: Write>(writer: W, level: i32) -> CryptoResult<zstd::Enc
 ///
 /// # Returns
 /// A reader that decompresses data as it's read
-pub fn create_decoder<R: Read>(reader: R) -> CryptoResult<zstd::Decoder<'static, std::io::BufReader<R>>> {
+pub fn create_decoder<R: Read>(
+    reader: R,
+) -> CryptoResult<zstd::Decoder<'static, std::io::BufReader<R>>> {
     zstd::Decoder::new(reader)
         .map_err(|e| CryptoError::FormatError(format!("Failed to create decompressor: {}", e)))
 }
@@ -245,8 +249,14 @@ mod tests {
 
     #[test]
     fn test_compression_algorithm_roundtrip() {
-        assert_eq!(CompressionAlgorithm::from_u8(0x00).unwrap(), CompressionAlgorithm::None);
-        assert_eq!(CompressionAlgorithm::from_u8(0x01).unwrap(), CompressionAlgorithm::Zstd);
+        assert_eq!(
+            CompressionAlgorithm::from_u8(0x00).unwrap(),
+            CompressionAlgorithm::None
+        );
+        assert_eq!(
+            CompressionAlgorithm::from_u8(0x01).unwrap(),
+            CompressionAlgorithm::Zstd
+        );
         assert!(CompressionAlgorithm::from_u8(0xFF).is_err());
     }
 
@@ -329,11 +339,8 @@ mod tests {
     fn test_decompress_with_limit_rejects_oversize() {
         let original = b"0123456789".repeat(100);
         let compressed = compress_zstd(&original, 3).unwrap();
-        let result = decompress_with_limit(
-            &compressed,
-            CompressionAlgorithm::Zstd,
-            original.len() - 1,
-        );
+        let result =
+            decompress_with_limit(&compressed, CompressionAlgorithm::Zstd, original.len() - 1);
         assert!(result.is_err());
     }
 }

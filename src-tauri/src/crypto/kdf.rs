@@ -37,7 +37,9 @@ impl KdfAlgorithm {
     pub fn from_u8(value: u8) -> CryptoResult<Self> {
         match value {
             1 => Ok(KdfAlgorithm::Argon2id),
-            _ => Err(CryptoError::FormatError("Unsupported KDF algorithm".to_string())),
+            _ => Err(CryptoError::FormatError(
+                "Unsupported KDF algorithm".to_string(),
+            )),
         }
     }
 
@@ -76,7 +78,7 @@ const MIN_PARALLELISM: u32 = 1;
 const MAX_PARALLELISM: u32 = 16;
 const MIN_SALT_LENGTH: u32 = 16; // Current default, minimum for security
 const MAX_SALT_LENGTH: u32 = 64; // Allow future flexibility without format changes
-// AES-256 requires a 32-byte key, so the allowed range is fixed for now.
+                                 // AES-256 requires a 32-byte key, so the allowed range is fixed for now.
 const MIN_KEY_LENGTH: u32 = 32;
 const MAX_KEY_LENGTH: u32 = 32;
 
@@ -212,11 +214,7 @@ pub fn derive_key_with_params(
     .map_err(|_| CryptoError::EncryptionFailed)?;
 
     let argon2 = match params.algorithm {
-        KdfAlgorithm::Argon2id => Argon2::new(
-            Algorithm::Argon2id,
-            Version::V0x13,
-            argon2_params,
-        ),
+        KdfAlgorithm::Argon2id => Argon2::new(Algorithm::Argon2id, Version::V0x13, argon2_params),
     };
 
     let salt_string = SaltString::encode_b64(salt)

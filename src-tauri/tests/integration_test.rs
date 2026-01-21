@@ -57,7 +57,13 @@ fn test_streaming_wrong_password_fails() {
     .unwrap();
 
     let wrong_password = Password::new("wrong_password".to_string());
-    let result = decrypt_file_streaming(&encrypted_path, &decrypted_path, &wrong_password, None, false);
+    let result = decrypt_file_streaming(
+        &encrypted_path,
+        &decrypted_path,
+        &wrong_password,
+        None,
+        false,
+    );
 
     assert!(result.is_err());
 }

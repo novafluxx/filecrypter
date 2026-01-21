@@ -11,10 +11,10 @@ pub mod streaming;
 
 // Re-export the main types and functions for easy access
 pub use cipher::{decrypt, encrypt};
+pub use compression::{compress, decompress, CompressionAlgorithm, CompressionConfig};
 pub use kdf::{
     derive_key, derive_key_with_params, generate_salt, generate_salt_with_len, KdfAlgorithm,
     KdfParams,
 };
 pub use secure::{Password, SecureBytes};
 pub use streaming::{decrypt_file_streaming, encrypt_file_streaming, DEFAULT_CHUNK_SIZE};
-pub use compression::{compress, decompress, CompressionAlgorithm, CompressionConfig};

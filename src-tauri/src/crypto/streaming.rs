@@ -121,7 +121,6 @@ const TAG_SIZE: usize = 16;
 /// Maximum allowed chunks (~10TB at 1MB chunks)
 const MAX_CHUNKS: u64 = 10_000_000;
 
-
 /// Progress callback type for streaming operations
 pub type ProgressCallback = Box<dyn Fn(u64, u64) + Send + Sync>;
 
@@ -505,14 +504,8 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
 
     // Process chunks
     let mut bytes_processed: u64 = 0;
-    let max_ciphertext_chunk_len = max_ciphertext_len(
-        chunk_size,
-        if is_v5 {
-            compression_algorithm
-        } else {
-            None
-        },
-    )?;
+    let max_ciphertext_chunk_len =
+        max_ciphertext_len(chunk_size, if is_v5 { compression_algorithm } else { None })?;
     let mut plaintext_written: u64 = 0;
 
     for chunk_index in 0..total_chunks {
@@ -783,14 +776,7 @@ mod tests {
 
         // Decrypt
         let decrypted_path = temp_dir.path().join("decrypted.bin");
-        decrypt_file_streaming(
-            &encrypted_path,
-            &decrypted_path,
-            &password,
-            None,
-            false,
-        )
-        .unwrap();
+        decrypt_file_streaming(&encrypted_path, &decrypted_path, &password, None, false).unwrap();
 
         // Verify content matches
         let decrypted_content = fs::read(&decrypted_path).unwrap();
@@ -827,14 +813,7 @@ mod tests {
 
         // Decrypt
         let decrypted_path = temp_dir.path().join("decrypted.bin");
-        decrypt_file_streaming(
-            &encrypted_path,
-            &decrypted_path,
-            &password,
-            None,
-            false,
-        )
-        .unwrap();
+        decrypt_file_streaming(&encrypted_path, &decrypted_path, &password, None, false).unwrap();
 
         // Verify content matches
         let decrypted_content = fs::read(&decrypted_path).unwrap();
@@ -864,14 +843,7 @@ mod tests {
         .unwrap();
 
         let decrypted_path = temp_dir.path().join("decrypted_small_chunk.bin");
-        decrypt_file_streaming(
-            &encrypted_path,
-            &decrypted_path,
-            &password,
-            None,
-            false,
-        )
-        .unwrap();
+        decrypt_file_streaming(&encrypted_path, &decrypted_path, &password, None, false).unwrap();
 
         let decrypted_content = fs::read(&decrypted_path).unwrap();
         assert_eq!(content.to_vec(), decrypted_content);
@@ -902,14 +874,7 @@ mod tests {
         assert!(!encrypted_data.is_empty());
 
         let decrypted_path = temp_dir.path().join("decrypted_empty.bin");
-        decrypt_file_streaming(
-            &encrypted_path,
-            &decrypted_path,
-            &password,
-            None,
-            false,
-        )
-        .unwrap();
+        decrypt_file_streaming(&encrypted_path, &decrypted_path, &password, None, false).unwrap();
 
         let decrypted_data = fs::read(&decrypted_path).unwrap();
         assert!(decrypted_data.is_empty());
@@ -1110,14 +1075,7 @@ mod tests {
 
         // Decrypt
         let decrypted_path = temp_dir.path().join("decrypted.bin");
-        decrypt_file_streaming(
-            &encrypted_path,
-            &decrypted_path,
-            &password,
-            None,
-            false,
-        )
-        .unwrap();
+        decrypt_file_streaming(&encrypted_path, &decrypted_path, &password, None, false).unwrap();
 
         // Verify
         let decrypted_content = fs::read(&decrypted_path).unwrap();

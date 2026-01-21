@@ -7,7 +7,7 @@ on:
       - 'src-tauri/**'
       - 'src/**'
       - 'package.json'
-      - 'bun.lockb'
+      - 'bun.lock'
       - '.github/workflows/ci.yml'
   pull_request:
     branches: [main]
@@ -15,7 +15,7 @@ on:
       - 'src-tauri/**'
       - 'src/**'
       - 'package.json'
-      - 'bun.lockb'
+      - 'bun.lock'
       - '.github/workflows/ci.yml'
 
 permissions:
@@ -28,69 +28,83 @@ concurrency:
 jobs:
   # Detect which files changed to determine which jobs to run
   changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       rust: ${{ steps.filter.outputs.rust }}
       frontend: ${{ steps.filter.outputs.frontend }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      # Only run Rust/Frontend jobs when relevant files changed
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: filter
         with:
           filters: |
             rust:
               - 'src-tauri/**'
+              - '.github/workflows/ci.yml'
             frontend:
               - 'src/**'
               - 'package.json'
-              - 'bun.lockb'
+              - 'bun.lock'
+              - '.github/workflows/ci.yml'
 
   # Rust tests - only run when Rust files change
   rust-tests:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        # Install stable + tools needed for fmt/clippy
+        uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
 
       - name: Rust cache
-        uses: swatinem/rust-cache@v2
+        # Cache Cargo registry/build artifacts
+        uses: swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
           workspaces: './src-tauri -> target'
 
       - name: Cache apt packages
-        uses: awalsh128/cache-apt-pkgs-action@latest
+        # Cache Tauri system dependencies installed via apt
+        uses: awalsh128/cache-apt-pkgs-action@acb598e5ddbc6f68a970c5da0688d2f3a9f04d05 # v1.6.0
         with:
           packages: libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
           version: 1.0
 
+      - name: Check Rust formatting
+        working-directory: src-tauri
+        run: cargo fmt --check
+
       - name: Check Rust code compiles
         working-directory: src-tauri
-        run: cargo check --all-features
+        run: cargo check --locked --all-features
 
       - name: Run Rust linter
         working-directory: src-tauri
-        run: cargo clippy --all-features -- -D warnings
+        run: cargo clippy --locked --all-features -- -D warnings
 
       - name: Run Rust tests
         working-directory: src-tauri
-        run: cargo test --all-features
+        run: cargo test --locked --all-features
 
   # Frontend tests - only run when frontend files change
   frontend-tests:
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        # Install Bun for frontend deps and scripts
+        uses: oven-sh/setup-bun@3d267786b128fe76c2f16a390aa2448b815359f3 # v2.1.2
 
       - name: Install dependencies
         run: bun install --frozen-lockfile

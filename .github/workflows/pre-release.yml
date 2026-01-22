@@ -148,20 +148,16 @@ jobs:
           # Generate changelog for unreleased changes
           CLIFF_CHANGELOG=$(GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}" git-cliff --config cliff.toml --github-repo novafluxx/filecrypter --tag "v$VERSION" --unreleased --strip header 2>/dev/null || echo "")
 
-          # Create release notes with pre-release warning
-          CHANGELOG=$(cat <<NOTES
-> **This is a pre-release build from the \`$BRANCH\` branch.**
-> It is intended for testing purposes and may be unstable.
-> Do not use in production.
-
-$CLIFF_CHANGELOG
-NOTES
-)
-
-          # Handle multiline output for GitHub Actions
-          echo "changelog<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$CHANGELOG" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          # Build release notes with pre-release warning
+          {
+            echo "changelog<<EOF"
+            printf '> **This is a pre-release build from the `%s` branch.**\n' "$BRANCH"
+            printf '> It is intended for testing purposes and may be unstable.\n'
+            printf '> Do not use in production.\n'
+            echo ""
+            echo "$CLIFF_CHANGELOG"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
           echo "Release notes generated"
 

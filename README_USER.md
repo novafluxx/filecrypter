@@ -26,6 +26,11 @@ You'll get an output file like `example.pdf.encrypted`.
 ## Batch Mode (Multiple Files)
 Use **Batch** to encrypt or decrypt many files at once.
 
+Batch supports two modes:
+- **Individual files**: each file is processed separately (one output per input file).
+- **Archive mode**: multiple files are bundled into one encrypted archive (`.tar.zst.encrypted`).
+
+### Batch (Individual files)
 1. Choose **Encrypt** or **Decrypt**.
 2. Click **Browse** to select multiple files.
 3. Choose an **Output Directory**.
@@ -38,11 +43,33 @@ Notes:
 - **Compression is automatically enabled** for batch encryption (ZSTD) to reduce file sizes.
 - Batch operations support large files (streaming), but are limited to **1000 files per run**.
 
+### Batch (Archive mode)
+Archive mode is useful when you want to move/store many files as a single encrypted file.
+
+**Encrypt an encrypted archive**
+1. Open **Batch** and choose **Encrypt**.
+2. Set **Batch Mode** to **Archive mode**.
+3. Click **Browse** to select multiple files.
+4. Choose an **Output Directory**.
+5. (Optional) Set **Archive Name** (without extension).
+6. Enter a password.
+7. Click **Create Encrypted Archive**.
+
+You'll get an output file like `archive_YYYYMMDD_HHMMSS.tar.zst.encrypted`.
+
+**Decrypt & extract an encrypted archive**
+1. Open **Batch** and choose **Decrypt**.
+2. Set **Batch Mode** to **Archive mode**.
+3. Click **Browse** and select the single encrypted archive (`*.encrypted`).
+4. Choose an **Output Directory**.
+5. Enter the password used to encrypt the archive.
+6. Click **Decrypt & Extract Archive**.
+
 ## Compression
 FileCrypter supports optional ZSTD compression to reduce file sizes before encryption.
 
 - **Single file mode**: Compression is optional (checkbox in Encrypt tab). Off by default (unless enabled in **Settings**).
-- **Batch mode**: Compression is automatically enabled for all files.
+- **Batch mode**: Individual-file batches compress each file with ZSTD before encryption; archive mode creates a compressed TAR archive (ZSTD) and encrypts that archive.
 
 **Compression effectiveness:**
 - Text files, documents, spreadsheets: ~70% size reduction
@@ -61,6 +88,10 @@ FileCrypter includes a **Never overwrite existing files** option.
 - All files use streaming (chunked) encryption to avoid loading the entire file into memory.
 - Encryption and decryption speed depend on file size and your device; key derivation is intentionally slow to make password guessing harder.
 - Enabling compression adds a small performance overhead but can significantly reduce output file size.
+
+## Updates (Desktop)
+- Desktop builds can notify you when an update is available.
+- Click **Update Now** to download, install, and relaunch the app, or **Later** to dismiss.
 
 ## Password Tips (Important)
 - There is no “password reset”. If you forget the password, the encrypted file cannot be recovered.
@@ -102,3 +133,6 @@ Yes. Copy the `.encrypted` file to the other computer and decrypt it with the sa
 
 ### Can I rename the `.encrypted` file?
 Yes. The extension is mainly for convenience. Just make sure you select the correct file when decrypting.
+
+### Where can I find the app version?
+The app version is shown in the desktop header.

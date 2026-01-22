@@ -44,6 +44,14 @@ pub enum CryptoError {
     /// Invalid file path (symlinks, etc.)
     #[error("InvalidPath: {0}")]
     InvalidPath(String),
+
+    /// Archive operation error
+    #[error("ArchiveError: {0}")]
+    ArchiveError(String),
+
+    /// Path traversal attempt detected
+    #[error("PathTraversal: {0}")]
+    PathTraversal(String),
 }
 
 /// Result type alias for crypto operations

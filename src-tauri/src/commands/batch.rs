@@ -27,6 +27,9 @@ use serde::Serialize;
 use std::path::Path;
 use tauri::{command, AppHandle, Emitter};
 
+use crate::commands::archive::{
+    create_tar_zstd_archive, extract_tar_zstd_archive, generate_archive_name,
+};
 use crate::commands::file_utils::{resolve_output_path, validate_batch_count, validate_input_path};
 use crate::crypto::{
     decrypt_file_streaming, encrypt_file_streaming, CompressionConfig, Password, DEFAULT_CHUNK_SIZE,
@@ -81,6 +84,40 @@ pub struct BatchResult {
 
 /// Event name for batch progress
 pub const BATCH_PROGRESS_EVENT: &str = "batch-progress";
+
+/// Event name for archive progress
+pub const ARCHIVE_PROGRESS_EVENT: &str = "archive-progress";
+
+/// Progress event for archive operations.
+///
+/// Emitted during archive encrypt/decrypt to update the frontend on progress.
+/// Contains phase information and detailed progress tracking.
+#[derive(Clone, Serialize)]
+pub struct ArchiveProgress {
+    /// Current phase: "archiving", "encrypting", "decrypting", "extracting"
+    pub phase: String,
+    /// Name of the current file being processed (if applicable)
+    pub current_file: Option<String>,
+    /// Number of files processed in current phase
+    pub files_processed: usize,
+    /// Total number of files in current phase
+    pub total_files: usize,
+    /// Overall progress percentage (0-100)
+    pub percent: u32,
+}
+
+/// Result of an archive encrypt/decrypt operation.
+#[derive(Clone, Serialize)]
+pub struct ArchiveResult {
+    /// Path to the created archive (encrypt) or output directory (decrypt)
+    pub output_path: String,
+    /// Number of files included in the archive (encrypt) or extracted (decrypt)
+    pub file_count: usize,
+    /// Whether the operation succeeded
+    pub success: bool,
+    /// Error message if operation failed
+    pub error: Option<String>,
+}
 
 /// Emit a batch progress event for the current file.
 ///
@@ -474,6 +511,397 @@ fn decrypt_single_file(
     )?;
 
     Ok(resolved_output_path.to_string_lossy().to_string())
+}
+
+// =============================================================================
+// Archive Mode Commands
+// =============================================================================
+
+/// Encrypt multiple files as a single encrypted archive.
+///
+/// This creates a compressed TAR archive from the input files, then encrypts
+/// the entire archive as a single unit. This is useful when you want to bundle
+/// multiple files together and protect them with a single password.
+///
+/// # Arguments
+/// * `app` - Tauri app handle for emitting progress events
+/// * `input_paths` - List of file paths to include in the archive
+/// * `output_dir` - Directory where the encrypted archive will be saved
+/// * `password` - Password for encryption
+/// * `archive_name` - Optional custom name for the archive (without extension)
+/// * `allow_overwrite` - Allow overwriting existing files (default: false)
+///
+/// # Returns
+/// ArchiveResult with the path to the encrypted archive
+#[command]
+pub async fn batch_encrypt_archive(
+    app: AppHandle,
+    input_paths: Vec<String>,
+    output_dir: String,
+    password: String,
+    archive_name: Option<String>,
+    allow_overwrite: Option<bool>,
+) -> CryptoResult<ArchiveResult> {
+    log::info!(
+        "Batch archive encrypting {} files to {}",
+        input_paths.len(),
+        output_dir
+    );
+
+    if password.is_empty() {
+        return Err(CryptoError::FormatError(
+            "Password cannot be empty".to_string(),
+        ));
+    }
+
+    if input_paths.is_empty() {
+        return Err(CryptoError::FormatError("No files selected".to_string()));
+    }
+
+    // Validate batch file count
+    validate_batch_count(input_paths.len())?;
+
+    // Verify output directory exists
+    if !Path::new(&output_dir).is_dir() {
+        return Err(CryptoError::FormatError(
+            "Output directory does not exist".to_string(),
+        ));
+    }
+
+    let allow_overwrite = allow_overwrite.unwrap_or(false);
+    let total_files = input_paths.len();
+
+    // Emit initial progress
+    let emit_archive_progress =
+        |phase: &str, current_file: Option<&str>, processed: usize, total: usize, percent: u32| {
+            let _ = app.emit(
+                ARCHIVE_PROGRESS_EVENT,
+                ArchiveProgress {
+                    phase: phase.to_string(),
+                    current_file: current_file.map(|s| s.to_string()),
+                    files_processed: processed,
+                    total_files: total,
+                    percent,
+                },
+            );
+        };
+
+    // Generate archive filename
+    let archive_filename = generate_archive_name(archive_name.as_deref());
+    let archive_path = Path::new(&output_dir).join(&archive_filename);
+    let encrypted_path = Path::new(&output_dir).join(format!("{}.encrypted", archive_filename));
+    let resolved_encrypted_path = resolve_output_path(&encrypted_path, allow_overwrite)?;
+
+    // Phase 1: Create compressed TAR archive
+    emit_archive_progress("archiving", None, 0, total_files, 0);
+
+    let archive_progress_callback = {
+        let app = app.clone();
+        Box::new(move |processed: usize, total: usize, current: &str| {
+            let percent = if total > 0 {
+                ((processed * 25) / total) as u32 // 0-25% for archiving phase
+            } else {
+                0
+            };
+            let _ = app.emit(
+                ARCHIVE_PROGRESS_EVENT,
+                ArchiveProgress {
+                    phase: "archiving".to_string(),
+                    current_file: if current.is_empty() {
+                        None
+                    } else {
+                        Some(current.to_string())
+                    },
+                    files_processed: processed,
+                    total_files: total,
+                    percent,
+                },
+            );
+        })
+    };
+
+    // Create the archive
+    let input_path_refs: Vec<&Path> = input_paths.iter().map(Path::new).collect();
+    if let Err(e) = create_tar_zstd_archive(
+        &input_path_refs,
+        &archive_path,
+        Some(archive_progress_callback),
+    ) {
+        return Ok(ArchiveResult {
+            output_path: String::new(),
+            file_count: 0,
+            success: false,
+            error: Some(e.to_string()),
+        });
+    }
+
+    // Phase 2: Encrypt the archive
+    emit_archive_progress(
+        "encrypting",
+        Some(&archive_filename),
+        total_files,
+        total_files,
+        25,
+    );
+
+    let password_wrapper = Password::new(password);
+
+    // Encrypt progress callback (25-100%)
+    let encrypt_progress_callback = {
+        let app = app.clone();
+        let archive_filename_clone = archive_filename.clone();
+        // Capture the number of input files for progress reporting (distinct from processed/total bytes)
+        let input_file_count = total_files;
+        Box::new(move |processed: u64, total: u64| {
+            let encrypt_percent = if total > 0 {
+                ((processed * 75) / total) as u32 + 25 // 25-100% for encryption phase
+            } else {
+                25
+            };
+            let _ = app.emit(
+                ARCHIVE_PROGRESS_EVENT,
+                ArchiveProgress {
+                    phase: "encrypting".to_string(),
+                    current_file: Some(archive_filename_clone.clone()),
+                    files_processed: input_file_count,
+                    total_files: input_file_count,
+                    percent: encrypt_percent,
+                },
+            );
+        })
+    };
+
+    // Encrypt the archive (no additional compression since archive is already compressed)
+    let result = encrypt_file_streaming(
+        &archive_path,
+        &resolved_encrypted_path,
+        &password_wrapper,
+        DEFAULT_CHUNK_SIZE,
+        Some(encrypt_progress_callback),
+        allow_overwrite,
+        None, // No compression - archive is already ZSTD compressed
+    );
+
+    // Clean up temporary archive file.
+    // This is a best-effort cleanup - we log failures rather than returning an error
+    // because the encryption itself succeeded. The temp file will eventually be
+    // cleaned up by the OS or user, but we want visibility into cleanup failures
+    // for debugging purposes.
+    if let Err(e) = std::fs::remove_file(&archive_path) {
+        log::warn!("Failed to clean up temporary archive file: {}", e);
+    }
+
+    match result {
+        Ok(()) => {
+            emit_archive_progress("complete", None, total_files, total_files, 100);
+            log::info!(
+                "Archive encryption complete: {} files -> {}",
+                total_files,
+                resolved_encrypted_path.display()
+            );
+            Ok(ArchiveResult {
+                output_path: resolved_encrypted_path.to_string_lossy().to_string(),
+                file_count: total_files,
+                success: true,
+                error: None,
+            })
+        }
+        Err(e) => {
+            log::error!("Archive encryption failed: {}", e);
+            Ok(ArchiveResult {
+                output_path: String::new(),
+                file_count: 0,
+                success: false,
+                error: Some(e.to_string()),
+            })
+        }
+    }
+}
+
+/// Decrypt an encrypted archive and extract its contents.
+///
+/// This decrypts an encrypted .tar.zst.encrypted file and extracts all files
+/// from the archive to the specified output directory.
+///
+/// # Arguments
+/// * `app` - Tauri app handle for emitting progress events
+/// * `input_path` - Path to the encrypted archive file
+/// * `output_dir` - Directory where extracted files will be saved
+/// * `password` - Password for decryption
+/// * `allow_overwrite` - Allow overwriting existing files (default: false)
+///
+/// # Returns
+/// ArchiveResult with the output directory and number of extracted files
+#[command]
+pub async fn batch_decrypt_archive(
+    app: AppHandle,
+    input_path: String,
+    output_dir: String,
+    password: String,
+    allow_overwrite: Option<bool>,
+) -> CryptoResult<ArchiveResult> {
+    log::info!("Batch archive decrypting {} to {}", input_path, output_dir);
+
+    if password.is_empty() {
+        return Err(CryptoError::FormatError(
+            "Password cannot be empty".to_string(),
+        ));
+    }
+
+    // Verify output directory exists
+    if !Path::new(&output_dir).is_dir() {
+        return Err(CryptoError::FormatError(
+            "Output directory does not exist".to_string(),
+        ));
+    }
+
+    let allow_overwrite = allow_overwrite.unwrap_or(false);
+
+    // Emit initial progress
+    let emit_archive_progress =
+        |phase: &str, current_file: Option<&str>, processed: usize, total: usize, percent: u32| {
+            let _ = app.emit(
+                ARCHIVE_PROGRESS_EVENT,
+                ArchiveProgress {
+                    phase: phase.to_string(),
+                    current_file: current_file.map(|s| s.to_string()),
+                    files_processed: processed,
+                    total_files: total,
+                    percent,
+                },
+            );
+        };
+
+    // Phase 1: Decrypt the archive
+    emit_archive_progress("decrypting", None, 0, 0, 0);
+
+    let password_wrapper = Password::new(password);
+    let input_file_name = Path::new(&input_path)
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    // Generate temp path for decrypted archive
+    let decrypted_archive_name = input_file_name
+        .strip_suffix(".encrypted")
+        .unwrap_or(&input_file_name);
+    let temp_archive_path = Path::new(&output_dir).join(format!(".tmp_{}", decrypted_archive_name));
+
+    // Decrypt progress callback (0-50%)
+    let decrypt_progress_callback = {
+        let app = app.clone();
+        let file_name = input_file_name.clone();
+        Box::new(move |processed: u64, total: u64| {
+            let decrypt_percent = if total > 0 {
+                ((processed * 50) / total) as u32 // 0-50% for decryption phase
+            } else {
+                0
+            };
+            let _ = app.emit(
+                ARCHIVE_PROGRESS_EVENT,
+                ArchiveProgress {
+                    phase: "decrypting".to_string(),
+                    current_file: Some(file_name.clone()),
+                    files_processed: 0,
+                    total_files: 0,
+                    percent: decrypt_percent,
+                },
+            );
+        })
+    };
+
+    // Decrypt the archive
+    if let Err(e) = decrypt_file_streaming(
+        &input_path,
+        &temp_archive_path,
+        &password_wrapper,
+        Some(decrypt_progress_callback),
+        true, // Always overwrite temp file
+    ) {
+        // Attempt cleanup of the temp file after a decryption error.
+        // Best-effort: we don't fail the operation if cleanup fails, just log it.
+        if let Err(cleanup_err) = std::fs::remove_file(&temp_archive_path) {
+            log::warn!(
+                "Failed to clean up temporary file after decryption error: {}",
+                cleanup_err
+            );
+        }
+        return Ok(ArchiveResult {
+            output_path: output_dir.clone(),
+            file_count: 0,
+            success: false,
+            error: Some(e.to_string()),
+        });
+    }
+
+    // Phase 2: Extract the archive
+    emit_archive_progress("extracting", None, 0, 0, 50);
+
+    let extract_progress_callback = {
+        let app = app.clone();
+        Box::new(move |processed: usize, total: usize, current: &str| {
+            let extract_percent = if total > 0 {
+                50 + ((processed * 50) / total) as u32 // 50-100% for extraction phase
+            } else {
+                50
+            };
+            let _ = app.emit(
+                ARCHIVE_PROGRESS_EVENT,
+                ArchiveProgress {
+                    phase: "extracting".to_string(),
+                    current_file: if current.is_empty() {
+                        None
+                    } else {
+                        Some(current.to_string())
+                    },
+                    files_processed: processed,
+                    total_files: total,
+                    percent: extract_percent,
+                },
+            );
+        })
+    };
+
+    let result = extract_tar_zstd_archive(
+        &temp_archive_path,
+        &output_dir,
+        allow_overwrite,
+        Some(extract_progress_callback),
+    );
+
+    // Clean up temporary decrypted archive file.
+    // Best-effort cleanup - the extraction succeeded so we don't fail on cleanup errors.
+    // Logging helps diagnose permission or filesystem issues during development.
+    if let Err(e) = std::fs::remove_file(&temp_archive_path) {
+        log::warn!("Failed to clean up temporary decrypted archive: {}", e);
+    }
+
+    match result {
+        Ok(extracted_paths) => {
+            let file_count = extracted_paths.len();
+            emit_archive_progress("complete", None, file_count, file_count, 100);
+            log::info!(
+                "Archive decryption complete: {} files extracted to {}",
+                file_count,
+                output_dir
+            );
+            Ok(ArchiveResult {
+                output_path: output_dir,
+                file_count,
+                success: true,
+                error: None,
+            })
+        }
+        Err(e) => {
+            log::error!("Archive extraction failed: {}", e);
+            Ok(ArchiveResult {
+                output_path: output_dir,
+                file_count: 0,
+                success: false,
+                error: Some(e.to_string()),
+            })
+        }
+    }
 }
 
 #[cfg(test)]

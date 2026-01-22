@@ -43,6 +43,7 @@ zstd-safe = "7.2"
 
 # Archiving (for batch mode)
 tar = "0.4"
+chrono = "0.4"
 
 # Error handling
 thiserror = "2"

@@ -5,6 +5,12 @@
 
 use serde::Serialize;
 
+// Archive utilities for batch archive mode (TAR+ZSTD compression).
+// pub(crate) visibility: Used internally by batch.rs but not exported as Tauri commands.
+// The archive module provides helper functions for creating and extracting archives,
+// which are called by the batch_encrypt_archive and batch_decrypt_archive commands.
+pub(crate) mod archive;
+
 mod batch;
 mod decrypt;
 mod encrypt;
@@ -23,6 +29,6 @@ pub struct CryptoResponse {
 }
 
 // Re-export commands for registration in main.rs
-pub use batch::{batch_decrypt, batch_encrypt};
+pub use batch::{batch_decrypt, batch_decrypt_archive, batch_encrypt, batch_encrypt_archive};
 pub use decrypt::decrypt_file;
 pub use encrypt::encrypt_file;

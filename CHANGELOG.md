@@ -5,7 +5,35 @@ All notable changes to FileCrypter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.12] - 2026-01-21
+## [0.1.14] - 2026-01-22
+
+
+
+### Features
+
+- **batch:** Add archive mode for batch encryption ([d713b39](https://github.com/novafluxx/filecrypter/commit/d713b39281597b5fa94624380bfa6cd59c297ca3)) in [#22](https://github.com/novafluxx/filecrypter/pull/22)
+
+
+### Bug Fixes
+
+- **ci:** Fix YAML syntax in pre-release workflow ([65caf9f](https://github.com/novafluxx/filecrypter/commit/65caf9f2a62ce75a0d2bab62c9019dce8b4241a9))
+- **ci:** Support immutable releases in release workflows ([13dca8d](https://github.com/novafluxx/filecrypter/commit/13dca8d0bee6978fc3299b10f590ef3797ef6d80))
+- **ci:** Fix version handling between pre-release and release workflows ([1567a17](https://github.com/novafluxx/filecrypter/commit/1567a173aaba4705c8c4df13555a0e05feb97f6c))
+- **ci:** Handle retry scenarios where version is already bumped ([5eb47d0](https://github.com/novafluxx/filecrypter/commit/5eb47d0e6799613a3d52a94fb3115dc2fe9091eb))
+- **ci:** Handle retry scenarios in release workflow ([cc9c5db](https://github.com/novafluxx/filecrypter/commit/cc9c5db6416ee4d89819e9297da22b3103f7a6d0))
+
+
+### Miscellaneous
+
+- **ci:** Improving ci workflow ([0cc29e5](https://github.com/novafluxx/filecrypter/commit/0cc29e5c8d5304dec56e6431df922452c4e1c283))
+- Improvded formatting for Rust code ([64572ad](https://github.com/novafluxx/filecrypter/commit/64572ad159b1895bbafdac6cf99cd53bd233fdb7))
+- **ci:** Move improvements to optimize CI flow ([dd1399c](https://github.com/novafluxx/filecrypter/commit/dd1399ce2043922f4838065a95762bb9758d40d3))
+
+
+### CI
+
+- Add pre-release workflow for feature branch testing ([faa8b06](https://github.com/novafluxx/filecrypter/commit/faa8b0668622f93957b57396d0a76f3c865e508c))
+## [0.1.13] - 2026-01-21
 
 
 

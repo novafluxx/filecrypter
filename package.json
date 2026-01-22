@@ -1,6 +1,6 @@
 {
   "name": "filecrypter",
-  "version": "0.1.14-rc.1",
+  "version": "0.1.14",
   "type": "module",
   "private": true,
   "scripts": {

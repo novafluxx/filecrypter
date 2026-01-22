@@ -60,3 +60,29 @@ export interface BatchProgress {
   stage: string;
   percent: number;
 }
+
+/**
+ * Progress event for archive operations
+ */
+export interface ArchiveProgress {
+  phase: string; // "archiving", "encrypting", "decrypting", "extracting", "complete"
+  current_file: string | null;
+  files_processed: number;
+  total_files: number;
+  percent: number;
+}
+
+/**
+ * Result of an archive encrypt/decrypt operation
+ */
+export interface ArchiveResult {
+  output_path: string;
+  file_count: number;
+  success: boolean;
+  error: string | null;
+}
+
+/**
+ * Batch mode type
+ */
+export type BatchMode = 'individual' | 'archive';

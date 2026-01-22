@@ -11,7 +11,7 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { open, save } from '@tauri-apps/plugin-dialog';
-import type { CryptoResponse, BatchResult } from '../types/crypto';
+import type { CryptoResponse, BatchResult, ArchiveResult } from '../types/crypto';
 
 /**
  * Composable for Tauri-specific operations
@@ -269,6 +269,69 @@ export function useTauri() {
     }
   }
 
+  /**
+   * Batch encrypt multiple files into a single encrypted archive
+   *
+   * Creates a compressed TAR archive from all files, then encrypts it as a single unit.
+   *
+   * @param inputPaths - Array of file paths to include in the archive
+   * @param outputDir - Directory where the encrypted archive will be saved
+   * @param password - Password for encryption
+   * @param archiveName - Optional custom name for the archive (without extension)
+   * @param allowOverwrite - Allow overwriting existing files (default: false)
+   * @returns Promise resolving to ArchiveResult
+   */
+  async function batchEncryptArchive(
+    inputPaths: string[],
+    outputDir: string,
+    password: string,
+    archiveName?: string,
+    allowOverwrite = false
+  ): Promise<ArchiveResult> {
+    try {
+      const result = await invoke<ArchiveResult>('batch_encrypt_archive', {
+        inputPaths,
+        outputDir,
+        password,
+        archiveName: archiveName || null,
+        allowOverwrite,
+      });
+      return result;
+    } catch (error) {
+      throw new Error(`Archive encryption failed: ${error}`);
+    }
+  }
+
+  /**
+   * Decrypt an encrypted archive and extract its contents
+   *
+   * Decrypts a .tar.zst.encrypted file and extracts all files to the output directory.
+   *
+   * @param inputPath - Path to the encrypted archive file
+   * @param outputDir - Directory where extracted files will be saved
+   * @param password - Password for decryption
+   * @param allowOverwrite - Allow overwriting existing files (default: false)
+   * @returns Promise resolving to ArchiveResult
+   */
+  async function batchDecryptArchive(
+    inputPath: string,
+    outputDir: string,
+    password: string,
+    allowOverwrite = false
+  ): Promise<ArchiveResult> {
+    try {
+      const result = await invoke<ArchiveResult>('batch_decrypt_archive', {
+        inputPath,
+        outputDir,
+        password,
+        allowOverwrite,
+      });
+      return result;
+    } catch (error) {
+      throw new Error(`Archive decryption failed: ${error}`);
+    }
+  }
+
   // Return the public API
   return {
     encryptFile,
@@ -279,5 +342,7 @@ export function useTauri() {
     selectDirectory,
     batchEncrypt,
     batchDecrypt,
+    batchEncryptArchive,
+    batchDecryptArchive,
   };
 }

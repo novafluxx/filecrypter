@@ -52,7 +52,8 @@ select {
   margin-bottom: 12px;
 }
 
-label {
+/* Only style direct label children of form-group, not naive-ui component labels */
+.form-group > label {
   display: block;
   margin-bottom: 8px;
   font-weight: 500;

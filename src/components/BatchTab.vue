@@ -13,7 +13,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
-import { NButton, NButtonGroup, NCheckbox, NAlert, NInput } from 'naive-ui';
+import { NButton, NButtonGroup, NCheckbox, NAlert, NInput, NRadioGroup, NRadio } from 'naive-ui';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useTauri } from '../composables/useTauri';
 import { usePasswordStrength } from '../composables/usePasswordStrength';
@@ -22,7 +22,7 @@ import { useSettings } from '../composables/useSettings';
 import { sanitizeErrorMessage } from '../utils/errorSanitizer';
 import PasswordStrengthMeter from './PasswordStrengthMeter.vue';
 import StatusMessage from './StatusMessage.vue';
-import type { BatchProgress, BatchResult } from '../types/crypto';
+import type { BatchProgress, BatchResult, ArchiveProgress, ArchiveResult, BatchMode } from '../types/crypto';
 import { MIN_PASSWORD_LENGTH } from '../constants';
 
 // Initialize composables
@@ -31,10 +31,12 @@ const settings = useSettings();
 
 // State
 const mode = ref<'encrypt' | 'decrypt'>('encrypt');
+const batchMode = ref<BatchMode>('individual');
 const inputPaths = ref<string[]>([]);
 const outputDir = ref('');
 const password = ref('');
 const neverOverwrite = ref(true);
+const archiveName = ref('');
 
 // Apply default settings when initialized
 watch(
@@ -57,6 +59,7 @@ const batchResult = ref<BatchResult | null>(null);
 
 // Batch progress
 const batchProgress = ref<BatchProgress | null>(null);
+const archiveProgress = ref<ArchiveProgress | null>(null);
 const showProgress = ref(false);
 
 // Password strength (only relevant for encryption)
@@ -86,6 +89,7 @@ onMounted(() => {
 
 // Event listener cleanup
 let unlistenProgress: UnlistenFn | null = null;
+let unlistenArchiveProgress: UnlistenFn | null = null;
 
 // Computed properties
 const isPasswordValid = computed(() => password.value.length >= MIN_PASSWORD_LENGTH);
@@ -113,11 +117,23 @@ async function startProgressListener() {
   });
 }
 
+// Setup archive progress listener
+async function startArchiveProgressListener() {
+  unlistenArchiveProgress = await listen<ArchiveProgress>('archive-progress', (event) => {
+    archiveProgress.value = event.payload;
+    showProgress.value = event.payload.phase !== 'complete';
+  });
+}
+
 // Stop progress listener
 function stopProgressListener() {
   if (unlistenProgress) {
     unlistenProgress();
     unlistenProgress = null;
+  }
+  if (unlistenArchiveProgress) {
+    unlistenArchiveProgress();
+    unlistenArchiveProgress = null;
   }
 }
 
@@ -128,6 +144,25 @@ onUnmounted(() => {
 
 // Handle file selection
 async function handleSelectFiles() {
+  // For archive decrypt mode, select a single archive file
+  if (batchMode.value === 'archive' && mode.value === 'decrypt') {
+    const path = await tauri.selectFile(
+      'Select Encrypted Archive',
+      [
+        { name: 'Encrypted Archives', extensions: ['encrypted'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    );
+
+    if (path) {
+      inputPaths.value = [path];
+      batchResult.value = null;
+      statusMessage.value = '';
+    }
+    return;
+  }
+
+  // For other modes, select multiple files
   const filters = mode.value === 'decrypt'
     ? [
         { name: 'Encrypted Files', extensions: ['encrypted'] },
@@ -176,13 +211,25 @@ async function handleBatchOperation() {
   batchResult.value = null;
   statusMessage.value = '';
   showProgress.value = true;
+  batchProgress.value = null;
+  archiveProgress.value = null;
 
+  const allowOverwrite = !neverOverwrite.value;
+
+  // Choose between individual and archive mode
+  if (batchMode.value === 'archive') {
+    await handleArchiveOperation(allowOverwrite);
+  } else {
+    await handleIndividualOperation(allowOverwrite);
+  }
+}
+
+// Handle individual file batch operation
+async function handleIndividualOperation(allowOverwrite: boolean) {
   await startProgressListener();
 
   try {
     let result: BatchResult;
-
-    const allowOverwrite = !neverOverwrite.value;
 
     if (mode.value === 'encrypt') {
       result = await tauri.batchEncrypt(
@@ -226,6 +273,66 @@ async function handleBatchOperation() {
   }
 }
 
+// Handle archive mode operation
+async function handleArchiveOperation(allowOverwrite: boolean) {
+  await startArchiveProgressListener();
+
+  try {
+    let result: ArchiveResult;
+
+    if (mode.value === 'encrypt') {
+      result = await tauri.batchEncryptArchive(
+        inputPaths.value,
+        outputDir.value,
+        password.value,
+        archiveName.value || undefined,
+        allowOverwrite
+      );
+    } else {
+      // For archive decrypt, we only have one file (the archive)
+      if (inputPaths.value.length !== 1) {
+        statusMessage.value = 'Please select exactly one archive file to decrypt';
+        statusType.value = 'error';
+        isProcessing.value = false;
+        showProgress.value = false;
+        stopProgressListener();
+        return;
+      }
+      // inputPaths.value[0] is guaranteed to exist due to the check above
+      const archivePath = inputPaths.value[0]!;
+      result = await tauri.batchDecryptArchive(
+        archivePath,
+        outputDir.value,
+        password.value,
+        allowOverwrite
+      );
+    }
+
+    // Clear password for security
+    password.value = '';
+
+    // Set status message
+    if (result.success) {
+      if (mode.value === 'encrypt') {
+        statusMessage.value = `Successfully created encrypted archive with ${result.file_count} file${result.file_count !== 1 ? 's' : ''}`;
+      } else {
+        statusMessage.value = `Successfully extracted ${result.file_count} file${result.file_count !== 1 ? 's' : ''} from archive`;
+      }
+      statusType.value = 'success';
+    } else {
+      statusMessage.value = result.error || `Archive ${mode.value}ion failed`;
+      statusType.value = 'error';
+    }
+  } catch (error) {
+    statusMessage.value = sanitizeErrorMessage(error);
+    statusType.value = 'error';
+  } finally {
+    isProcessing.value = false;
+    showProgress.value = false;
+    stopProgressListener();
+  }
+}
+
 // Switch mode and clear state
 function switchMode(newMode: 'encrypt' | 'decrypt') {
   if (mode.value !== newMode) {
@@ -234,6 +341,29 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
     batchResult.value = null;
     statusMessage.value = '';
     password.value = '';
+    archiveName.value = '';
+  }
+}
+
+// Switch batch mode
+function switchBatchMode(newBatchMode: BatchMode) {
+  if (batchMode.value !== newBatchMode) {
+    batchMode.value = newBatchMode;
+    inputPaths.value = [];
+    batchResult.value = null;
+    statusMessage.value = '';
+  }
+}
+
+// Get phase label for progress display
+function getPhaseLabel(phase: string): string {
+  switch (phase) {
+    case 'archiving': return 'Creating archive';
+    case 'encrypting': return 'Encrypting';
+    case 'decrypting': return 'Decrypting';
+    case 'extracting': return 'Extracting files';
+    case 'complete': return 'Complete';
+    default: return phase;
   }
 }
 </script>
@@ -273,24 +403,71 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
         </NButton>
       </NButtonGroup>
 
-    <!-- Compression Info Banner (encryption mode only) -->
+    <!-- Batch Mode Selector -->
+    <div class="form-group batch-mode-selector">
+      <label>Batch Mode:</label>
+      <NRadioGroup :value="batchMode" @update:value="switchBatchMode" :disabled="isProcessing">
+        <div class="batch-mode-options">
+          <div class="batch-mode-option">
+            <NRadio value="individual">Individual files</NRadio>
+            <span class="radio-description">Each file encrypted separately</span>
+          </div>
+          <div class="batch-mode-option">
+            <NRadio value="archive">Archive mode</NRadio>
+            <span class="radio-description">Bundle into one encrypted archive</span>
+          </div>
+        </div>
+      </NRadioGroup>
+    </div>
+
+    <!-- Compression Info Banner -->
     <NAlert v-if="mode === 'encrypt'" type="info" :show-icon="false" class="info-banner">
-      Compression is automatically enabled for batch operations.
-      Files are compressed with ZSTD before encryption for optimal size reduction.
+      <template v-if="batchMode === 'archive'">
+        Files will be bundled into a compressed TAR archive, then encrypted as a single file.
+      </template>
+      <template v-else>
+        Compression is automatically enabled for batch operations.
+        Files are compressed with ZSTD before encryption for optimal size reduction.
+      </template>
     </NAlert>
+
+    <!-- Archive Name (archive mode encrypt only) -->
+    <div v-if="batchMode === 'archive' && mode === 'encrypt'" class="form-group">
+      <label>Archive Name (optional):</label>
+      <NInput
+        v-model:value="archiveName"
+        placeholder="Leave empty for auto-generated name (archive_YYYYMMDD_HHMMSS)"
+        :disabled="isProcessing"
+      />
+      <p class="hint-text">
+        Custom name for the archive (without extension). Defaults to timestamp-based name.
+      </p>
+    </div>
 
     <!-- File Selection -->
     <div class="form-group">
-      <label>{{ mode === 'encrypt' ? 'Files to Encrypt' : 'Files to Decrypt' }}:</label>
+      <label>
+        <template v-if="batchMode === 'archive' && mode === 'decrypt'">
+          Archive to Decrypt:
+        </template>
+        <template v-else>
+          {{ mode === 'encrypt' ? 'Files to Encrypt' : 'Files to Decrypt' }}:
+        </template>
+      </label>
       <div class="file-input-group">
         <div class="file-count-display">
-          {{ fileCount }} file{{ fileCount !== 1 ? 's' : '' }} selected
+          <template v-if="batchMode === 'archive' && mode === 'decrypt'">
+            {{ fileCount === 1 ? '1 archive' : 'No archive' }} selected
+          </template>
+          <template v-else>
+            {{ fileCount }} file{{ fileCount !== 1 ? 's' : '' }} selected
+          </template>
         </div>
         <NButton
           type="primary"
           @click="handleSelectFiles"
           :disabled="isProcessing"
-          title="Choose multiple files to process"
+          :title="batchMode === 'archive' && mode === 'decrypt' ? 'Choose an encrypted archive' : 'Choose multiple files to process'"
         >
           Browse
         </NButton>
@@ -400,15 +577,30 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
       :title="mode === 'encrypt' ? 'Encrypt all selected files' : 'Decrypt all selected files'"
     >
       <span v-if="isProcessing">
-        {{ mode === 'encrypt' ? 'Encrypting' : 'Decrypting' }}...
+        <template v-if="batchMode === 'archive'">
+          {{ mode === 'encrypt' ? 'Creating Archive' : 'Extracting Archive' }}...
+        </template>
+        <template v-else>
+          {{ mode === 'encrypt' ? 'Encrypting' : 'Decrypting' }}...
+        </template>
       </span>
       <span v-else>
-        {{ mode === 'encrypt' ? 'Encrypt' : 'Decrypt' }} {{ fileCount }} File{{ fileCount !== 1 ? 's' : '' }}
+        <template v-if="batchMode === 'archive'">
+          <template v-if="mode === 'encrypt'">
+            Create Encrypted Archive ({{ fileCount }} file{{ fileCount !== 1 ? 's' : '' }})
+          </template>
+          <template v-else>
+            Decrypt &amp; Extract Archive
+          </template>
+        </template>
+        <template v-else>
+          {{ mode === 'encrypt' ? 'Encrypt' : 'Decrypt' }} {{ fileCount }} File{{ fileCount !== 1 ? 's' : '' }}
+        </template>
       </span>
     </NButton>
 
-    <!-- Progress Bar -->
-    <div v-if="showProgress && batchProgress" class="progress-container">
+    <!-- Progress Bar (Individual Mode) -->
+    <div v-if="showProgress && batchMode === 'individual' && batchProgress" class="progress-container">
       <div class="progress-bar-bg">
         <div
           class="progress-bar-fill"
@@ -421,6 +613,27 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
         </span>
         <span class="progress-percent">
           {{ batchProgress.file_index + 1 }}/{{ batchProgress.total_files }}
+        </span>
+      </div>
+    </div>
+
+    <!-- Progress Bar (Archive Mode) -->
+    <div v-if="showProgress && batchMode === 'archive' && archiveProgress" class="progress-container">
+      <div class="progress-bar-bg">
+        <div
+          class="progress-bar-fill"
+          :style="{ width: `${archiveProgress.percent}%` }"
+        ></div>
+      </div>
+      <div class="progress-info">
+        <span class="progress-message">
+          {{ getPhaseLabel(archiveProgress.phase) }}
+          <template v-if="archiveProgress.current_file">
+            : {{ archiveProgress.current_file }}
+          </template>
+        </span>
+        <span class="progress-percent">
+          {{ archiveProgress.percent }}%
         </span>
       </div>
     </div>
@@ -622,5 +835,23 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
 
 .action-btn {
   margin-top: 8px;
+}
+
+/* Batch Mode Selector */
+.batch-mode-options {
+  display: flex;
+  gap: 32px;
+}
+
+.batch-mode-option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.radio-description {
+  font-size: 12px;
+  color: var(--muted);
+  margin-left: 24px;
 }
 </style>

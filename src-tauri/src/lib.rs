@@ -11,7 +11,10 @@ pub mod events;
 pub mod security;
 
 // Import commands for registration
-use commands::{batch_decrypt, batch_encrypt, decrypt_file, encrypt_file};
+use commands::{
+    batch_decrypt, batch_decrypt_archive, batch_encrypt, batch_encrypt_archive, decrypt_file,
+    encrypt_file,
+};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 /// Build and run the Tauri application.
@@ -47,10 +50,12 @@ pub fn run() {
         })
         // Register Tauri commands that can be called from the frontend
         .invoke_handler(tauri::generate_handler![
-            encrypt_file,  // Streaming encryption (all files)
-            decrypt_file,  // Streaming decryption (all files)
-            batch_encrypt, // Batch encrypt multiple files
-            batch_decrypt, // Batch decrypt multiple files
+            encrypt_file,          // Streaming encryption (all files)
+            decrypt_file,          // Streaming decryption (all files)
+            batch_encrypt,         // Batch encrypt multiple files
+            batch_decrypt,         // Batch decrypt multiple files
+            batch_encrypt_archive, // Batch encrypt as single archive
+            batch_decrypt_archive, // Batch decrypt archive
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

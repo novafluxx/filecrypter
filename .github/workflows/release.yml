@@ -194,13 +194,21 @@ jobs:
 
       - name: Commit version bump and changelog
         run: |
+          VERSION="${{ steps.calculate-version.outputs.version }}"
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           git add package.json src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json CHANGELOG.md
-          git commit -m "chore(release): bump version to ${{ steps.calculate-version.outputs.version }}"
 
-          echo "✅ Changes committed"
+          # Only commit if there are staged changes
+          # (handles retry scenarios where version was already bumped)
+          if git diff --cached --quiet; then
+            echo "Version already at $VERSION, no changes to commit"
+          else
+            git commit -m "chore(release): bump version to $VERSION"
+            echo "✅ Changes committed"
+          fi
 
       - name: Create and push tag
         id: create-tag

@@ -51,9 +51,9 @@ jobs:
             VERSION="${{ inputs.version }}"
             echo "Using manual version override: $VERSION"
           else
-            # Get the latest tag (try multiple methods)
-            LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || git tag --sort=-v:refname | head -1 || echo "")
-            echo "Latest tag found: $LATEST_TAG"
+            # Get the latest stable tag (exclude pre-release tags like v0.1.4-rc.1)
+            LATEST_TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || echo "")
+            echo "Latest stable tag found: $LATEST_TAG"
 
             if [ -z "$LATEST_TAG" ]; then
               # No previous tags, start at 0.1.0

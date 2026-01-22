@@ -112,11 +112,11 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Final pre-release version: $VERSION"
 
-      - name: Bump version in config files (local only, not committed)
+      - name: Bump version in config files
         run: |
           VERSION="${{ steps.calculate-version.outputs.version }}"
 
-          echo "Updating version to $VERSION in config files (local only)..."
+          echo "Updating version to $VERSION in config files..."
 
           # Update package.json
           jq --arg v "$VERSION" '.version = $v' package.json > package.json.tmp
@@ -138,6 +138,20 @@ jobs:
       - name: Update Cargo.lock
         working-directory: src-tauri
         run: cargo update --workspace
+
+      - name: Commit version bump
+        run: |
+          VERSION="${{ steps.calculate-version.outputs.version }}"
+          BRANCH="${{ steps.get-branch.outputs.branch }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add package.json src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json
+          git commit -m "chore(release): bump version to $VERSION [pre-release]"
+
+          git push origin "$BRANCH"
+          echo "Committed and pushed version bump to $BRANCH"
 
       - name: Generate release notes
         id: generate-release-changelog
@@ -166,14 +180,10 @@ jobs:
         run: |
           TAG="v${{ steps.calculate-version.outputs.version }}"
 
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Create lightweight tag (no commit, just tag the current HEAD)
+          # Create tag on the version bump commit
           git tag "$TAG"
           echo "Created tag $TAG"
 
-          # Push only the tag (not any file changes)
           git push origin "$TAG"
           echo "Pushed tag $TAG"
 

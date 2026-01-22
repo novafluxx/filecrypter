@@ -13,7 +13,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
-import { NButton, NButtonGroup, NCheckbox, NAlert, NInput, NRadioGroup, NRadio, NSpace } from 'naive-ui';
+import { NButton, NButtonGroup, NCheckbox, NAlert, NInput, NRadioGroup, NRadio } from 'naive-ui';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useTauri } from '../composables/useTauri';
 import { usePasswordStrength } from '../composables/usePasswordStrength';
@@ -407,20 +407,16 @@ function getPhaseLabel(phase: string): string {
     <div class="form-group batch-mode-selector">
       <label>Batch Mode:</label>
       <NRadioGroup :value="batchMode" @update:value="switchBatchMode" :disabled="isProcessing">
-        <NSpace :size="24">
-          <NRadio value="individual">
-            <div class="radio-content">
-              <span class="radio-label">Individual files</span>
-              <span class="radio-description">Each file encrypted separately</span>
-            </div>
-          </NRadio>
-          <NRadio value="archive">
-            <div class="radio-content">
-              <span class="radio-label">Archive mode</span>
-              <span class="radio-description">Bundle into one encrypted archive</span>
-            </div>
-          </NRadio>
-        </NSpace>
+        <div class="batch-mode-options">
+          <div class="batch-mode-option">
+            <NRadio value="individual">Individual files</NRadio>
+            <span class="radio-description">Each file encrypted separately</span>
+          </div>
+          <div class="batch-mode-option">
+            <NRadio value="archive">Archive mode</NRadio>
+            <span class="radio-description">Bundle into one encrypted archive</span>
+          </div>
+        </div>
       </NRadioGroup>
     </div>
 
@@ -842,27 +838,20 @@ function getPhaseLabel(phase: string): string {
 }
 
 /* Batch Mode Selector */
-.batch-mode-selector {
-  margin-bottom: 16px;
+.batch-mode-options {
+  display: flex;
+  gap: 32px;
 }
 
-.batch-mode-selector label {
-  display: block;
-  margin-bottom: 8px;
-}
-
-.radio-content {
+.batch-mode-option {
   display: flex;
   flex-direction: column;
-}
-
-.radio-label {
-  font-weight: 500;
+  gap: 2px;
 }
 
 .radio-description {
   font-size: 12px;
   color: var(--muted);
-  margin-top: 2px;
+  margin-left: 24px;
 }
 </style>

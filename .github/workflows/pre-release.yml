@@ -148,10 +148,16 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           git add package.json src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json
-          git commit -m "chore(release): bump version to $VERSION [pre-release]"
 
-          git push origin "$BRANCH"
-          echo "Committed and pushed version bump to $BRANCH"
+          # Only commit and push if there are staged changes
+          # (handles retry scenarios where version was already bumped)
+          if git diff --cached --quiet; then
+            echo "Version already at $VERSION, no changes to commit"
+          else
+            git commit -m "chore(release): bump version to $VERSION [pre-release]"
+            git push origin "$BRANCH"
+            echo "Committed and pushed version bump to $BRANCH"
+          fi
 
       - name: Generate release notes
         id: generate-release-changelog

@@ -407,14 +407,18 @@ function getPhaseLabel(phase: string): string {
     <div class="form-group batch-mode-selector">
       <label>Batch Mode:</label>
       <NRadioGroup :value="batchMode" @update:value="switchBatchMode" :disabled="isProcessing">
-        <NSpace vertical>
+        <NSpace :size="24">
           <NRadio value="individual">
-            <span class="radio-label">Individual files</span>
-            <span class="radio-description">Each file encrypted separately</span>
+            <div class="radio-content">
+              <span class="radio-label">Individual files</span>
+              <span class="radio-description">Each file encrypted separately</span>
+            </div>
           </NRadio>
           <NRadio value="archive">
-            <span class="radio-label">Archive mode</span>
-            <span class="radio-description">Bundle all files into one encrypted archive</span>
+            <div class="radio-content">
+              <span class="radio-label">Archive mode</span>
+              <span class="radio-description">Bundle into one encrypted archive</span>
+            </div>
           </NRadio>
         </NSpace>
       </NRadioGroup>
@@ -847,15 +851,18 @@ function getPhaseLabel(phase: string): string {
   margin-bottom: 8px;
 }
 
+.radio-content {
+  display: flex;
+  flex-direction: column;
+}
+
 .radio-label {
   font-weight: 500;
-  display: block;
 }
 
 .radio-description {
   font-size: 12px;
   color: var(--muted);
-  display: block;
   margin-top: 2px;
 }
 </style>

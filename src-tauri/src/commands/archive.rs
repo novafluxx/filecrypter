@@ -468,14 +468,19 @@ pub fn compute_common_prefix(paths: &[PathBuf]) -> PathBuf {
 fn compute_archive_entry_name(file_path: &Path, common_prefix: &Path) -> CryptoResult<PathBuf> {
     // Try to strip the common prefix
     if let Ok(relative) = file_path.strip_prefix(common_prefix) {
-        Ok(relative.to_path_buf())
-    } else {
-        // Fall back to just the filename
-        Ok(file_path
-            .file_name()
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from("file")))
+        // Guard against empty prefix returning absolute path (Windows cross-drive scenario)
+        // When files are on different drives (C:\ and D:\), common_prefix is empty,
+        // and strip_prefix("") succeeds but returns the original absolute path.
+        if !relative.is_absolute() {
+            return Ok(relative.to_path_buf());
+        }
     }
+
+    // Fall back to just the filename
+    Ok(file_path
+        .file_name()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("file")))
 }
 
 /// Maximum length for custom archive names.
@@ -702,5 +707,53 @@ mod tests {
         // Only invalid chars should fall back to timestamp
         let name = generate_archive_name(Some("///"));
         assert!(name.starts_with("archive_"));
+    }
+
+    #[test]
+    fn test_compute_archive_entry_name_empty_prefix() {
+        // Simulates Windows cross-drive scenario where common_prefix is empty
+        let file_path = PathBuf::from("/absolute/path/file.txt");
+        let empty_prefix = PathBuf::new();
+
+        let result = compute_archive_entry_name(&file_path, &empty_prefix).unwrap();
+
+        // Should fall back to filename, not return absolute path
+        assert!(!result.is_absolute());
+        assert_eq!(result, PathBuf::from("file.txt"));
+    }
+
+    #[test]
+    fn test_compute_archive_entry_name_normal_case() {
+        let file_path = PathBuf::from("/home/user/docs/file.txt");
+        let common_prefix = PathBuf::from("/home/user");
+
+        let result = compute_archive_entry_name(&file_path, &common_prefix).unwrap();
+
+        assert!(!result.is_absolute());
+        assert_eq!(result, PathBuf::from("docs/file.txt"));
+    }
+
+    #[test]
+    fn test_archive_roundtrip_cross_directory() {
+        // Files in separate temp dirs (simulates no common prefix beyond root)
+        let temp1 = tempdir().unwrap();
+        let temp2 = tempdir().unwrap();
+        let output_dir = tempdir().unwrap();
+        let extract_dir = tempdir().unwrap();
+
+        let file1 = temp1.path().join("file1.txt");
+        let file2 = temp2.path().join("file2.txt");
+        fs::write(&file1, b"content1").unwrap();
+        fs::write(&file2, b"content2").unwrap();
+
+        // Create archive
+        let archive_path = output_dir.path().join("test.tar.zst");
+        create_tar_zstd_archive(&[&file1, &file2], &archive_path, None).unwrap();
+
+        // Extract - should NOT fail with PathTraversal error
+        let extracted =
+            extract_tar_zstd_archive(&archive_path, extract_dir.path(), false, None).unwrap();
+
+        assert_eq!(extracted.len(), 2);
     }
 }

@@ -179,6 +179,24 @@ jobs:
 
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.create-tag.outputs.tag }}"
+          BRANCH="${{ steps.get-branch.outputs.branch }}"
+
+          # Create the release as a draft so builds can upload assets
+          # With immutable releases enabled, we must create the draft first,
+          # upload all assets, then publish it after all builds complete
+          gh release create "$TAG" \
+            --draft \
+            --prerelease \
+            --title "FileCrypter $TAG (Pre-release)" \
+            --notes "${{ steps.generate-release-changelog.outputs.changelog }}"
+
+          echo "Created draft release for $TAG"
+
   # Stage 2: Build binaries and create GitHub Pre-Release
   build-and-release:
     needs: prepare-prerelease
@@ -238,7 +256,9 @@ jobs:
           tagName: ${{ needs.prepare-prerelease.outputs.tag }}
           releaseName: "FileCrypter ${{ needs.prepare-prerelease.outputs.tag }} (Pre-release)"
           releaseBody: ${{ needs.prepare-prerelease.outputs.changelog }}
-          releaseDraft: false
+          # Keep as draft so other matrix builds can upload assets
+          # (with immutable releases, published releases cannot be modified)
+          releaseDraft: true
           prerelease: true
           includeUpdaterJson: false
           args: ${{ matrix.args }}

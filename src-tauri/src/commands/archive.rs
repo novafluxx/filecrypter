@@ -466,6 +466,14 @@ pub fn compute_common_prefix(paths: &[PathBuf]) -> PathBuf {
 
 /// Compute the archive entry name for a file (relative to common prefix)
 fn compute_archive_entry_name(file_path: &Path, common_prefix: &Path) -> CryptoResult<PathBuf> {
+    // Log when common prefix is empty (helps debug cross-drive scenarios on Windows)
+    if common_prefix.as_os_str().is_empty() {
+        log::debug!(
+            "Empty common prefix detected, using filename fallback for {}",
+            file_path.display()
+        );
+    }
+
     // Try to strip the common prefix
     if let Ok(relative) = file_path.strip_prefix(common_prefix) {
         // Guard against empty prefix returning absolute path (Windows cross-drive scenario)
@@ -720,6 +728,76 @@ mod tests {
         // Should fall back to filename, not return absolute path
         assert!(!result.is_absolute());
         assert_eq!(result, PathBuf::from("file.txt"));
+    }
+
+    /// Tests the Windows multi-drive scenario where files are on different drive letters.
+    ///
+    /// On Windows, when files are selected from C:\ and D:\, `compute_common_prefix()`
+    /// returns an empty PathBuf because there's no common ancestor. The code must
+    /// detect this and fall back to using just the filename for archive entries.
+    ///
+    /// Note: This test uses Windows-style paths explicitly. On Unix, paths starting
+    /// with a drive letter like "C:\\" are treated as relative paths (not absolute),
+    /// so the test verifies the filename fallback behavior regardless of platform.
+    #[test]
+    #[cfg(windows)]
+    fn test_compute_archive_entry_name_windows_cross_drive() {
+        // Simulate files on different Windows drives
+        let file_c = PathBuf::from("C:\\Users\\test\\file1.txt");
+        let file_d = PathBuf::from("D:\\Data\\file2.txt");
+        let paths = vec![file_c.clone(), file_d.clone()];
+
+        // Common prefix should be empty for cross-drive paths
+        let common = compute_common_prefix(&paths);
+        assert_eq!(
+            common,
+            PathBuf::new(),
+            "Common prefix should be empty for cross-drive paths"
+        );
+
+        // Verify fallback produces filename-only entries (not absolute paths)
+        let entry1 = compute_archive_entry_name(&file_c, &common).unwrap();
+        let entry2 = compute_archive_entry_name(&file_d, &common).unwrap();
+
+        assert!(
+            !entry1.is_absolute(),
+            "Entry should not be absolute: {:?}",
+            entry1
+        );
+        assert!(
+            !entry2.is_absolute(),
+            "Entry should not be absolute: {:?}",
+            entry2
+        );
+        assert_eq!(entry1, PathBuf::from("file1.txt"));
+        assert_eq!(entry2, PathBuf::from("file2.txt"));
+    }
+
+    /// Cross-platform test for empty prefix fallback behavior.
+    /// Verifies that the filename fallback works even when strip_prefix succeeds
+    /// but would return an absolute path.
+    #[test]
+    fn test_compute_archive_entry_name_absolute_after_strip() {
+        // Create a scenario where strip_prefix("") succeeds but returns absolute path
+        // This happens on Windows with cross-drive paths, simulated here with
+        // explicit absolute path check
+        let empty_prefix = PathBuf::new();
+
+        // On Unix, this is absolute; on Windows, a path like "C:\\" would be absolute
+        #[cfg(unix)]
+        let absolute_path = PathBuf::from("/var/data/important.txt");
+        #[cfg(windows)]
+        let absolute_path = PathBuf::from("C:\\var\\data\\important.txt");
+
+        let result = compute_archive_entry_name(&absolute_path, &empty_prefix).unwrap();
+
+        // Must always return a relative path (the filename)
+        assert!(
+            !result.is_absolute(),
+            "Entry should never be absolute: {:?}",
+            result
+        );
+        assert_eq!(result, PathBuf::from("important.txt"));
     }
 
     #[test]

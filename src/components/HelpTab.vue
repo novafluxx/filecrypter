@@ -6,10 +6,11 @@
 -->
 
 <script setup lang="ts">
+import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import helpMarkdown from '../../README_USER.md?raw';
 
-const helpHtml = marked.parse(helpMarkdown) as string;
+const helpHtml = DOMPurify.sanitize(marked.parse(helpMarkdown) as string);
 </script>
 
 <template>

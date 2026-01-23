@@ -13,7 +13,7 @@
 -->
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { NConfigProvider, NTabs, NTab, darkTheme, type GlobalThemeOverrides } from 'naive-ui';
 import EncryptTab from './components/EncryptTab.vue';
 import DecryptTab from './components/DecryptTab.vue';
@@ -78,17 +78,20 @@ onMounted(async () => {
   document.addEventListener('contextmenu', preventContextMenu);
 
   // Check for updates on desktop platforms (not on mobile - app stores handle updates)
-  // Delay slightly to not block initial render
-  window.setTimeout(async () => {
-    if (!isMobile.value) {
-      try {
-        await checkForUpdates();
-      } catch (err) {
-        // Silently fail - update check is non-critical
-        console.warn('Update check failed:', err);
-      }
+  // Use a watcher to ensure platform detection completes before checking
+  watch(isInitialized, (initialized) => {
+    if (initialized && !isMobile.value) {
+      // Delay slightly to not block initial render
+      window.setTimeout(async () => {
+        try {
+          await checkForUpdates();
+        } catch (err) {
+          // Silently fail - update check is non-critical
+          console.warn('Update check failed:', err);
+        }
+      }, 2000);
     }
-  }, 2000);
+  }, { immediate: true });
 });
 
 // Clean up global event listeners

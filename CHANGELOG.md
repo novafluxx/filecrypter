@@ -5,6 +5,28 @@ All notable changes to FileCrypter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.15] - 2026-01-23
+
+
+
+### Bug Fixes
+
+- **progress:** Prevent listener leak and race condition with KeepAlive ([373476b](https://github.com/novafluxx/filecrypter/commit/373476b1e8aa4b8ce4805e89f1ddccec4ad3767f))
+- **status:** Cancel pending timeout before showing new status message ([3a521d8](https://github.com/novafluxx/filecrypter/commit/3a521d81c8d5b016623e1623b0e32d21c95e3574))
+- **updater:** Wait for platform detection before update check ([2ca9fa0](https://github.com/novafluxx/filecrypter/commit/2ca9fa02543c414a0f7fb5eee4604d08012b0284))
+- **validation:** Make decrypt password validation consistent with batch mode ([2cad8b5](https://github.com/novafluxx/filecrypter/commit/2cad8b5cb293d15025c961ff009e02e3190c2a32))
+- **security:** Sanitize markdown HTML output with DOMPurify ([b8ce55a](https://github.com/novafluxx/filecrypter/commit/b8ce55a9b610a710fe417a6cf8f20e3fbabfb086))
+- **path:** Use Tauri path API for cross-platform path joining ([b5126a3](https://github.com/novafluxx/filecrypter/commit/b5126a3fa72074659afe71163b508844bdf44718))
+
+
+### Refactoring
+
+- **validation:** Rename isFormValid to isEncryptFormValid ([1ca5bf0](https://github.com/novafluxx/filecrypter/commit/1ca5bf0fbc30640cbb8c00ebaf4a4e37b925eb33))
+
+
+### Documentation
+
+- Update user guide for archive mode ([6c0f6e1](https://github.com/novafluxx/filecrypter/commit/6c0f6e12b5f861193b9dc7c5ff91cee58dbd8982))
 ## [0.1.14] - 2026-01-22
 
 

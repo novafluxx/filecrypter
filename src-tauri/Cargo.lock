@@ -955,7 +955,7 @@ dependencies = [
 
 [[package]]
 name = "filecrypter"
-version = "0.1.14"
+version = "0.1.15"
 dependencies = [
  "aes-gcm",
  "anyhow",

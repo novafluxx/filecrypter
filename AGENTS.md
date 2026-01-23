@@ -4,15 +4,18 @@
 - `src/` holds the Vue 3 frontend (entry: `src/main.ts`, root UI: `src/App.vue`).
 - `src/components/` contains tab UI components and shared widgets (e.g., `EncryptTab.vue`, `DecryptTab.vue`, `BatchTab.vue`, `ProgressBar.vue`).
 - `src/composables/` has shared frontend logic (file ops, progress, theme, drag/drop, password strength, Tauri IPC).
+- `src/utils/` keeps shared helpers; `src/constants.ts` and `src/shared.css` define global constants and styles.
 - `src/types/` stores TypeScript type definitions.
 - `src-tauri/` is the Rust/Tauri backend (commands, crypto, security, errors).
 - `src-tauri/src/commands/` defines IPC handlers (batch, streaming, file utils), and `src-tauri/src/crypto/` holds AES/Argon2 + streaming implementations.
+- `src-tauri/src/security/` contains security checks, while `src-tauri/src/error.rs` and `src-tauri/src/events.rs` centralize error and event types.
 
 ## Build, Test, and Development Commands
 - `bun install` installs frontend dependencies.
 - `bun run dev` starts the Vite dev server on port 5173.
 - `bun run build` runs type checking (`vue-tsc`) and builds the frontend.
 - `bun run preview` serves the production build locally.
+- `bun run lint` runs ESLint on the frontend.
 - `bun run tauri:dev` launches the full Tauri app with hot reload.
 - `bun run tauri:build` creates a production desktop build.
 - `cd src-tauri && cargo test` runs Rust unit + integration tests.

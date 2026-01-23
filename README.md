@@ -24,8 +24,10 @@ See `README_USER.md` for end-user instructions (how to encrypt/decrypt, batch mo
 - `src/` frontend app (entry: `src/main.ts`, root: `src/App.vue`)
 - `src/components/` UI tabs and panels
 - `src/composables/` shared frontend logic
+- `src/utils/`, `src/constants.ts`, and `src/shared.css` provide shared helpers, constants, and global styles
 - `src/types/` TypeScript types
 - `src-tauri/` Rust/Tauri backend (commands + crypto modules)
+- `src-tauri/src/security/` security helpers, plus shared error/event types in `src-tauri/src/error.rs` and `src-tauri/src/events.rs`
 
 ## Getting Started
 Prerequisites:
@@ -85,6 +87,11 @@ Run the Rust linter:
 ```bash
 cd src-tauri
 cargo clippy
+```
+
+Run the frontend linter:
+```bash
+bun run lint
 ```
 
 ## Security Notes

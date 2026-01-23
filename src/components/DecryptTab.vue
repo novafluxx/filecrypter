@@ -16,6 +16,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue';
 import { NButton, NCheckbox, NInput } from 'naive-ui';
+import { join, dirname } from '@tauri-apps/api/path';
 import { useFileOps } from '../composables/useFileOps';
 import { useTauri } from '../composables/useTauri';
 import { useProgress } from '../composables/useProgress';
@@ -53,7 +54,7 @@ watch(
 /**
  * Get suggested output path considering default output directory
  */
-function getSuggestedOutputPath(inputPath: string): string {
+async function getSuggestedOutputPath(inputPath: string): Promise<string> {
   const defaultDir = settings.defaultOutputDirectory.value;
 
   // Extract filename from input path
@@ -68,13 +69,12 @@ function getSuggestedOutputPath(inputPath: string): string {
   }
 
   if (defaultDir) {
-    return `${defaultDir}/${outputFilename}`;
+    return await join(defaultDir, outputFilename);
   }
 
   // Use same directory as input file
-  const inputDir = inputPath.substring(0, inputPath.lastIndexOf('/') + 1) ||
-                   inputPath.substring(0, inputPath.lastIndexOf('\\') + 1);
-  return inputDir + outputFilename;
+  const inputDir = await dirname(inputPath);
+  return await join(inputDir, outputFilename);
 }
 
 // Progress tracking for decryption operation
@@ -85,7 +85,7 @@ const dropZoneRef = ref<HTMLElement>();
 
 // Drag-and-drop file handling
 const { isDragging, handleDragOver, handleDragLeave, handleDrop, setupDragDrop } = useDragDrop(
-  (paths) => {
+  async (paths) => {
     // For single file decryption, use the first dropped file
     const path = paths[0];
     if (path) {
@@ -94,7 +94,8 @@ const { isDragging, handleDragOver, handleDragLeave, handleDrop, setupDragDrop }
       // If a default output directory is set, use it
       const defaultDir = settings.defaultOutputDirectory.value;
       if (defaultDir) {
-        fileOps.setOutputPath(getSuggestedOutputPath(path));
+        const outputPath = await getSuggestedOutputPath(path);
+        fileOps.setOutputPath(outputPath);
       }
     }
   },
@@ -127,7 +128,8 @@ async function handleSelectFile() {
     // If a default output directory is set, use it
     const defaultDir = settings.defaultOutputDirectory.value;
     if (defaultDir) {
-      fileOps.setOutputPath(getSuggestedOutputPath(path));
+      const outputPath = await getSuggestedOutputPath(path);
+      fileOps.setOutputPath(outputPath);
     }
   }
 }

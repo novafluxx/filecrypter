@@ -29,7 +29,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
  * onMounted(() => setupDragDrop());
  * ```
  */
-export function useDragDrop(onFileDrop: (paths: string[]) => void, elementRef?: { value: HTMLElement | undefined }) {
+export function useDragDrop(onFileDrop: (paths: string[]) => void | Promise<void>, elementRef?: { value: HTMLElement | undefined }) {
   /** Whether a file is currently being dragged over the drop zone */
   const isDragging = ref(false);
 

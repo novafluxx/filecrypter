@@ -18,6 +18,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue';
 import { NButton, NCheckbox, NInput } from 'naive-ui';
+import { join } from '@tauri-apps/api/path';
 import { useFileOps } from '../composables/useFileOps';
 import { useTauri } from '../composables/useTauri';
 import { usePasswordStrength } from '../composables/usePasswordStrength';
@@ -77,7 +78,7 @@ const dropZoneRef = ref<HTMLElement>();
 
 // Drag-and-drop file handling
 const { isDragging, handleDragOver, handleDragLeave, handleDrop, setupDragDrop } = useDragDrop(
-  (paths) => {
+  async (paths) => {
     // For single file encryption, use the first dropped file
     const path = paths[0];
     if (path) {
@@ -87,7 +88,8 @@ const { isDragging, handleDragOver, handleDragLeave, handleDrop, setupDragDrop }
       const defaultDir = settings.defaultOutputDirectory.value;
       if (defaultDir) {
         const filename = path.split(/[/\\]/).pop() ?? '';
-        fileOps.setOutputPath(`${defaultDir}/${filename}.encrypted`);
+        const outputPath = await join(defaultDir, `${filename}.encrypted`);
+        fileOps.setOutputPath(outputPath);
       }
     }
   },
@@ -115,7 +117,8 @@ async function handleSelectFile() {
     const defaultDir = settings.defaultOutputDirectory.value;
     if (defaultDir) {
       const filename = path.split(/[/\\]/).pop() ?? '';
-      fileOps.setOutputPath(`${defaultDir}/${filename}.encrypted`);
+      const outputPath = await join(defaultDir, `${filename}.encrypted`);
+      fileOps.setOutputPath(outputPath);
     }
   }
 }

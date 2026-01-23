@@ -55,6 +55,9 @@ export function useFileOps() {
   const statusMessage = ref('');
   const statusType = ref<StatusType>('info');
 
+  // Track status timeout to prevent race conditions
+  let statusTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
   // ========== Computed Properties ==========
   // computed() creates derived reactive values
   // These automatically update when their dependencies change
@@ -146,13 +149,20 @@ export function useFileOps() {
    * @param duration - How long to show the message (ms), 0 for permanent
    */
   function showStatus(message: string, type: StatusType, duration = STATUS_SUCCESS_TIMEOUT_MS) {
+    // Cancel any pending timeout to prevent it from clearing this new message
+    if (statusTimeoutId !== null) {
+      clearTimeout(statusTimeoutId);
+      statusTimeoutId = null;
+    }
+
     statusMessage.value = message;
     statusType.value = type;
 
     // Auto-hide success messages after duration
     if (type === 'success' && duration > 0) {
-      setTimeout(() => {
+      statusTimeoutId = setTimeout(() => {
         statusMessage.value = '';
+        statusTimeoutId = null;
       }, duration);
     }
   }
@@ -161,6 +171,10 @@ export function useFileOps() {
    * Clear the status message
    */
   function clearStatus() {
+    if (statusTimeoutId !== null) {
+      clearTimeout(statusTimeoutId);
+      statusTimeoutId = null;
+    }
     statusMessage.value = '';
   }
 
@@ -170,6 +184,10 @@ export function useFileOps() {
    * Used after successful operation or when switching tabs.
    */
   function resetForm() {
+    if (statusTimeoutId !== null) {
+      clearTimeout(statusTimeoutId);
+      statusTimeoutId = null;
+    }
     inputPath.value = '';
     outputPath.value = '';
     password.value = '';

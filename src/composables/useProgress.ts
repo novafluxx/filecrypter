@@ -52,6 +52,9 @@ export function useProgress() {
   /** Unlisten function to clean up event listener */
   let unlisten: UnlistenFn | null = null;
 
+  /** Operation counter to prevent race conditions with stale timeouts */
+  let operationId = 0;
+
   /**
    * Start listening for progress events
    *
@@ -59,6 +62,16 @@ export function useProgress() {
    * The listener will automatically track progress until completion.
    */
   async function startListening() {
+    // Clean up any existing listener first (prevents leak with KeepAlive)
+    if (unlisten) {
+      unlisten();
+      unlisten = null;
+    }
+
+    // Track this operation to handle race conditions
+    operationId++;
+    const currentOpId = operationId;
+
     // Reset state
     isActive.value = true;
     progress.value = null;
@@ -66,13 +79,23 @@ export function useProgress() {
     try {
       // Register event listener
       unlisten = await listen<ProgressEvent>(CRYPTO_PROGRESS_EVENT, (event) => {
+        // Ignore events from stale operations
+        if (currentOpId !== operationId) return;
+
         progress.value = event.payload;
 
         // Auto-deactivate when operation completes
         if (event.payload.stage === 'complete') {
           // Keep showing for a moment so user sees 100%
           setTimeout(() => {
-            isActive.value = false;
+            // Only deactivate if this is still the current operation
+            if (currentOpId === operationId) {
+              isActive.value = false;
+              if (unlisten) {
+                unlisten();
+                unlisten = null;
+              }
+            }
           }, 500);
         }
       });

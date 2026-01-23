@@ -286,7 +286,7 @@ async function handleEncrypt() {
       strong
       class="action-btn"
       @click="handleEncrypt"
-      :disabled="!fileOps.isFormValid.value"
+      :disabled="!fileOps.isEncryptFormValid.value"
       title="Start encrypting with the selected file and password"
     >
       <span v-if="fileOps.isProcessing.value">Encrypting...</span>

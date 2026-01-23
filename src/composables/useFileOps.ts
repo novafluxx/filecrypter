@@ -63,7 +63,7 @@ export function useFileOps() {
   // These automatically update when their dependencies change
 
   /**
-   * Check if the form is valid and ready to submit
+   * Check if the encrypt form is valid and ready to submit
    *
    * Requirements:
    * - Input file must be selected
@@ -71,7 +71,7 @@ export function useFileOps() {
    * - Password must be at least MIN_PASSWORD_LENGTH characters (recommended minimum)
    * - Not currently processing
    */
-  const isFormValid = computed(() => {
+  const isEncryptFormValid = computed(() => {
     return (
       inputPath.value.length > 0 &&
       outputPath.value.length > 0 &&
@@ -240,7 +240,7 @@ export function useFileOps() {
    * @returns Promise<boolean> True if successful, false otherwise
    */
   async function performEncrypt(): Promise<boolean> {
-    if (!isFormValid.value) {
+    if (!isEncryptFormValid.value) {
       showStatus('Please fill in all fields correctly', 'error');
       return false;
     }
@@ -340,7 +340,7 @@ export function useFileOps() {
     statusType,
 
     // Computed
-    isFormValid,
+    isEncryptFormValid,
     isDecryptFormValid,
     isPasswordValid,
 

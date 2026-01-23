@@ -90,6 +90,23 @@ export function useFileOps() {
     return password.value.length >= MIN_PASSWORD_LENGTH;
   });
 
+  /**
+   * Check if the decrypt form is valid and ready to submit
+   *
+   * For decryption, we only require a non-empty password because:
+   * - The cryptographic layer validates the password (wrong password = auth failure)
+   * - Files may have been encrypted with different password policies
+   * - Better UX: crypto error "wrong password" vs frontend validation error
+   */
+  const isDecryptFormValid = computed(() => {
+    return (
+      inputPath.value.length > 0 &&
+      outputPath.value.length > 0 &&
+      password.value.length > 0 &&
+      !isProcessing.value
+    );
+  });
+
   // ========== Helper Methods ==========
 
   /**
@@ -275,7 +292,7 @@ export function useFileOps() {
    * @returns Promise<boolean> True if successful, false otherwise
    */
   async function performDecrypt(): Promise<boolean> {
-    if (!isFormValid.value) {
+    if (!isDecryptFormValid.value) {
       showStatus('Please fill in all fields correctly', 'error');
       return false;
     }
@@ -324,6 +341,7 @@ export function useFileOps() {
 
     // Computed
     isFormValid,
+    isDecryptFormValid,
     isPasswordValid,
 
     // Methods

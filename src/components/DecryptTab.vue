@@ -267,7 +267,7 @@ async function handleDecrypt() {
       strong
       class="action-btn"
       @click="handleDecrypt"
-      :disabled="!fileOps.isFormValid.value"
+      :disabled="!fileOps.isDecryptFormValid.value"
       title="Start decrypting with the selected file and password"
     >
       <span v-if="fileOps.isProcessing.value">Decrypting...</span>

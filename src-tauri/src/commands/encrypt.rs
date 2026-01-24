@@ -101,7 +101,8 @@ pub async fn encrypt_file(
     };
 
     // Create progress callback for streaming
-    let progress_callback = create_progress_callback(app.clone(), "encrypting", "Encrypting file...");
+    let progress_callback =
+        create_progress_callback(app.clone(), "encrypting", "Encrypting file...");
 
     // Use streaming for all files
     encrypt_file_streaming(

@@ -89,7 +89,8 @@ pub async fn decrypt_file(
         validate_crypto_inputs(&app, &input_path, &output_path, password, allow_overwrite)?;
 
     // Create progress callback for streaming
-    let progress_callback = create_progress_callback(app.clone(), "decrypting", "Decrypting file...");
+    let progress_callback =
+        create_progress_callback(app.clone(), "decrypting", "Decrypting file...");
 
     // Use streaming for all files
     decrypt_file_streaming(

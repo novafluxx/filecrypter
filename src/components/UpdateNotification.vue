@@ -15,6 +15,7 @@ const {
   updateVersion,
   isDownloading,
   downloadProgress,
+  error,
   downloadAndInstall,
   dismissUpdate,
 } = useUpdater();
@@ -29,7 +30,16 @@ const {
             <strong>Update Available</strong>
             <span v-if="updateVersion">Version {{ updateVersion }} is ready to install.</span>
           </div>
-          <div v-if="isDownloading" class="update-progress">
+          <div v-if="error" class="update-error">
+            <span class="update-error-text">{{ error }}</span>
+            <NButton size="small" type="primary" @click="downloadAndInstall">
+              Retry
+            </NButton>
+            <NButton size="small" quaternary @click="dismissUpdate">
+              Dismiss
+            </NButton>
+          </div>
+          <div v-else-if="isDownloading" class="update-progress">
             <NProgress
               type="line"
               :percentage="downloadProgress"
@@ -108,6 +118,18 @@ const {
   font-size: 12px;
   color: var(--muted);
   white-space: nowrap;
+}
+
+.update-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.update-error-text {
+  font-size: 12px;
+  color: var(--error, #d03050);
 }
 
 /* Slide down animation */

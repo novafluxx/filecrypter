@@ -16,7 +16,7 @@
 -->
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted } from 'vue';
 import { NButton, NCheckbox, NInput } from 'naive-ui';
 import { join } from '@tauri-apps/api/path';
 import { useFileOps } from '../composables/useFileOps';
@@ -25,7 +25,9 @@ import { usePasswordStrength } from '../composables/usePasswordStrength';
 import { useProgress } from '../composables/useProgress';
 import { useDragDrop } from '../composables/useDragDrop';
 import { useSettings } from '../composables/useSettings';
-import PasswordStrengthMeter from './PasswordStrengthMeter.vue';
+import { useSettingsSync } from '../composables/useSettingsSync';
+import OverwriteCheckbox from './OverwriteCheckbox.vue';
+import PasswordSection from './PasswordSection.vue';
 import ProgressBar from './ProgressBar.vue';
 import StatusMessage from './StatusMessage.vue';
 
@@ -35,36 +37,11 @@ const fileOps = useFileOps();
 const tauri = useTauri();
 const settings = useSettings();
 
-// Apply default settings when initialized and sync when they change
-watch(
-  () => settings.isInitialized.value,
-  (initialized) => {
-    if (initialized) {
-      fileOps.compressionEnabled.value = settings.defaultCompression.value;
-      fileOps.neverOverwrite.value = settings.defaultNeverOverwrite.value;
-    }
-  },
-  { immediate: true }
-);
-
-// Sync settings changes from Settings tab to this tab
-watch(
-  () => settings.defaultCompression.value,
-  (newValue) => {
-    if (settings.isInitialized.value) {
-      fileOps.compressionEnabled.value = newValue;
-    }
-  }
-);
-
-watch(
-  () => settings.defaultNeverOverwrite.value,
-  (newValue) => {
-    if (settings.isInitialized.value) {
-      fileOps.neverOverwrite.value = newValue;
-    }
-  }
-);
+// Sync settings to fileOps state (initial + reactive updates)
+useSettingsSync(settings, {
+  compression: fileOps.compressionEnabled,
+  neverOverwrite: fileOps.neverOverwrite,
+});
 
 // Password strength analysis
 // Provides reactive feedback as user types their password
@@ -193,115 +170,99 @@ async function handleEncrypt() {
       </div>
 
       <!-- File Input Section -->
-    <div class="form-group">
-      <label>File to Encrypt:</label>
-      <div class="file-input-group">
-        <NInput
-          :input-props="{ id: 'encrypt-input', title: 'Click to choose a file' }"
-          :value="fileOps.inputPath.value"
-          readonly
-          class="clickable-input"
-          placeholder="Select or drag a file..."
-          @click="handleSelectFileInputClick"
-        />
-        <NButton
-          type="primary"
-          @click="handleSelectFile"
-          :disabled="fileOps.isProcessing.value"
-          title="Choose a file to encrypt"
-        >
-          Browse
-        </NButton>
+      <div class="form-group">
+        <label for="encrypt-input">File to Encrypt:</label>
+        <div class="file-input-group">
+          <NInput
+            :input-props="{ id: 'encrypt-input', title: 'Click to choose a file' }"
+            :value="fileOps.inputPath.value"
+            readonly
+            class="clickable-input"
+            placeholder="Select or drag a file..."
+            @click="handleSelectFileInputClick"
+          />
+          <NButton
+            type="primary"
+            @click="handleSelectFile"
+            :disabled="fileOps.isProcessing.value"
+            title="Choose a file to encrypt"
+          >
+            Browse
+          </NButton>
+        </div>
       </div>
-    </div>
 
-    <!-- Output Path Section -->
-    <div class="form-group">
-      <label for="encrypt-output">Save Encrypted File As:</label>
-      <div class="file-input-group">
-        <NInput
-          :input-props="{ id: 'encrypt-output' }"
-          :value="fileOps.outputPath.value"
-          readonly
-          placeholder="Will auto-generate from input filename..."
-        />
-        <NButton
-          @click="handleSelectOutput"
-          :disabled="fileOps.isProcessing.value"
-          title="Choose where to save the encrypted file"
-        >
-          Change
-        </NButton>
+      <!-- Output Path Section -->
+      <div class="form-group">
+        <label for="encrypt-output">Save Encrypted File As:</label>
+        <div class="file-input-group">
+          <NInput
+            :input-props="{ id: 'encrypt-output' }"
+            :value="fileOps.outputPath.value"
+            readonly
+            placeholder="Will auto-generate from input filename..."
+          />
+          <NButton
+            @click="handleSelectOutput"
+            :disabled="fileOps.isProcessing.value"
+            title="Choose where to save the encrypted file"
+          >
+            Change
+          </NButton>
+        </div>
       </div>
-    </div>
 
-    <!-- Output Safety Options -->
-    <div class="form-group">
-      <NCheckbox
-        v-model:checked="fileOps.neverOverwrite.value"
+      <!-- Output Safety Options -->
+      <OverwriteCheckbox
+        v-model="fileOps.neverOverwrite.value"
         :disabled="fileOps.isProcessing.value"
-      >
-        Never overwrite existing files (auto-rename on conflicts)
-      </NCheckbox>
-      <p class="hint-text">
-        If the output name already exists, we'll save as "name (1)".
-      </p>
-    </div>
+      />
 
-    <!-- Compression Option -->
-    <div class="form-group">
-      <NCheckbox
-        v-model:checked="fileOps.compressionEnabled.value"
-        :disabled="fileOps.isProcessing.value"
-      >
-        Enable compression (ZSTD)
-      </NCheckbox>
-      <p class="hint-text">
-        Compresses file before encryption. Reduces size by ~70% for text/documents,
-        less for images/videos. Slightly slower encryption.
-      </p>
-    </div>
+      <!-- Compression Option -->
+      <div class="form-group">
+        <NCheckbox
+          v-model:checked="fileOps.compressionEnabled.value"
+          :disabled="fileOps.isProcessing.value"
+        >
+          Enable compression (ZSTD)
+        </NCheckbox>
+        <p class="hint-text">
+          Compresses file before encryption. Reduces size by ~70% for text/documents,
+          less for images/videos. Slightly slower encryption.
+        </p>
+      </div>
 
-    <!-- Password Input Section -->
-    <div class="form-group">
-      <label for="encrypt-password">Password:</label>
-      <NInput
-        :input-props="{ id: 'encrypt-password' }"
-        type="password"
-        show-password-on="click"
-        :value="fileOps.password.value"
-        @update:value="fileOps.setPassword"
+      <!-- Password Input Section -->
+      <PasswordSection
+        input-id="encrypt-password"
+        v-model="fileOps.password.value"
         placeholder="Enter password (min 8 characters)"
         :disabled="fileOps.isProcessing.value"
-      />
-      <!-- Password strength meter -->
-      <PasswordStrengthMeter
-        v-if="fileOps.password.value.length > 0"
+        show-strength-meter
         :strength="passwordStrength"
-        :show-feedback="!fileOps.isPasswordValid.value"
+        :is-password-valid="fileOps.isPasswordValid.value"
       />
-    </div>
 
-    <!-- Encrypt Button -->
-    <NButton
-      type="primary"
-      block
-      strong
-      class="action-btn"
-      @click="handleEncrypt"
-      :disabled="!fileOps.isEncryptFormValid.value"
-      title="Start encrypting with the selected file and password"
-    >
-      <span v-if="fileOps.isProcessing.value">Encrypting...</span>
-      <span v-else>Encrypt File</span>
-    </NButton>
+      <!-- Encrypt Button -->
+      <NButton
+        type="primary"
+        block
+        strong
+        class="action-btn"
+        @click="handleEncrypt"
+        :disabled="!fileOps.isEncryptFormValid.value"
+        title="Start encrypting with the selected file and password"
+      >
+        <span v-if="fileOps.isProcessing.value">Encrypting...</span>
+        <span v-else>Encrypt File</span>
+      </NButton>
 
-    <!-- Progress Bar (shown during encryption) -->
-    <ProgressBar
-      v-if="showProgress && progress"
-      :percent="progress.percent"
-      :message="progress.message"
-    />
+      <!-- Progress Bar (shown during encryption) -->
+      <ProgressBar
+        v-if="showProgress && progress"
+        :percent="progress.percent"
+        :message="progress.message"
+      />
 
       <!-- Status Message -->
       <StatusMessage

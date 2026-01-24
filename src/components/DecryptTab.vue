@@ -14,14 +14,17 @@
 -->
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
-import { NButton, NCheckbox, NInput } from 'naive-ui';
+import { ref, onMounted } from 'vue';
+import { NButton, NInput } from 'naive-ui';
 import { join, dirname } from '@tauri-apps/api/path';
 import { useFileOps } from '../composables/useFileOps';
 import { useTauri } from '../composables/useTauri';
 import { useProgress } from '../composables/useProgress';
 import { useDragDrop } from '../composables/useDragDrop';
 import { useSettings } from '../composables/useSettings';
+import { useSettingsSync } from '../composables/useSettingsSync';
+import OverwriteCheckbox from './OverwriteCheckbox.vue';
+import PasswordSection from './PasswordSection.vue';
 import ProgressBar from './ProgressBar.vue';
 import StatusMessage from './StatusMessage.vue';
 
@@ -30,26 +33,10 @@ const fileOps = useFileOps();
 const tauri = useTauri();
 const settings = useSettings();
 
-// Apply default settings when initialized and sync when they change
-watch(
-  () => settings.isInitialized.value,
-  (initialized) => {
-    if (initialized) {
-      fileOps.neverOverwrite.value = settings.defaultNeverOverwrite.value;
-    }
-  },
-  { immediate: true }
-);
-
-// Sync settings changes from Settings tab to this tab
-watch(
-  () => settings.defaultNeverOverwrite.value,
-  (newValue) => {
-    if (settings.isInitialized.value) {
-      fileOps.neverOverwrite.value = newValue;
-    }
-  }
-);
+// Sync settings to fileOps state (initial + reactive updates)
+useSettingsSync(settings, {
+  neverOverwrite: fileOps.neverOverwrite,
+});
 
 /**
  * Get suggested output path considering default output directory
@@ -191,97 +178,81 @@ async function handleDecrypt() {
       </div>
 
       <!-- Encrypted File Input Section -->
-    <div class="form-group">
-      <label for="decrypt-input">Encrypted File:</label>
-      <div class="file-input-group">
-        <NInput
-          :input-props="{ id: 'decrypt-input' }"
-          :value="fileOps.inputPath.value"
-          readonly
-          placeholder="Select or drag a .encrypted file..."
-        />
-        <NButton
-          type="primary"
-          @click="handleSelectFile"
-          :disabled="fileOps.isProcessing.value"
-          title="Choose an encrypted file to decrypt"
-        >
-          Browse
-        </NButton>
+      <div class="form-group">
+        <label for="decrypt-input">Encrypted File:</label>
+        <div class="file-input-group">
+          <NInput
+            :input-props="{ id: 'decrypt-input' }"
+            :value="fileOps.inputPath.value"
+            readonly
+            placeholder="Select or drag a .encrypted file..."
+          />
+          <NButton
+            type="primary"
+            @click="handleSelectFile"
+            :disabled="fileOps.isProcessing.value"
+            title="Choose an encrypted file to decrypt"
+          >
+            Browse
+          </NButton>
+        </div>
       </div>
-    </div>
 
-    <!-- Output Path Section -->
-    <div class="form-group">
-      <label for="decrypt-output">Save Decrypted File As:</label>
-      <div class="file-input-group">
-        <NInput
-          :input-props="{ id: 'decrypt-output' }"
-          :value="fileOps.outputPath.value"
-          readonly
-          placeholder="Will auto-generate from encrypted filename..."
-        />
-        <NButton
-          @click="handleSelectOutput"
-          :disabled="fileOps.isProcessing.value"
-          title="Choose where to save the decrypted file"
-        >
-          Change
-        </NButton>
+      <!-- Output Path Section -->
+      <div class="form-group">
+        <label for="decrypt-output">Save Decrypted File As:</label>
+        <div class="file-input-group">
+          <NInput
+            :input-props="{ id: 'decrypt-output' }"
+            :value="fileOps.outputPath.value"
+            readonly
+            placeholder="Will auto-generate from encrypted filename..."
+          />
+          <NButton
+            @click="handleSelectOutput"
+            :disabled="fileOps.isProcessing.value"
+            title="Choose where to save the decrypted file"
+          >
+            Change
+          </NButton>
+        </div>
       </div>
-    </div>
 
-    <!-- Output Safety Options -->
-    <div class="form-group">
-      <NCheckbox
-        v-model:checked="fileOps.neverOverwrite.value"
-        :disabled="fileOps.isProcessing.value"
-      >
-        Never overwrite existing files (auto-rename on conflicts)
-      </NCheckbox>
-      <p class="hint-text">
-        If the output name already exists, we'll save as "name (1)".
-      </p>
-    </div>
-
-    <!-- Password Input Section -->
-    <div class="form-group">
-      <label for="decrypt-password">Password:</label>
-      <NInput
-        :input-props="{ id: 'decrypt-password' }"
-        type="password"
-        show-password-on="click"
-        :value="fileOps.password.value"
-        @update:value="fileOps.setPassword"
-        placeholder="Enter decryption password"
+      <!-- Output Safety Options -->
+      <OverwriteCheckbox
+        v-model="fileOps.neverOverwrite.value"
         :disabled="fileOps.isProcessing.value"
       />
-      <!-- Info hint -->
-      <p v-if="fileOps.password.value.length === 0" class="hint-text">
-        Enter the password used to encrypt this file
-      </p>
-    </div>
 
-    <!-- Decrypt Button -->
-    <NButton
-      type="primary"
-      block
-      strong
-      class="action-btn"
-      @click="handleDecrypt"
-      :disabled="!fileOps.isDecryptFormValid.value"
-      title="Start decrypting with the selected file and password"
-    >
-      <span v-if="fileOps.isProcessing.value">Decrypting...</span>
-      <span v-else>Decrypt File</span>
-    </NButton>
+      <!-- Password Input Section -->
+      <PasswordSection
+        input-id="decrypt-password"
+        v-model="fileOps.password.value"
+        placeholder="Enter decryption password"
+        :disabled="fileOps.isProcessing.value"
+        hint-text="Enter the password used to encrypt this file"
+      />
 
-    <!-- Progress Bar (shown during decryption) -->
-    <ProgressBar
-      v-if="showProgress && progress"
-      :percent="progress.percent"
-      :message="progress.message"
-    />
+      <!-- Decrypt Button -->
+      <NButton
+        type="primary"
+        block
+        strong
+        class="action-btn"
+        @click="handleDecrypt"
+        :disabled="!fileOps.isDecryptFormValid.value"
+        title="Start decrypting with the selected file and password"
+      >
+        <span v-if="fileOps.isProcessing.value">Decrypting...</span>
+        <span v-else>Decrypt File</span>
+      </NButton>
+
+      <!-- Progress Bar (shown during decryption) -->
+      <ProgressBar
+        v-if="showProgress && progress"
+        :percent="progress.percent"
+        :message="progress.message"
+      />
 
       <!-- Status Message -->
       <StatusMessage

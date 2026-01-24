@@ -12,13 +12,14 @@
 -->
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { NButton, NButtonGroup, NCheckbox, NAlert, NInput, NRadioGroup, NRadio } from 'naive-ui';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useTauri } from '../composables/useTauri';
 import { usePasswordStrength } from '../composables/usePasswordStrength';
 import { useDragDrop } from '../composables/useDragDrop';
 import { useSettings } from '../composables/useSettings';
+import { useSettingsSync } from '../composables/useSettingsSync';
 import { sanitizeErrorMessage } from '../utils/errorSanitizer';
 import PasswordStrengthMeter from './PasswordStrengthMeter.vue';
 import StatusMessage from './StatusMessage.vue';
@@ -38,20 +39,11 @@ const password = ref('');
 const neverOverwrite = ref(true);
 const archiveName = ref('');
 
-// Apply default settings when initialized
-watch(
-  () => settings.isInitialized.value,
-  (initialized) => {
-    if (initialized) {
-      neverOverwrite.value = settings.defaultNeverOverwrite.value;
-      // Set default output directory if configured
-      if (settings.defaultOutputDirectory.value) {
-        outputDir.value = settings.defaultOutputDirectory.value;
-      }
-    }
-  },
-  { immediate: true }
-);
+// Sync settings to local state (initial + reactive updates)
+useSettingsSync(settings, {
+  neverOverwrite: neverOverwrite,
+  outputDirectory: outputDir,
+});
 const isProcessing = ref(false);
 const statusMessage = ref('');
 const statusType = ref<'success' | 'error' | 'info'>('info');
@@ -94,12 +86,29 @@ let unlistenArchiveProgress: UnlistenFn | null = null;
 // Computed properties
 const isPasswordValid = computed(() => password.value.length >= MIN_PASSWORD_LENGTH);
 
+// Invalid filename characters (cross-platform: Windows + macOS/Linux)
+const INVALID_FILENAME_CHARS = /[/\\:*?"<>|]/;
+
+const archiveNameError = computed(() => {
+  if (!archiveName.value) return null; // Empty is allowed (auto-generated)
+  if (INVALID_FILENAME_CHARS.test(archiveName.value)) {
+    return 'Archive name contains invalid characters: / \\ : * ? " < > |';
+  }
+  if (archiveName.value.startsWith('.')) {
+    return 'Archive name should not start with a dot';
+  }
+  return null;
+});
+
+const isArchiveNameValid = computed(() => !archiveNameError.value);
+
 const isFormValid = computed(() =>
   inputPaths.value.length > 0 &&
   outputDir.value.length > 0 &&
   (mode.value === 'decrypt' || isPasswordValid.value) &&
   password.value.length > 0 &&
-  !isProcessing.value
+  !isProcessing.value &&
+  (batchMode.value !== 'archive' || mode.value !== 'encrypt' || isArchiveNameValid.value)
 );
 
 const fileCount = computed(() => inputPaths.value.length);
@@ -352,6 +361,7 @@ function switchBatchMode(newBatchMode: BatchMode) {
     inputPaths.value = [];
     batchResult.value = null;
     statusMessage.value = '';
+    archiveName.value = '';
   }
 }
 
@@ -403,240 +413,245 @@ function getPhaseLabel(phase: string): string {
         </NButton>
       </NButtonGroup>
 
-    <!-- Batch Mode Selector -->
-    <div class="form-group batch-mode-selector">
-      <label>Batch Mode:</label>
-      <NRadioGroup :value="batchMode" @update:value="switchBatchMode" :disabled="isProcessing">
-        <div class="batch-mode-options">
-          <div class="batch-mode-option">
-            <NRadio value="individual">Individual files</NRadio>
-            <span class="radio-description">Each file encrypted separately</span>
+      <!-- Batch Mode Selector -->
+      <div class="form-group batch-mode-selector">
+        <label>Batch Mode:</label>
+        <NRadioGroup :value="batchMode" @update:value="switchBatchMode" :disabled="isProcessing">
+          <div class="batch-mode-options">
+            <div class="batch-mode-option">
+              <NRadio value="individual">Individual files</NRadio>
+              <span class="radio-description">Each file encrypted separately</span>
+            </div>
+            <div class="batch-mode-option">
+              <NRadio value="archive">Archive mode</NRadio>
+              <span class="radio-description">Bundle into one encrypted archive</span>
+            </div>
           </div>
-          <div class="batch-mode-option">
-            <NRadio value="archive">Archive mode</NRadio>
-            <span class="radio-description">Bundle into one encrypted archive</span>
-          </div>
-        </div>
-      </NRadioGroup>
-    </div>
-
-    <!-- Compression Info Banner -->
-    <NAlert v-if="mode === 'encrypt'" type="info" :show-icon="false" class="info-banner">
-      <template v-if="batchMode === 'archive'">
-        Files will be bundled into a compressed TAR archive, then encrypted as a single file.
-      </template>
-      <template v-else>
-        Compression is automatically enabled for batch operations.
-        Files are compressed with ZSTD before encryption for optimal size reduction.
-      </template>
-    </NAlert>
-
-    <!-- Archive Name (archive mode encrypt only) -->
-    <div v-if="batchMode === 'archive' && mode === 'encrypt'" class="form-group">
-      <label>Archive Name (optional):</label>
-      <NInput
-        v-model:value="archiveName"
-        placeholder="Leave empty for auto-generated name (archive_YYYYMMDD_HHMMSS)"
-        :disabled="isProcessing"
-      />
-      <p class="hint-text">
-        Custom name for the archive (without extension). Defaults to timestamp-based name.
-      </p>
-    </div>
-
-    <!-- File Selection -->
-    <div class="form-group">
-      <label>
-        <template v-if="batchMode === 'archive' && mode === 'decrypt'">
-          Archive to Decrypt:
-        </template>
-        <template v-else>
-          {{ mode === 'encrypt' ? 'Files to Encrypt' : 'Files to Decrypt' }}:
-        </template>
-      </label>
-      <div class="file-input-group">
-        <div class="file-count-display">
-          <template v-if="batchMode === 'archive' && mode === 'decrypt'">
-            {{ fileCount === 1 ? '1 archive' : 'No archive' }} selected
-          </template>
-          <template v-else>
-            {{ fileCount }} file{{ fileCount !== 1 ? 's' : '' }} selected
-          </template>
-        </div>
-        <NButton
-          type="primary"
-          @click="handleSelectFiles"
-          :disabled="isProcessing"
-          :title="batchMode === 'archive' && mode === 'decrypt' ? 'Choose an encrypted archive' : 'Choose multiple files to process'"
-        >
-          Browse
-        </NButton>
+        </NRadioGroup>
       </div>
 
-      <!-- Selected Files List -->
-      <div v-if="inputPaths.length > 0" class="file-list">
-        <div
-          v-for="(path, index) in inputPaths"
-          :key="path"
-          class="file-item"
-          :class="{
-            'file-success': batchResult?.files[index]?.success,
-            'file-error': batchResult?.files[index]?.success === false
-          }"
-        >
-          <span class="file-name" :title="getFileName(path)">{{ getFileName(path) }}</span>
-          <span
-            v-if="batchResult?.files[index]?.error"
-            class="file-error-msg selectable"
-            :title="sanitizeErrorMessage(batchResult.files[index].error)"
+      <!-- Compression Info Banner -->
+      <NAlert v-if="mode === 'encrypt'" type="info" :show-icon="false" class="info-banner">
+        <template v-if="batchMode === 'archive'">
+          Files will be bundled into a compressed TAR archive, then encrypted as a single file.
+        </template>
+        <template v-else>
+          Compression is automatically enabled for batch operations.
+          Files are compressed with ZSTD before encryption for optimal size reduction.
+        </template>
+      </NAlert>
+
+      <!-- Archive Name (archive mode encrypt only) -->
+      <div v-if="batchMode === 'archive' && mode === 'encrypt'" class="form-group">
+        <label for="archive-name">Archive Name (optional):</label>
+        <NInput
+          :input-props="{ id: 'archive-name' }"
+          v-model:value="archiveName"
+          placeholder="Leave empty for auto-generated name (archive_YYYYMMDD_HHMMSS)"
+          :disabled="isProcessing"
+          :status="archiveNameError ? 'error' : undefined"
+        />
+        <p v-if="archiveNameError" class="error-text">
+          {{ archiveNameError }}
+        </p>
+        <p v-else class="hint-text">
+          Custom name for the archive (without extension). Defaults to timestamp-based name.
+        </p>
+      </div>
+
+      <!-- File Selection -->
+      <div class="form-group">
+        <label>
+          <template v-if="batchMode === 'archive' && mode === 'decrypt'">
+            Archive to Decrypt:
+          </template>
+          <template v-else>
+            {{ mode === 'encrypt' ? 'Files to Encrypt' : 'Files to Decrypt' }}:
+          </template>
+        </label>
+        <div class="file-input-group">
+          <div class="file-count-display">
+            <template v-if="batchMode === 'archive' && mode === 'decrypt'">
+              {{ fileCount === 1 ? '1 archive' : 'No archive' }} selected
+            </template>
+            <template v-else>
+              {{ fileCount }} file{{ fileCount !== 1 ? 's' : '' }} selected
+            </template>
+          </div>
+          <NButton
+            type="primary"
+            @click="handleSelectFiles"
+            :disabled="isProcessing"
+            :title="batchMode === 'archive' && mode === 'decrypt' ? 'Choose an encrypted archive' : 'Choose multiple files to process'"
           >
-            {{ sanitizeErrorMessage(batchResult.files[index].error) }}
-          </span>
+            Browse
+          </NButton>
+        </div>
+
+        <!-- Selected Files List -->
+        <div v-if="inputPaths.length > 0" class="file-list">
+          <div
+            v-for="(path, index) in inputPaths"
+            :key="path"
+            class="file-item"
+            :class="{
+              'file-success': batchResult?.files[index]?.success,
+              'file-error': batchResult?.files[index]?.success === false
+            }"
+          >
+            <span class="file-name" :title="getFileName(path)">{{ getFileName(path) }}</span>
+            <span
+              v-if="batchResult?.files[index]?.error"
+              class="file-error-msg selectable"
+              :title="sanitizeErrorMessage(batchResult.files[index].error)"
+            >
+              {{ sanitizeErrorMessage(batchResult.files[index].error) }}
+            </span>
+            <button
+              v-if="!isProcessing && !batchResult"
+              @click="removeFile(index)"
+              class="remove-btn"
+              title="Remove file"
+            >
+              &times;
+            </button>
+          </div>
           <button
-            v-if="!isProcessing && !batchResult"
-            @click="removeFile(index)"
-            class="remove-btn"
-            title="Remove file"
+            v-if="inputPaths.length > 1 && !isProcessing && !batchResult"
+            @click="clearFiles"
+            class="btn-link"
+            title="Remove all selected files"
           >
-            &times;
+            Clear all
           </button>
         </div>
-        <button
-          v-if="inputPaths.length > 1 && !isProcessing && !batchResult"
-          @click="clearFiles"
-          class="btn-link"
-          title="Remove all selected files"
-        >
-          Clear all
-        </button>
       </div>
-    </div>
 
-    <!-- Output Directory -->
-    <div class="form-group">
-      <label>Output Directory:</label>
-      <div class="file-input-group">
-        <NInput
-          :value="outputDir"
-          readonly
-          placeholder="Select output directory..."
-        />
-        <NButton
-          @click="handleSelectOutputDir"
+      <!-- Output Directory -->
+      <div class="form-group">
+        <label>Output Directory:</label>
+        <div class="file-input-group">
+          <NInput
+            :value="outputDir"
+            readonly
+            placeholder="Select output directory..."
+          />
+          <NButton
+            @click="handleSelectOutputDir"
+            :disabled="isProcessing"
+            title="Choose the output folder"
+          >
+            Browse
+          </NButton>
+        </div>
+      </div>
+
+      <!-- Output Safety Options -->
+      <div class="form-group">
+        <NCheckbox
+          v-model:checked="neverOverwrite"
           :disabled="isProcessing"
-          title="Choose the output folder"
         >
-          Browse
-        </NButton>
+          Never overwrite existing files (auto-rename on conflicts)
+        </NCheckbox>
+        <p class="hint-text">
+          If a filename already exists, we'll save as "name (1)".
+        </p>
       </div>
-    </div>
 
-    <!-- Output Safety Options -->
-    <div class="form-group">
-      <NCheckbox
-        v-model:checked="neverOverwrite"
-        :disabled="isProcessing"
+      <!-- Password Input -->
+      <div class="form-group">
+        <label>Password:</label>
+        <NInput
+          type="password"
+          show-password-on="click"
+          v-model:value="password"
+          :placeholder="mode === 'encrypt' ? 'Enter password (min 8 characters)' : 'Enter decryption password'"
+          :disabled="isProcessing"
+        />
+        <!-- Password strength meter (encryption only) -->
+        <PasswordStrengthMeter
+          v-if="mode === 'encrypt' && password.length > 0"
+          :strength="passwordStrength"
+          :show-feedback="!isPasswordValid"
+        />
+        <!-- Info hint for decryption -->
+        <p v-if="mode === 'decrypt' && password.length === 0" class="hint-text">
+          Enter the password used to encrypt these files
+        </p>
+      </div>
+
+      <!-- Action Button -->
+      <NButton
+        type="primary"
+        block
+        strong
+        class="action-btn"
+        @click="handleBatchOperation"
+        :disabled="!isFormValid"
+        :title="mode === 'encrypt' ? 'Encrypt all selected files' : 'Decrypt all selected files'"
       >
-        Never overwrite existing files (auto-rename on conflicts)
-      </NCheckbox>
-      <p class="hint-text">
-        If a filename already exists, we'll save as "name (1)".
-      </p>
-    </div>
-
-    <!-- Password Input -->
-    <div class="form-group">
-      <label>Password:</label>
-      <NInput
-        type="password"
-        show-password-on="click"
-        v-model:value="password"
-        :placeholder="mode === 'encrypt' ? 'Enter password (min 8 characters)' : 'Enter decryption password'"
-        :disabled="isProcessing"
-      />
-      <!-- Password strength meter (encryption only) -->
-      <PasswordStrengthMeter
-        v-if="mode === 'encrypt' && password.length > 0"
-        :strength="passwordStrength"
-        :show-feedback="!isPasswordValid"
-      />
-      <!-- Info hint for decryption -->
-      <p v-if="mode === 'decrypt' && password.length === 0" class="hint-text">
-        Enter the password used to encrypt these files
-      </p>
-    </div>
-
-    <!-- Action Button -->
-    <NButton
-      type="primary"
-      block
-      strong
-      class="action-btn"
-      @click="handleBatchOperation"
-      :disabled="!isFormValid"
-      :title="mode === 'encrypt' ? 'Encrypt all selected files' : 'Decrypt all selected files'"
-    >
-      <span v-if="isProcessing">
-        <template v-if="batchMode === 'archive'">
-          {{ mode === 'encrypt' ? 'Creating Archive' : 'Extracting Archive' }}...
-        </template>
-        <template v-else>
-          {{ mode === 'encrypt' ? 'Encrypting' : 'Decrypting' }}...
-        </template>
-      </span>
-      <span v-else>
-        <template v-if="batchMode === 'archive'">
-          <template v-if="mode === 'encrypt'">
-            Create Encrypted Archive ({{ fileCount }} file{{ fileCount !== 1 ? 's' : '' }})
+        <span v-if="isProcessing">
+          <template v-if="batchMode === 'archive'">
+            {{ mode === 'encrypt' ? 'Creating Archive' : 'Extracting Archive' }}...
           </template>
           <template v-else>
-            Decrypt &amp; Extract Archive
-          </template>
-        </template>
-        <template v-else>
-          {{ mode === 'encrypt' ? 'Encrypt' : 'Decrypt' }} {{ fileCount }} File{{ fileCount !== 1 ? 's' : '' }}
-        </template>
-      </span>
-    </NButton>
-
-    <!-- Progress Bar (Individual Mode) -->
-    <div v-if="showProgress && batchMode === 'individual' && batchProgress" class="progress-container">
-      <div class="progress-bar-bg">
-        <div
-          class="progress-bar-fill"
-          :style="{ width: `${batchProgress.percent}%` }"
-        ></div>
-      </div>
-      <div class="progress-info">
-        <span class="progress-message">
-          {{ batchProgress.stage === 'complete' ? 'Complete' : `Processing: ${batchProgress.current_file}` }}
-        </span>
-        <span class="progress-percent">
-          {{ batchProgress.file_index + 1 }}/{{ batchProgress.total_files }}
-        </span>
-      </div>
-    </div>
-
-    <!-- Progress Bar (Archive Mode) -->
-    <div v-if="showProgress && batchMode === 'archive' && archiveProgress" class="progress-container">
-      <div class="progress-bar-bg">
-        <div
-          class="progress-bar-fill"
-          :style="{ width: `${archiveProgress.percent}%` }"
-        ></div>
-      </div>
-      <div class="progress-info">
-        <span class="progress-message">
-          {{ getPhaseLabel(archiveProgress.phase) }}
-          <template v-if="archiveProgress.current_file">
-            : {{ archiveProgress.current_file }}
+            {{ mode === 'encrypt' ? 'Encrypting' : 'Decrypting' }}...
           </template>
         </span>
-        <span class="progress-percent">
-          {{ archiveProgress.percent }}%
+        <span v-else>
+          <template v-if="batchMode === 'archive'">
+            <template v-if="mode === 'encrypt'">
+              Create Encrypted Archive ({{ fileCount }} file{{ fileCount !== 1 ? 's' : '' }})
+            </template>
+            <template v-else>
+              Decrypt &amp; Extract Archive
+            </template>
+          </template>
+          <template v-else>
+            {{ mode === 'encrypt' ? 'Encrypt' : 'Decrypt' }} {{ fileCount }} File{{ fileCount !== 1 ? 's' : '' }}
+          </template>
         </span>
+      </NButton>
+
+      <!-- Progress Bar (Individual Mode) -->
+      <div v-if="showProgress && batchMode === 'individual' && batchProgress" class="progress-container">
+        <div class="progress-bar-bg">
+          <div
+            class="progress-bar-fill"
+            :style="{ width: `${batchProgress.percent}%` }"
+          ></div>
+        </div>
+        <div class="progress-info">
+          <span class="progress-message">
+            {{ batchProgress.stage === 'complete' ? 'Complete' : `Processing: ${batchProgress.current_file}` }}
+          </span>
+          <span class="progress-percent">
+            {{ batchProgress.file_index + 1 }}/{{ batchProgress.total_files }}
+          </span>
+        </div>
       </div>
-    </div>
+
+      <!-- Progress Bar (Archive Mode) -->
+      <div v-if="showProgress && batchMode === 'archive' && archiveProgress" class="progress-container">
+        <div class="progress-bar-bg">
+          <div
+            class="progress-bar-fill"
+            :style="{ width: `${archiveProgress.percent}%` }"
+          ></div>
+        </div>
+        <div class="progress-info">
+          <span class="progress-message">
+            {{ getPhaseLabel(archiveProgress.phase) }}
+            <template v-if="archiveProgress.current_file">
+              : {{ archiveProgress.current_file }}
+            </template>
+          </span>
+          <span class="progress-percent">
+            {{ archiveProgress.percent }}%
+          </span>
+        </div>
+      </div>
 
       <!-- Status Message -->
       <StatusMessage

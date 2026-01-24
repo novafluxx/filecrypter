@@ -27,9 +27,11 @@
 
 use tauri::{command, AppHandle, Emitter};
 
-use crate::commands::file_utils::{resolve_output_path, validate_input_path};
+use crate::commands::command_utils::{
+    create_progress_callback, format_success_response, validate_crypto_inputs,
+};
 use crate::commands::CryptoResponse;
-use crate::crypto::{decrypt_file_streaming, Password};
+use crate::crypto::decrypt_file_streaming;
 use crate::error::CryptoResult;
 use crate::events::{ProgressEvent, CRYPTO_PROGRESS_EVENT};
 
@@ -81,55 +83,32 @@ pub async fn decrypt_file(
     // Log the operation (password is NOT logged)
     log::info!("Decrypting file: {}", input_path);
 
-    // Emit progress
-    let _ = app.emit(CRYPTO_PROGRESS_EVENT, ProgressEvent::reading());
-    let _ = app.emit(CRYPTO_PROGRESS_EVENT, ProgressEvent::deriving_key());
-
-    // Validate input
-    let validated_input = validate_input_path(&input_path)?;
+    // Validate inputs and emit initial progress events
     let allow_overwrite = allow_overwrite.unwrap_or(false);
-    let validated_output = resolve_output_path(&output_path, allow_overwrite)?;
-    let password = Password::new(password);
+    let validated =
+        validate_crypto_inputs(&app, &input_path, &output_path, password, allow_overwrite)?;
 
-    // Progress callback for streaming
-    // Note: AppHandle is internally reference-counted, so clone is cheap
-    let app_handle = app.clone();
-    let progress_callback = move |bytes_processed: u64, total_bytes: u64| {
-        let percent = if total_bytes > 0 {
-            ((bytes_processed as f64 / total_bytes as f64) * 100.0) as u32
-        } else {
-            0
-        }
-        .min(99);
-
-        let _ = app_handle.emit(
-            CRYPTO_PROGRESS_EVENT,
-            ProgressEvent::new("decrypting", percent, "Decrypting file..."),
-        );
-    };
+    // Create progress callback for streaming
+    let progress_callback = create_progress_callback(app.clone(), "decrypting", "Decrypting file...");
 
     // Use streaming for all files
     decrypt_file_streaming(
-        validated_input,
-        &validated_output,
-        &password,
-        Some(Box::new(progress_callback)),
+        validated.input,
+        &validated.output,
+        &validated.password,
+        Some(progress_callback),
         allow_overwrite,
     )?;
 
     let _ = app.emit(CRYPTO_PROGRESS_EVENT, ProgressEvent::decrypt_complete());
 
-    let output_path = validated_output.to_string_lossy().to_string();
-    Ok(CryptoResponse {
-        message: format!("File decrypted successfully: {}", output_path),
-        output_path,
-    })
+    Ok(format_success_response(&validated.output, "decrypted"))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::crypto::{encrypt_file_streaming, DEFAULT_CHUNK_SIZE};
+    use crate::crypto::{encrypt_file_streaming, Password, DEFAULT_CHUNK_SIZE};
     use std::fs;
     use tempfile::NamedTempFile;
 

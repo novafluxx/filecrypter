@@ -30,7 +30,8 @@ use tauri::{command, AppHandle, Emitter};
 use crate::commands::archive::{
     create_tar_zstd_archive, extract_tar_zstd_archive, generate_archive_name,
 };
-use crate::commands::file_utils::{resolve_output_path, validate_batch_count, validate_input_path};
+use crate::commands::command_utils::validate_batch_inputs;
+use crate::commands::file_utils::{resolve_output_path, validate_input_path};
 use crate::crypto::{
     decrypt_file_streaming, encrypt_file_streaming, CompressionConfig, Password, DEFAULT_CHUNK_SIZE,
 };
@@ -174,25 +175,8 @@ fn batch_encrypt_impl<F>(
 where
     F: FnMut(BatchProgress),
 {
-    if password.is_empty() {
-        return Err(CryptoError::FormatError(
-            "Password cannot be empty".to_string(),
-        ));
-    }
-
-    if input_paths.is_empty() {
-        return Err(CryptoError::FormatError("No files selected".to_string()));
-    }
-
-    // Validate batch file count
-    validate_batch_count(input_paths.len())?;
-
-    // Verify output directory exists
-    if !Path::new(output_dir).is_dir() {
-        return Err(CryptoError::FormatError(
-            "Output directory does not exist".to_string(),
-        ));
-    }
+    // Validate common batch inputs
+    validate_batch_inputs(password, input_paths, output_dir)?;
 
     let total_files = input_paths.len();
     let mut results: Vec<FileResult> = Vec::with_capacity(total_files);
@@ -256,25 +240,8 @@ fn batch_decrypt_impl<F>(
 where
     F: FnMut(BatchProgress),
 {
-    if password.is_empty() {
-        return Err(CryptoError::FormatError(
-            "Password cannot be empty".to_string(),
-        ));
-    }
-
-    if input_paths.is_empty() {
-        return Err(CryptoError::FormatError("No files selected".to_string()));
-    }
-
-    // Validate batch file count
-    validate_batch_count(input_paths.len())?;
-
-    // Verify output directory exists
-    if !Path::new(output_dir).is_dir() {
-        return Err(CryptoError::FormatError(
-            "Output directory does not exist".to_string(),
-        ));
-    }
+    // Validate common batch inputs
+    validate_batch_inputs(password, input_paths, output_dir)?;
 
     let total_files = input_paths.len();
     let mut results: Vec<FileResult> = Vec::with_capacity(total_files);
@@ -548,25 +515,8 @@ pub async fn batch_encrypt_archive(
         output_dir
     );
 
-    if password.is_empty() {
-        return Err(CryptoError::FormatError(
-            "Password cannot be empty".to_string(),
-        ));
-    }
-
-    if input_paths.is_empty() {
-        return Err(CryptoError::FormatError("No files selected".to_string()));
-    }
-
-    // Validate batch file count
-    validate_batch_count(input_paths.len())?;
-
-    // Verify output directory exists
-    if !Path::new(&output_dir).is_dir() {
-        return Err(CryptoError::FormatError(
-            "Output directory does not exist".to_string(),
-        ));
-    }
+    // Validate common batch inputs
+    validate_batch_inputs(&password, &input_paths, &output_dir)?;
 
     let allow_overwrite = allow_overwrite.unwrap_or(false);
     let total_files = input_paths.len();

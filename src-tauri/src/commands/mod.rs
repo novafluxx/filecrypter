@@ -12,6 +12,7 @@ use serde::Serialize;
 pub(crate) mod archive;
 
 mod batch;
+pub mod command_utils;
 mod decrypt;
 mod encrypt;
 pub mod file_utils;

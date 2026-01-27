@@ -10,25 +10,24 @@
 
 use std::fs::File;
 use std::io;
+use std::os::windows::ffi::OsStrExt;
 use std::os::windows::io::FromRawHandle;
 use std::path::Path;
 
-use windows_acl::acl::ACL;
-use windows_acl::helper::{current_user, name_to_sid};
-
-use windows_sys::Win32::Foundation::{LocalFree, INVALID_HANDLE_VALUE};
+use windows_sys::Win32::Foundation::{CloseHandle, LocalFree, INVALID_HANDLE_VALUE};
 use windows_sys::Win32::Security::Authorization::{
-    GetNamedSecurityInfoW, SetEntriesInAclW, SetNamedSecurityInfoW, EXPLICIT_ACCESS_W, SET_ACCESS,
-    TRUSTEE_IS_SID, TRUSTEE_W,
+    SetEntriesInAclW, SetNamedSecurityInfoW, EXPLICIT_ACCESS_W, SET_ACCESS, TRUSTEE_IS_SID,
+    TRUSTEE_W,
 };
 use windows_sys::Win32::Security::{
-    InitializeSecurityDescriptor, SetSecurityDescriptorDacl, ACL as WIN_ACL,
-    DACL_SECURITY_INFORMATION, PROTECTED_DACL_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR,
-    SECURITY_ATTRIBUTES, SECURITY_DESCRIPTOR,
+    GetTokenInformation, InitializeSecurityDescriptor, OpenProcessToken, SetSecurityDescriptorDacl,
+    TokenUser, ACL as WIN_ACL, DACL_SECURITY_INFORMATION, PROTECTED_DACL_SECURITY_INFORMATION,
+    PSECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES, SECURITY_DESCRIPTOR, TOKEN_QUERY, TOKEN_USER,
 };
 use windows_sys::Win32::Storage::FileSystem::{
     CreateFileW, FILE_ATTRIBUTE_NORMAL, FILE_GENERIC_READ, FILE_GENERIC_WRITE,
 };
+use windows_sys::Win32::System::Threading::GetCurrentProcess;
 
 /// Error type for Windows DACL operations
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -84,8 +83,7 @@ pub fn create_secure_file<P: AsRef<Path>>(path: P) -> Result<File, DaclError> {
     let path = path.as_ref();
 
     // Get current user's SID
-    let current_user_name = current_user().ok_or(DaclError::NoCurrentUser)?;
-    let current_user_sid = name_to_sid(&current_user_name, None)?;
+    let current_user_sid = current_user_sid()?;
 
     // Build path as wide string (null-terminated UTF-16)
     let path_wide: Vec<u16> = path
@@ -119,7 +117,7 @@ pub fn create_secure_file<P: AsRef<Path>>(path: P) -> Result<File, DaclError> {
             TrusteeType: 0,
             // SAFETY: current_user_sid is valid for the lifetime of this function call.
             // The SID data is passed to SetEntriesInAclW which copies it internally.
-            ptstrName: current_user_sid.as_ptr() as *mut u16,
+            ptstrName: current_user_sid.sid_ptr() as *mut u16,
         };
 
         // Create new ACL with just our entry
@@ -179,71 +177,6 @@ fn get_last_error() -> u32 {
     unsafe { windows_sys::Win32::Foundation::GetLastError() }
 }
 
-/// Protect the current DACL from inheritance while preserving its entries.
-fn protect_dacl(path: &Path) -> Result<(), DaclError> {
-    let path_wide: Vec<u16> = path
-        .as_os_str()
-        .encode_wide()
-        .chain(std::iter::once(0))
-        .collect();
-
-    unsafe {
-        use windows_sys::Win32::Security::Authorization::SE_FILE_OBJECT;
-
-        let mut dacl: *mut WIN_ACL = std::ptr::null_mut();
-        let mut sd: PSECURITY_DESCRIPTOR = std::ptr::null_mut();
-
-        // DACL states to be aware of:
-        // - Not present: permissions are inherited from the parent object.
-        // - Present but NULL: grants full access to everyone (dangerous).
-        // - Present with ACEs: normal restricted permissions.
-        // We treat a NULL DACL pointer as an error to avoid ever applying or preserving it.
-        let result = GetNamedSecurityInfoW(
-            path_wide.as_ptr(),
-            SE_FILE_OBJECT,
-            DACL_SECURITY_INFORMATION,
-            std::ptr::null_mut(),
-            std::ptr::null_mut(),
-            &mut dacl,
-            std::ptr::null_mut(),
-            &mut sd,
-        );
-
-        if result != 0 {
-            return Err(DaclError::WindowsError(result));
-        }
-
-        if dacl.is_null() {
-            if !sd.is_null() {
-                LocalFree(sd as *mut _);
-            }
-            return Err(DaclError::IoError(
-                "Failed to read DACL for protection".to_string(),
-            ));
-        }
-
-        let result = SetNamedSecurityInfoW(
-            path_wide.as_ptr(),
-            SE_FILE_OBJECT,
-            DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
-            std::ptr::null_mut(),
-            std::ptr::null_mut(),
-            dacl,
-            std::ptr::null_mut(),
-        );
-
-        if !sd.is_null() {
-            LocalFree(sd as *mut _);
-        }
-
-        if result != 0 {
-            return Err(DaclError::WindowsError(result));
-        }
-    }
-
-    Ok(())
-}
-
 /// Set restrictive DACL on an existing file: current user read/write only.
 ///
 /// This mirrors Unix 0o600 permissions by:
@@ -261,30 +194,15 @@ fn protect_dacl(path: &Path) -> Result<(), DaclError> {
 /// This function is for securing existing files and has a small TOCTOU window
 /// between file creation and permission application.
 pub fn set_owner_only_dacl<P: AsRef<Path>>(path: P) -> Result<(), DaclError> {
-    let path_str = path.as_ref().to_string_lossy();
+    let path = path.as_ref();
 
-    // Get current user's name (e.g., "username" or "DOMAIN\\username")
-    let current_user_name = current_user().ok_or(DaclError::NoCurrentUser)?;
+    let current_user_sid = current_user_sid()?;
 
-    // Convert username to SID bytes using name_to_sid
-    // The second parameter is the system/domain scope - None means local
-    let current_user_sid = name_to_sid(&current_user_name, None)?;
-
-    // Get the file's ACL (false = don't get SACL, only DACL)
-    let mut acl = ACL::from_file_path(&path_str, false)?;
-
-    // Get all existing entries and remove them (clears inherited ACEs)
-    let entries = acl.all()?;
-    for entry in entries {
-        // Remove all entries for this SID (both Allow and Deny types)
-        // entry.sid is Option<Vec<u16>>, so we need to handle it
-        if let Some(ref sid) = entry.sid {
-            // SAFETY: sid.as_ptr() returns a valid pointer to the SID data.
-            // The pointer is only used for the duration of the remove() call,
-            // and the windows-acl crate's API requires *mut but doesn't modify the data.
-            acl.remove(sid.as_ptr() as *mut _, None, None)?;
-        }
-    }
+    let path_wide: Vec<u16> = path
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
 
     // Windows file access rights for read/write (equivalent to Unix 0o600)
     // These values match the Windows SDK definitions:
@@ -295,22 +213,87 @@ pub fn set_owner_only_dacl<P: AsRef<Path>>(path: P) -> Result<(), DaclError> {
 
     // Add allow entry for current user: read + write
     let access_mask = FILE_GENERIC_READ_MASK | FILE_GENERIC_WRITE_MASK;
-    // SAFETY: current_user_sid.as_ptr() returns a valid pointer to the SID data.
-    // The pointer is only used for the duration of the allow() call,
-    // and the windows-acl crate's API requires *mut but doesn't modify the data.
-    acl.allow(
-        current_user_sid.as_ptr() as *mut _,
-        false, // Not inheritable (files don't have children)
-        access_mask,
-    )?;
+    unsafe {
+        use windows_sys::Win32::Security::Authorization::SE_FILE_OBJECT;
 
-    // Protect the DACL from inheritance while preserving its entries.
-    protect_dacl(path.as_ref())?;
+        let mut ea: EXPLICIT_ACCESS_W = std::mem::zeroed();
+        ea.grfAccessPermissions = access_mask;
+        ea.grfAccessMode = SET_ACCESS;
+        ea.grfInheritance = 0;
+        ea.Trustee = TRUSTEE_W {
+            pMultipleTrustee: std::ptr::null_mut(),
+            MultipleTrusteeOperation: 0,
+            TrusteeForm: TRUSTEE_IS_SID,
+            TrusteeType: 0,
+            // SAFETY: current_user_sid is valid for the lifetime of this function call.
+            // The SID data is passed to SetEntriesInAclW which copies it internally.
+            ptstrName: current_user_sid.sid_ptr() as *mut u16,
+        };
+
+        let mut new_acl: *mut WIN_ACL = std::ptr::null_mut();
+        let result = SetEntriesInAclW(1, &ea, std::ptr::null_mut(), &mut new_acl);
+        if result != 0 {
+            return Err(DaclError::WindowsError(result));
+        }
+
+        let result = SetNamedSecurityInfoW(
+            path_wide.as_ptr(),
+            SE_FILE_OBJECT,
+            DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            new_acl,
+            std::ptr::null_mut(),
+        );
+
+        LocalFree(new_acl as *mut _);
+
+        if result != 0 {
+            return Err(DaclError::WindowsError(result));
+        }
+    }
 
     Ok(())
 }
 
-use std::os::windows::ffi::OsStrExt;
+struct UserSid {
+    buf: Vec<u8>,
+}
+
+impl UserSid {
+    fn sid_ptr(&self) -> *mut u8 {
+        let token_user_ptr = self.buf.as_ptr() as *const TOKEN_USER;
+        // SAFETY: buffer is allocated by GetTokenInformation for TOKEN_USER.
+        let token_user = unsafe { std::ptr::read_unaligned(token_user_ptr) };
+        token_user.User.Sid as *mut u8
+    }
+}
+
+fn current_user_sid() -> Result<UserSid, DaclError> {
+    unsafe {
+        let mut token = 0;
+        if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) == 0 {
+            return Err(DaclError::WindowsError(get_last_error()));
+        }
+
+        let mut len = 0u32;
+        GetTokenInformation(token, TokenUser, std::ptr::null_mut(), 0, &mut len);
+        if len == 0 {
+            CloseHandle(token);
+            return Err(DaclError::WindowsError(get_last_error()));
+        }
+
+        let mut buf = vec![0u8; len as usize];
+        let ok = GetTokenInformation(token, TokenUser, buf.as_mut_ptr() as *mut _, len, &mut len);
+        CloseHandle(token);
+
+        if ok == 0 {
+            return Err(DaclError::WindowsError(get_last_error()));
+        }
+
+        Ok(UserSid { buf })
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -318,6 +301,7 @@ mod tests {
     use std::fs;
     use std::io::Write;
     use tempfile::NamedTempFile;
+    use windows_sys::Win32::Security::{GetSecurityDescriptorControl, SECURITY_DESCRIPTOR_CONTROL};
 
     #[test]
     fn test_set_owner_only_dacl() {
@@ -388,6 +372,20 @@ mod tests {
     }
 
     #[test]
+    fn test_dacl_is_protected_from_inheritance() {
+        let temp_file = NamedTempFile::new().unwrap();
+        let path = temp_file.path();
+
+        fs::write(path, b"test content").unwrap();
+
+        let result = set_owner_only_dacl(path);
+        assert!(result.is_ok(), "Failed to set DACL: {:?}", result);
+
+        let is_protected = dacl_is_protected(path).expect("Failed to read DACL protection");
+        assert!(is_protected, "DACL should be protected from inheritance");
+    }
+
+    #[test]
     fn test_dacl_error_display() {
         let err = DaclError::WindowsError(5);
         assert_eq!(format!("{}", err), "Windows error code: 5");
@@ -397,5 +395,51 @@ mod tests {
 
         let err = DaclError::IoError("test error".to_string());
         assert_eq!(format!("{}", err), "I/O error: test error");
+    }
+
+    fn dacl_is_protected(path: &Path) -> Result<bool, DaclError> {
+        let path_wide: Vec<u16> = path
+            .as_os_str()
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+
+        unsafe {
+            use windows_sys::Win32::Security::Authorization::SE_FILE_OBJECT;
+            use windows_sys::Win32::Security::SE_DACL_PROTECTED;
+
+            let mut sd: PSECURITY_DESCRIPTOR = std::ptr::null_mut();
+            let result = windows_sys::Win32::Security::Authorization::GetNamedSecurityInfoW(
+                path_wide.as_ptr(),
+                SE_FILE_OBJECT,
+                DACL_SECURITY_INFORMATION,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                &mut sd,
+            );
+
+            if result != 0 {
+                return Err(DaclError::WindowsError(result));
+            }
+
+            if sd.is_null() {
+                return Err(DaclError::IoError(
+                    "Failed to read security descriptor".to_string(),
+                ));
+            }
+
+            let mut control: SECURITY_DESCRIPTOR_CONTROL = 0;
+            let mut revision: u32 = 0;
+            let ok = GetSecurityDescriptorControl(sd, &mut control, &mut revision);
+            LocalFree(sd as *mut _);
+
+            if ok == 0 {
+                return Err(DaclError::WindowsError(get_last_error()));
+            }
+
+            Ok((control & SE_DACL_PROTECTED) != 0)
+        }
     }
 }

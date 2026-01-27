@@ -5,6 +5,18 @@ All notable changes to FileCrypter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.17] - 2026-01-27
+
+
+
+### Dependencies
+
+- **deps:** Update typescript-eslint and vue-tsc ([7ed5a68](https://github.com/novafluxx/filecrypter/commit/7ed5a68d799f41c39d90310cb18aa10a2916ce02))
+
+
+### Refactoring
+
+- **security:** Replace windows-acl crate with direct windows-sys calls ([bf641de](https://github.com/novafluxx/filecrypter/commit/bf641de04952051324bcf3e493d3ea2dd81aa714))
 ## [0.1.16] - 2026-01-25
 
 

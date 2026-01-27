@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+### Bug Fixes
+
+- **security:** Update windows-sys 0.61 API compatibility ([d474210](https://github.com/novafluxx/filecrypter/commit/d474210465c8446f99ebd7928b56c77979ede5a4))
+
+
 ### Dependencies
 
 - **deps:** Update typescript-eslint and vue-tsc ([7ed5a68](https://github.com/novafluxx/filecrypter/commit/7ed5a68d799f41c39d90310cb18aa10a2916ce02))

@@ -16,7 +16,8 @@
         "width": 700,
         "height": 650,
         "resizable": false,
-        "fullscreen": false
+        "fullscreen": false,
+        "backgroundColor": "#1e1e1e"
       }
     ],
     "security": {

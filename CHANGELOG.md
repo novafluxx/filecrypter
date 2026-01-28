@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Sync bun.lock with package.json ([50d1d67](https://github.com/novafluxx/filecrypter/commit/50d1d674fe0f7bee848b100faae6eb10ff12a5ec))
 - **ui:** Prevent white flash on app startup ([997f587](https://github.com/novafluxx/filecrypter/commit/997f587782d4970aea30c36d7d4a1b4d84c52ec3))
+- **ui:** Prevent white flash on app startup ([185f6de](https://github.com/novafluxx/filecrypter/commit/185f6de257548f22c8cc77369aeb0bf2faace6be))
 
 
 ### Dependencies

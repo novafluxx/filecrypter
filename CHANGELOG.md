@@ -5,6 +5,19 @@ All notable changes to FileCrypter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.18] - 2026-01-28
+
+
+
+### Bug Fixes
+
+- Sync bun.lock with package.json ([50d1d67](https://github.com/novafluxx/filecrypter/commit/50d1d674fe0f7bee848b100faae6eb10ff12a5ec))
+- **ui:** Prevent white flash on app startup ([997f587](https://github.com/novafluxx/filecrypter/commit/997f587782d4970aea30c36d7d4a1b4d84c52ec3))
+
+
+### Dependencies
+
+- **deps:** Update @types/bun to 1.3.7 ([97de752](https://github.com/novafluxx/filecrypter/commit/97de75283d74a3743217e9cd6c5617cec284c15b))
 ## [0.1.17] - 2026-01-27
 
 

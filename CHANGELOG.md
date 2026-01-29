@@ -12,6 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Features
 
 - **ui:** Add "What's new" link to update notification banner ([674eab4](https://github.com/novafluxx/filecrypter/commit/674eab4c76ace086a23c3548313520d8541abf44))
+
+
+### Bug Fixes
+
+- **ci:** Fixed release notes issue when release notes contain quotes ([5e9051f](https://github.com/novafluxx/filecrypter/commit/5e9051fefdc444e825b59bb7ec7e8a74331e313a))
+- **ci:** Strip 'v' prefix from manual version override input ([f682d63](https://github.com/novafluxx/filecrypter/commit/f682d635bcdfd9fd2478ba341a9bb889f30126d2))
 ## [0.1.18] - 2026-01-28
 
 

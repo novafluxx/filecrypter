@@ -49,6 +49,7 @@ jobs:
           # Use manual override if provided, otherwise auto-calculate
           if [ -n "${{ inputs.version }}" ]; then
             VERSION="${{ inputs.version }}"
+            VERSION="${VERSION#v}"  # Strip leading 'v' prefix if provided
             echo "Using manual version override: $VERSION"
           else
             # Get the latest stable tag (exclude pre-release tags like v0.1.4-rc.1)

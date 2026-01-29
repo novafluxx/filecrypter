@@ -229,6 +229,7 @@ jobs:
       - name: Create draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_NOTES: ${{ steps.generate-release-changelog.outputs.changelog }}
         run: |
           TAG="${{ steps.create-tag.outputs.tag }}"
 
@@ -238,7 +239,7 @@ jobs:
           gh release create "$TAG" \
             --draft \
             --title "FileCrypter $TAG" \
-            --notes "${{ steps.generate-release-changelog.outputs.changelog }}"
+            --notes "$RELEASE_NOTES"
 
           echo "✅ Created draft release for $TAG"
 

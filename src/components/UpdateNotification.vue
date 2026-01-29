@@ -8,6 +8,7 @@
 
 <script setup lang="ts">
 import { NButton, NAlert, NProgress } from 'naive-ui';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { useUpdater } from '../composables/useUpdater';
 
 const {
@@ -19,6 +20,12 @@ const {
   downloadAndInstall,
   dismissUpdate,
 } = useUpdater();
+
+function openReleaseNotes() {
+  if (updateVersion.value) {
+    openUrl(`https://github.com/novafluxx/filecrypter/releases/tag/v${updateVersion.value}`);
+  }
+}
 </script>
 
 <template>
@@ -28,7 +35,10 @@ const {
         <div class="update-content">
           <div class="update-text">
             <strong>Update Available</strong>
-            <span v-if="updateVersion">Version {{ updateVersion }} is ready to install.</span>
+            <span v-if="updateVersion">
+              Version {{ updateVersion }} is ready to install.
+              <a class="whats-new-link" @click.prevent="openReleaseNotes">What's new</a>
+            </span>
           </div>
           <div v-if="error" class="update-error">
             <span class="update-error-text">{{ error }}</span>
@@ -99,6 +109,13 @@ const {
 .update-text span {
   font-size: 12px;
   color: var(--muted);
+}
+
+.whats-new-link {
+  color: var(--primary);
+  cursor: pointer;
+  text-decoration: underline;
+  margin-left: 4px;
 }
 
 .update-actions {

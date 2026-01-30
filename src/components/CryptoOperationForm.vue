@@ -160,6 +160,7 @@ defineExpose({
       <KeyFileSection
         v-model="fileOps.keyFilePath.value"
         :disabled="fileOps.isProcessing.value"
+        :show-generate="mode !== 'decrypt'"
       />
 
       <!-- Action Button -->

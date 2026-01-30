@@ -15,10 +15,14 @@
 import { NButton, NInput } from 'naive-ui';
 import { useTauri } from '../composables/useTauri';
 
-defineProps<{
-  modelValue: string;
-  disabled: boolean;
-}>();
+withDefaults(
+  defineProps<{
+    modelValue: string;
+    disabled: boolean;
+    showGenerate?: boolean;
+  }>(),
+  { showGenerate: true },
+);
 
 const emit = defineEmits<{
   'update:modelValue': [value: string];
@@ -77,6 +81,7 @@ function handleClear() {
         Browse
       </NButton>
       <NButton
+        v-if="showGenerate"
         @click="handleGenerate"
         :disabled="disabled"
         title="Generate a new random key file"

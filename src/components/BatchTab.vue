@@ -592,6 +592,7 @@ function getPhaseLabel(phase: string): string {
       <KeyFileSection
         v-model="keyFilePath"
         :disabled="isProcessing"
+        :show-generate="mode !== 'decrypt'"
       />
 
       <!-- Action Button -->

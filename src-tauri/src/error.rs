@@ -52,6 +52,14 @@ pub enum CryptoError {
     /// Path traversal attempt detected
     #[error("PathTraversal: {0}")]
     PathTraversal(String),
+
+    /// File was encrypted with a key file but none was provided
+    #[error("This file was encrypted with a key file. Please provide the key file to decrypt.")]
+    KeyFileRequired,
+
+    /// Key file operation error
+    #[error("Key file error: {0}")]
+    KeyFileError(String),
 }
 
 /// Result type alias for crypto operations

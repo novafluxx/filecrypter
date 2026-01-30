@@ -76,6 +76,7 @@ use crate::events::{ProgressEvent, CRYPTO_PROGRESS_EVENT};
 /// });
 /// ```
 #[command]
+#[allow(clippy::too_many_arguments)]
 pub async fn encrypt_file(
     app: AppHandle,
     input_path: String,
@@ -84,6 +85,7 @@ pub async fn encrypt_file(
     allow_overwrite: Option<bool>,
     compression_enabled: Option<bool>,
     compression_level: Option<i32>,
+    key_file_path: Option<String>,
 ) -> CryptoResult<CryptoResponse> {
     // Log the operation (password is NOT logged)
     log::info!("Encrypting file: {}", input_path);
@@ -104,6 +106,9 @@ pub async fn encrypt_file(
     let progress_callback =
         create_progress_callback(app.clone(), "encrypting", "Encrypting file...");
 
+    // Validate key file path if provided
+    let kf_path = key_file_path.as_deref().map(std::path::Path::new);
+
     // Use streaming for all files
     encrypt_file_streaming(
         validated.input,
@@ -113,6 +118,7 @@ pub async fn encrypt_file(
         Some(progress_callback),
         allow_overwrite,
         compression,
+        kf_path,
     )?;
 
     let _ = app.emit(CRYPTO_PROGRESS_EVENT, ProgressEvent::encrypt_complete());
@@ -148,6 +154,7 @@ mod tests {
             None,
             false,
             None,
+            None,
         );
 
         assert!(result.is_ok());
@@ -164,7 +171,7 @@ mod tests {
 
         // Verify we can decrypt it
         let decrypted_path = temp_dir.path().join("decrypted.txt");
-        decrypt_file_streaming(&output_path, &decrypted_path, &password, None, false).unwrap();
+        decrypt_file_streaming(&output_path, &decrypted_path, &password, None, false, None).unwrap();
         let decrypted_content = fs::read(&decrypted_path).unwrap();
         assert_eq!(decrypted_content, b"Test content for streaming");
     }
@@ -187,6 +194,7 @@ mod tests {
             DEFAULT_CHUNK_SIZE,
             None,
             false,
+            None,
             None,
         );
 
@@ -219,6 +227,7 @@ mod tests {
             None,
             false,
             Some(CompressionConfig::default()),
+            None,
         );
 
         assert!(result.is_ok());
@@ -232,7 +241,7 @@ mod tests {
 
         // Verify we can decrypt it
         let decrypted_path = temp_dir.path().join("decrypted.txt");
-        decrypt_file_streaming(&output_path, &decrypted_path, &password, None, false).unwrap();
+        decrypt_file_streaming(&output_path, &decrypted_path, &password, None, false, None).unwrap();
         let decrypted_content = fs::read(&decrypted_path).unwrap();
         assert_eq!(decrypted_content, content);
     }

@@ -21,6 +21,7 @@ import { useDragDrop } from '../composables/useDragDrop';
 import { useSettings } from '../composables/useSettings';
 import { useSettingsSync } from '../composables/useSettingsSync';
 import { sanitizeErrorMessage } from '../utils/errorSanitizer';
+import KeyFileSection from './KeyFileSection.vue';
 import PasswordStrengthMeter from './PasswordStrengthMeter.vue';
 import StatusMessage from './StatusMessage.vue';
 import type { BatchProgress, BatchResult, ArchiveProgress, ArchiveResult, BatchMode } from '../types/crypto';
@@ -37,6 +38,7 @@ const inputPaths = ref<string[]>([]);
 const outputDir = ref('');
 const password = ref('');
 const neverOverwrite = ref(true);
+const keyFilePath = ref('');
 const archiveName = ref('');
 
 // Sync settings to local state (initial + reactive updates)
@@ -245,14 +247,16 @@ async function handleIndividualOperation(allowOverwrite: boolean) {
         inputPaths.value,
         outputDir.value,
         password.value,
-        allowOverwrite
+        allowOverwrite,
+        keyFilePath.value || undefined
       );
     } else {
       result = await tauri.batchDecrypt(
         inputPaths.value,
         outputDir.value,
         password.value,
-        allowOverwrite
+        allowOverwrite,
+        keyFilePath.value || undefined
       );
     }
 
@@ -295,7 +299,8 @@ async function handleArchiveOperation(allowOverwrite: boolean) {
         outputDir.value,
         password.value,
         archiveName.value || undefined,
-        allowOverwrite
+        allowOverwrite,
+        keyFilePath.value || undefined
       );
     } else {
       // For archive decrypt, we only have one file (the archive)
@@ -313,7 +318,8 @@ async function handleArchiveOperation(allowOverwrite: boolean) {
         archivePath,
         outputDir.value,
         password.value,
-        allowOverwrite
+        allowOverwrite,
+        keyFilePath.value || undefined
       );
     }
 
@@ -350,6 +356,7 @@ function switchMode(newMode: 'encrypt' | 'decrypt') {
     batchResult.value = null;
     statusMessage.value = '';
     password.value = '';
+    keyFilePath.value = '';
     archiveName.value = '';
   }
 }
@@ -580,6 +587,12 @@ function getPhaseLabel(phase: string): string {
           Enter the password used to encrypt these files
         </p>
       </div>
+
+      <!-- Key File Section -->
+      <KeyFileSection
+        v-model="keyFilePath"
+        :disabled="isProcessing"
+      />
 
       <!-- Action Button -->
       <NButton

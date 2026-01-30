@@ -79,7 +79,11 @@ use tempfile::NamedTempFile;
 use crate::crypto::compression::{
     compress, decompress_with_limit, CompressionAlgorithm, CompressionConfig,
 };
-use crate::crypto::kdf::{derive_key_with_params, generate_salt_with_len, KdfAlgorithm, KdfParams};
+use crate::crypto::kdf::{
+    derive_key_with_material, derive_key_with_params, generate_salt_with_len, KdfAlgorithm,
+    KdfParams,
+};
+use crate::crypto::keyfile::{combine_password_and_keyfile, hash_key_file};
 use crate::crypto::secure::Password;
 use crate::error::{CryptoError, CryptoResult};
 
@@ -99,9 +103,8 @@ const KDF_PARAMS_SIZE: usize = 1 + 4 + 4 + 4 + 4;
 const HEADER_V4_FIXED_SIZE: usize =
     VERSION_SIZE + SALT_LEN_SIZE + KDF_PARAMS_SIZE + NONCE_SIZE + 4 + 8;
 
-// Version 5 adds compression fields: algorithm (1) + level (1) + original_size (8) = 10 bytes
+// Version 5/7 adds compression fields: algorithm (1) + level (1) + original_size (8) = 10 bytes
 const COMPRESSION_FIELDS_SIZE: usize = 1 + 1 + 8;
-const HEADER_V5_FIXED_SIZE: usize = HEADER_V4_FIXED_SIZE + COMPRESSION_FIELDS_SIZE;
 
 /// Streaming file format version (without compression)
 pub const STREAMING_VERSION_V4: u8 = 4;
@@ -109,8 +112,20 @@ pub const STREAMING_VERSION_V4: u8 = 4;
 /// Streaming file format version (with compression)
 pub const STREAMING_VERSION_V5: u8 = 5;
 
+/// Streaming file format version (no compression, with key file support)
+pub const STREAMING_VERSION_V6: u8 = 6;
+
+/// Streaming file format version (with compression and key file support)
+pub const STREAMING_VERSION_V7: u8 = 7;
+
 /// Default streaming version for backward compatibility (V4 when no compression)
 pub const STREAMING_VERSION: u8 = STREAMING_VERSION_V4;
+
+/// Size of the flags byte added in V6/V7
+const FLAGS_SIZE: usize = 1;
+
+/// Flag bit: key file was used during encryption
+const FLAG_KEY_FILE_USED: u8 = 0x01;
 
 /// Nonce size for AES-GCM (96 bits = 12 bytes)
 const NONCE_SIZE: usize = 12;
@@ -136,10 +151,14 @@ pub type ProgressCallback = Box<dyn Fn(u64, u64) + Send + Sync>;
 /// * `chunk_size` - Size of each chunk in bytes (default: 1MB)
 /// * `progress_callback` - Optional callback for progress updates (bytes_processed, total_bytes)
 /// * `allow_overwrite` - Allow overwriting existing files (default: false)
-/// * `compression` - Optional compression configuration. If provided, uses Version 5 format.
+/// * `compression` - Optional compression configuration. If provided, uses Version 5/7 format.
+/// * `key_file_path` - Optional path to a key file for two-factor encryption.
+///   If provided, the key file is hashed and combined with the password before key derivation.
+///   This produces Version 6 (no compression) or Version 7 (with compression) format.
 ///
 /// # Returns
 /// Ok(()) on success, or CryptoError on failure
+#[allow(clippy::too_many_arguments)]
 pub fn encrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
     input_path: P,
     output_path: Q,
@@ -148,6 +167,7 @@ pub fn encrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
     progress_callback: Option<ProgressCallback>,
     allow_overwrite: bool,
     compression: Option<CompressionConfig>,
+    key_file_path: Option<&Path>,
 ) -> CryptoResult<()> {
     if password.is_empty() {
         return Err(CryptoError::FormatError(
@@ -183,7 +203,16 @@ pub fn encrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
     // Generate salt and derive key
     let kdf_params = KdfParams::default();
     let salt = generate_salt_with_len(kdf_params.salt_length as usize)?;
-    let key = derive_key_with_params(password, &salt, &kdf_params)?;
+
+    // Hash key file if provided, then derive encryption key
+    let use_key_file = key_file_path.is_some();
+    let key = if let Some(kf_path) = key_file_path {
+        let kf_hash = hash_key_file(kf_path)?;
+        let combined = combine_password_and_keyfile(password.as_bytes(), kf_hash.as_slice());
+        derive_key_with_material(combined.as_slice(), &salt, &kdf_params)?
+    } else {
+        derive_key_with_params(password, &salt, &kdf_params)?
+    };
     let cipher =
         Aes256Gcm::new_from_slice(key.as_slice()).map_err(|_| CryptoError::EncryptionFailed)?;
 
@@ -233,14 +262,16 @@ pub fn encrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
         )));
     }
 
-    // Determine version based on compression
+    // Determine version based on compression and key file usage
     let compression_config = compression.unwrap_or_else(CompressionConfig::none);
     let use_compression = compression_config.is_enabled();
-    let version = if use_compression {
-        STREAMING_VERSION_V5
-    } else {
-        STREAMING_VERSION_V4
+    let version = match (use_compression, use_key_file) {
+        (false, false) => STREAMING_VERSION_V4,
+        (true, false) => STREAMING_VERSION_V5,
+        (false, true) => STREAMING_VERSION_V6,
+        (true, true) => STREAMING_VERSION_V7,
     };
+    let flags = if use_key_file { FLAG_KEY_FILE_USED } else { 0 };
     let max_ciphertext_chunk_len = max_ciphertext_len(
         chunk_size,
         if use_compression {
@@ -264,6 +295,7 @@ pub fn encrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
             None
         },
         original_size: file_size,
+        flags: if use_key_file { Some(flags) } else { None },
     });
     writer.write_all(&header)?;
 
@@ -348,6 +380,8 @@ pub fn encrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
 /// * `password` - User's password
 /// * `progress_callback` - Optional callback for progress updates
 /// * `allow_overwrite` - Allow overwriting existing files (default: false)
+/// * `key_file_path` - Optional path to a key file. Required if the file was encrypted
+///   with a key file (V6/V7 format with KEY_FILE_USED flag set).
 ///
 /// # Returns
 /// Ok(()) on success, or CryptoError on failure
@@ -357,6 +391,7 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
     password: &Password,
     progress_callback: Option<ProgressCallback>,
     allow_overwrite: bool,
+    key_file_path: Option<&Path>,
 ) -> CryptoResult<()> {
     if password.is_empty() {
         return Err(CryptoError::FormatError(
@@ -372,13 +407,20 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
     // Read and verify version
     let mut version = [0u8; 1];
     reader.read_exact(&mut version)?;
-    if version[0] != STREAMING_VERSION_V4 && version[0] != STREAMING_VERSION_V5 {
+    if !matches!(
+        version[0],
+        STREAMING_VERSION_V4
+            | STREAMING_VERSION_V5
+            | STREAMING_VERSION_V6
+            | STREAMING_VERSION_V7
+    ) {
         return Err(CryptoError::FormatError(format!(
             "Unsupported file format version: {}",
             version[0]
         )));
     }
-    let is_v5 = version[0] == STREAMING_VERSION_V5;
+    let has_compression = version[0] == STREAMING_VERSION_V5 || version[0] == STREAMING_VERSION_V7;
+    let has_flags = version[0] == STREAMING_VERSION_V6 || version[0] == STREAMING_VERSION_V7;
 
     // Read salt length
     let mut salt_len_bytes = [0u8; 4];
@@ -444,8 +486,8 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
         return Err(CryptoError::FormatError("File too large".to_string()));
     }
 
-    // Read compression fields for V5
-    let (compression_algorithm, compression_level, original_size) = if is_v5 {
+    // Read compression fields for V5/V7
+    let (compression_algorithm, compression_level, original_size) = if has_compression {
         let mut alg_byte = [0u8; 1];
         reader.read_exact(&mut alg_byte)?;
         let algorithm = CompressionAlgorithm::from_u8(alg_byte[0])?;
@@ -463,7 +505,7 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
         (None, 0, 0)
     };
 
-    if is_v5 {
+    if has_compression {
         let max_plaintext_size = total_chunks.saturating_mul(chunk_size as u64);
         if original_size > max_plaintext_size {
             return Err(CryptoError::FormatError(format!(
@@ -471,6 +513,21 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
                 original_size, max_plaintext_size
             )));
         }
+    }
+
+    // Read flags byte for V6/V7
+    let flags = if has_flags {
+        let mut flags_byte = [0u8; 1];
+        reader.read_exact(&mut flags_byte)?;
+        flags_byte[0]
+    } else {
+        0
+    };
+    let key_file_required = flags & FLAG_KEY_FILE_USED != 0;
+
+    // If the file was encrypted with a key file, ensure one is provided
+    if key_file_required && key_file_path.is_none() {
+        return Err(CryptoError::KeyFileRequired);
     }
 
     // Build header for AAD (must match what was used during encryption)
@@ -487,11 +544,19 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
         total_chunks,
         compression: compression_config.as_ref(),
         original_size,
+        flags: if has_flags { Some(flags) } else { None },
     });
     let header_aad = header.as_slice();
 
-    // Derive key
-    let key = derive_key_with_params(password, &salt, &kdf_params)?;
+    // Derive key (with optional key file)
+    let key = if key_file_required {
+        let kf_path = key_file_path.unwrap(); // Safe: checked above
+        let kf_hash = hash_key_file(kf_path)?;
+        let combined = combine_password_and_keyfile(password.as_bytes(), kf_hash.as_slice());
+        derive_key_with_material(combined.as_slice(), &salt, &kdf_params)?
+    } else {
+        derive_key_with_params(password, &salt, &kdf_params)?
+    };
     let cipher =
         Aes256Gcm::new_from_slice(key.as_slice()).map_err(|_| CryptoError::EncryptionFailed)?;
 
@@ -505,7 +570,7 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
     // Process chunks
     let mut bytes_processed: u64 = 0;
     let max_ciphertext_chunk_len =
-        max_ciphertext_len(chunk_size, if is_v5 { compression_algorithm } else { None })?;
+        max_ciphertext_len(chunk_size, if has_compression { compression_algorithm } else { None })?;
     let mut plaintext_written: u64 = 0;
 
     for chunk_index in 0..total_chunks {
@@ -541,7 +606,7 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
             )
             .map_err(|_| CryptoError::InvalidPassword)?;
 
-        let expected_plaintext_len = if is_v5 {
+        let expected_plaintext_len = if has_compression {
             let remaining = original_size.saturating_sub(plaintext_written);
             std::cmp::min(chunk_size as u64, remaining) as usize
         } else {
@@ -574,7 +639,7 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
         }
     }
 
-    if is_v5 && plaintext_written != original_size {
+    if has_compression && plaintext_written != original_size {
         return Err(CryptoError::FormatError(format!(
             "Decrypted size mismatch: {} bytes (expected {})",
             plaintext_written, original_size
@@ -623,17 +688,21 @@ struct HeaderParams<'a> {
     total_chunks: u64,
     compression: Option<&'a CompressionConfig>,
     original_size: u64,
+    /// Flags byte for V6/V7. None for V4/V5.
+    flags: Option<u8>,
 }
 
 fn build_header(params: &HeaderParams<'_>) -> Vec<u8> {
-    let capacity = if params.compression.is_some() {
-        HEADER_V5_FIXED_SIZE + params.salt.len()
-    } else {
-        HEADER_V4_FIXED_SIZE + params.salt.len()
-    };
+    let mut capacity = HEADER_V4_FIXED_SIZE + params.salt.len();
+    if params.compression.is_some() {
+        capacity += COMPRESSION_FIELDS_SIZE;
+    }
+    if params.flags.is_some() {
+        capacity += FLAGS_SIZE;
+    }
     let mut header = Vec::with_capacity(capacity);
 
-    // Common header fields (V4 and V5)
+    // Common header fields (all versions)
     header.push(params.version);
     header.extend_from_slice(&(params.salt.len() as u32).to_le_bytes());
     header.push(params.kdf_params.algorithm.to_u8());
@@ -646,11 +715,16 @@ fn build_header(params: &HeaderParams<'_>) -> Vec<u8> {
     header.extend_from_slice(&(params.chunk_size as u32).to_le_bytes());
     header.extend_from_slice(&params.total_chunks.to_le_bytes());
 
-    // V5 compression fields
+    // V5/V7 compression fields
     if let Some(config) = params.compression {
         header.push(config.algorithm.to_u8());
         header.push(config.level as u8);
         header.extend_from_slice(&params.original_size.to_le_bytes());
+    }
+
+    // V6/V7 flags byte
+    if let Some(flags) = params.flags {
+        header.push(flags);
     }
 
     header
@@ -767,6 +841,7 @@ mod tests {
             None,
             false,
             None, // No compression
+            None, // No key file
         )
         .unwrap();
 
@@ -776,7 +851,7 @@ mod tests {
 
         // Decrypt
         let decrypted_path = temp_dir.path().join("decrypted.bin");
-        decrypt_file_streaming(&encrypted_path, &decrypted_path, &password, None, false).unwrap();
+        decrypt_file_streaming(&encrypted_path, &decrypted_path, &password, None, false, None).unwrap();
 
         // Verify content matches
         let decrypted_content = fs::read(&decrypted_path).unwrap();
@@ -804,6 +879,7 @@ mod tests {
             None,
             false,
             Some(CompressionConfig::default()), // ZSTD level 3
+            None, // No key file
         )
         .unwrap();
 
@@ -813,7 +889,7 @@ mod tests {
 
         // Decrypt
         let decrypted_path = temp_dir.path().join("decrypted.bin");
-        decrypt_file_streaming(&encrypted_path, &decrypted_path, &password, None, false).unwrap();
+        decrypt_file_streaming(&encrypted_path, &decrypted_path, &password, None, false, None).unwrap();
 
         // Verify content matches
         let decrypted_content = fs::read(&decrypted_path).unwrap();
@@ -839,11 +915,12 @@ mod tests {
             None,
             false,
             Some(CompressionConfig::default()),
+            None, // No key file
         )
         .unwrap();
 
         let decrypted_path = temp_dir.path().join("decrypted_small_chunk.bin");
-        decrypt_file_streaming(&encrypted_path, &decrypted_path, &password, None, false).unwrap();
+        decrypt_file_streaming(&encrypted_path, &decrypted_path, &password, None, false, None).unwrap();
 
         let decrypted_content = fs::read(&decrypted_path).unwrap();
         assert_eq!(content.to_vec(), decrypted_content);
@@ -866,6 +943,7 @@ mod tests {
             None,
             false,
             None,
+            None,
         )
         .unwrap();
 
@@ -874,7 +952,7 @@ mod tests {
         assert!(!encrypted_data.is_empty());
 
         let decrypted_path = temp_dir.path().join("decrypted_empty.bin");
-        decrypt_file_streaming(&encrypted_path, &decrypted_path, &password, None, false).unwrap();
+        decrypt_file_streaming(&encrypted_path, &decrypted_path, &password, None, false, None).unwrap();
 
         let decrypted_data = fs::read(&decrypted_path).unwrap();
         assert!(decrypted_data.is_empty());
@@ -900,6 +978,7 @@ mod tests {
             None,
             false,
             None,
+            None,
         )
         .unwrap();
 
@@ -912,6 +991,7 @@ mod tests {
             &wrong_password,
             None,
             false,
+            None,
         );
 
         assert!(result.is_err());
@@ -931,6 +1011,7 @@ mod tests {
             DEFAULT_CHUNK_SIZE,
             None,
             false,
+            None,
             None,
         );
 
@@ -955,11 +1036,12 @@ mod tests {
             total_chunks: 0,
             compression: None,
             original_size: 0,
+            flags: None,
         });
         fs::write(&encrypted_path, header).unwrap();
 
         let password = Password::new("test_password".to_string());
-        let result = decrypt_file_streaming(&encrypted_path, &output_path, &password, None, false);
+        let result = decrypt_file_streaming(&encrypted_path, &output_path, &password, None, false, None);
         assert!(result.is_err());
     }
 
@@ -981,11 +1063,12 @@ mod tests {
             total_chunks: 0,
             compression: None,
             original_size: 0,
+            flags: None,
         });
         fs::write(&encrypted_path, header).unwrap();
 
         let password = Password::new("test_password".to_string());
-        let result = decrypt_file_streaming(&encrypted_path, &output_path, &password, None, false);
+        let result = decrypt_file_streaming(&encrypted_path, &output_path, &password, None, false, None);
         assert!(result.is_err());
     }
 
@@ -1013,6 +1096,7 @@ mod tests {
             total_chunks,
             compression: Some(&compression_config),
             original_size,
+            flags: None,
         });
 
         let password = Password::new("test_password".to_string());
@@ -1040,7 +1124,7 @@ mod tests {
         file_bytes.extend_from_slice(&ciphertext);
         fs::write(&encrypted_path, file_bytes).unwrap();
 
-        let result = decrypt_file_streaming(&encrypted_path, &output_path, &password, None, false);
+        let result = decrypt_file_streaming(&encrypted_path, &output_path, &password, None, false, None);
         assert!(matches!(result, Err(CryptoError::FormatError(_))));
     }
 
@@ -1070,12 +1154,13 @@ mod tests {
             None,
             false,
             None,
+            None,
         )
         .unwrap();
 
         // Decrypt
         let decrypted_path = temp_dir.path().join("decrypted.bin");
-        decrypt_file_streaming(&encrypted_path, &decrypted_path, &password, None, false).unwrap();
+        decrypt_file_streaming(&encrypted_path, &decrypted_path, &password, None, false, None).unwrap();
 
         // Verify
         let decrypted_content = fs::read(&decrypted_path).unwrap();
@@ -1091,5 +1176,231 @@ mod tests {
             STREAMING_THRESHOLD
         )); // 10MB + 1 - yes
         assert!(should_use_streaming(100 * 1024 * 1024, STREAMING_THRESHOLD)); // 100MB - yes
+    }
+
+    #[test]
+    fn test_streaming_v6_keyfile_roundtrip() {
+        // Test V6: no compression + key file
+        let temp_dir = tempfile::tempdir().unwrap();
+        let content = b"Secret data with key file protection";
+        let input_file = NamedTempFile::new().unwrap();
+        fs::write(input_file.path(), content).unwrap();
+
+        // Generate a key file
+        let key_file_path = temp_dir.path().join("test.key");
+        crate::crypto::keyfile::generate_key_file(&key_file_path).unwrap();
+
+        let encrypted_path = temp_dir.path().join("encrypted_v6.bin");
+        let password = Password::new("test_password".to_string());
+
+        encrypt_file_streaming(
+            input_file.path(),
+            &encrypted_path,
+            &password,
+            1024,
+            None,
+            false,
+            None, // No compression
+            Some(key_file_path.as_path()),
+        )
+        .unwrap();
+
+        // Verify V6 format
+        let encrypted_data = fs::read(&encrypted_path).unwrap();
+        assert_eq!(encrypted_data[0], STREAMING_VERSION_V6);
+
+        // Decrypt with key file
+        let decrypted_path = temp_dir.path().join("decrypted_v6.bin");
+        decrypt_file_streaming(
+            &encrypted_path,
+            &decrypted_path,
+            &password,
+            None,
+            false,
+            Some(key_file_path.as_path()),
+        )
+        .unwrap();
+
+        let decrypted_content = fs::read(&decrypted_path).unwrap();
+        assert_eq!(content.to_vec(), decrypted_content);
+    }
+
+    #[test]
+    fn test_streaming_v7_keyfile_compression_roundtrip() {
+        // Test V7: compression + key file
+        let temp_dir = tempfile::tempdir().unwrap();
+        let content = b"Compressible content ".repeat(100);
+        let input_file = NamedTempFile::new().unwrap();
+        fs::write(input_file.path(), &content).unwrap();
+
+        let key_file_path = temp_dir.path().join("test.key");
+        crate::crypto::keyfile::generate_key_file(&key_file_path).unwrap();
+
+        let encrypted_path = temp_dir.path().join("encrypted_v7.bin");
+        let password = Password::new("test_password".to_string());
+
+        encrypt_file_streaming(
+            input_file.path(),
+            &encrypted_path,
+            &password,
+            1024,
+            None,
+            false,
+            Some(CompressionConfig::default()),
+            Some(key_file_path.as_path()),
+        )
+        .unwrap();
+
+        // Verify V7 format
+        let encrypted_data = fs::read(&encrypted_path).unwrap();
+        assert_eq!(encrypted_data[0], STREAMING_VERSION_V7);
+
+        // Decrypt with key file
+        let decrypted_path = temp_dir.path().join("decrypted_v7.bin");
+        decrypt_file_streaming(
+            &encrypted_path,
+            &decrypted_path,
+            &password,
+            None,
+            false,
+            Some(key_file_path.as_path()),
+        )
+        .unwrap();
+
+        let decrypted_content = fs::read(&decrypted_path).unwrap();
+        assert_eq!(content.to_vec(), decrypted_content);
+    }
+
+    #[test]
+    fn test_streaming_keyfile_required_error() {
+        // Encrypt with key file, then try to decrypt without it
+        let temp_dir = tempfile::tempdir().unwrap();
+        let content = b"Secret data";
+        let input_file = NamedTempFile::new().unwrap();
+        fs::write(input_file.path(), content).unwrap();
+
+        let key_file_path = temp_dir.path().join("test.key");
+        crate::crypto::keyfile::generate_key_file(&key_file_path).unwrap();
+
+        let encrypted_path = temp_dir.path().join("encrypted.bin");
+        let password = Password::new("test_password".to_string());
+
+        encrypt_file_streaming(
+            input_file.path(),
+            &encrypted_path,
+            &password,
+            1024,
+            None,
+            false,
+            None,
+            Some(key_file_path.as_path()),
+        )
+        .unwrap();
+
+        // Try to decrypt without key file -> KeyFileRequired
+        let decrypted_path = temp_dir.path().join("decrypted.bin");
+        let result = decrypt_file_streaming(
+            &encrypted_path,
+            &decrypted_path,
+            &password,
+            None,
+            false,
+            None, // No key file provided
+        );
+
+        assert!(result.is_err());
+        assert!(matches!(result, Err(CryptoError::KeyFileRequired)));
+    }
+
+    #[test]
+    fn test_streaming_wrong_keyfile() {
+        // Encrypt with one key file, decrypt with different key file
+        let temp_dir = tempfile::tempdir().unwrap();
+        let content = b"Secret data";
+        let input_file = NamedTempFile::new().unwrap();
+        fs::write(input_file.path(), content).unwrap();
+
+        let key_file_1 = temp_dir.path().join("key1.key");
+        let key_file_2 = temp_dir.path().join("key2.key");
+        crate::crypto::keyfile::generate_key_file(&key_file_1).unwrap();
+        crate::crypto::keyfile::generate_key_file(&key_file_2).unwrap();
+
+        let encrypted_path = temp_dir.path().join("encrypted.bin");
+        let password = Password::new("test_password".to_string());
+
+        encrypt_file_streaming(
+            input_file.path(),
+            &encrypted_path,
+            &password,
+            1024,
+            None,
+            false,
+            None,
+            Some(key_file_1.as_path()),
+        )
+        .unwrap();
+
+        // Decrypt with wrong key file -> InvalidPassword
+        let decrypted_path = temp_dir.path().join("decrypted.bin");
+        let result = decrypt_file_streaming(
+            &encrypted_path,
+            &decrypted_path,
+            &password,
+            None,
+            false,
+            Some(key_file_2.as_path()), // Wrong key file
+        );
+
+        assert!(result.is_err());
+        assert!(matches!(result, Err(CryptoError::InvalidPassword)));
+    }
+
+    #[test]
+    fn test_streaming_v4_v5_backward_compatibility() {
+        // Ensure V4/V5 files still decrypt with key_file_path=None
+        let temp_dir = tempfile::tempdir().unwrap();
+        let content = b"Backward compatibility test";
+        let input_file = NamedTempFile::new().unwrap();
+        fs::write(input_file.path(), content).unwrap();
+
+        let password = Password::new("test_password".to_string());
+
+        // V4 (no compression, no key file)
+        let encrypted_v4 = temp_dir.path().join("encrypted_v4.bin");
+        encrypt_file_streaming(
+            input_file.path(),
+            &encrypted_v4,
+            &password,
+            1024,
+            None,
+            false,
+            None,
+            None,
+        )
+        .unwrap();
+        assert_eq!(fs::read(&encrypted_v4).unwrap()[0], STREAMING_VERSION_V4);
+
+        let decrypted_v4 = temp_dir.path().join("decrypted_v4.bin");
+        decrypt_file_streaming(&encrypted_v4, &decrypted_v4, &password, None, false, None).unwrap();
+        assert_eq!(fs::read(&decrypted_v4).unwrap(), content);
+
+        // V5 (compression, no key file)
+        let encrypted_v5 = temp_dir.path().join("encrypted_v5.bin");
+        encrypt_file_streaming(
+            input_file.path(),
+            &encrypted_v5,
+            &password,
+            1024,
+            None,
+            false,
+            Some(CompressionConfig::default()),
+            None,
+        )
+        .unwrap();
+        assert_eq!(fs::read(&encrypted_v5).unwrap()[0], STREAMING_VERSION_V5);
+
+        let decrypted_v5 = temp_dir.path().join("decrypted_v5.bin");
+        decrypt_file_streaming(&encrypted_v5, &decrypted_v5, &password, None, false, None).unwrap();
+        assert_eq!(fs::read(&decrypted_v5).unwrap(), content);
     }
 }

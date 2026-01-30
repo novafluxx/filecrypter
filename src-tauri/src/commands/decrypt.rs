@@ -79,6 +79,7 @@ pub async fn decrypt_file(
     output_path: String,
     password: String,
     allow_overwrite: Option<bool>,
+    key_file_path: Option<String>,
 ) -> CryptoResult<CryptoResponse> {
     // Log the operation (password is NOT logged)
     log::info!("Decrypting file: {}", input_path);
@@ -92,6 +93,9 @@ pub async fn decrypt_file(
     let progress_callback =
         create_progress_callback(app.clone(), "decrypting", "Decrypting file...");
 
+    // Validate key file path if provided
+    let kf_path = key_file_path.as_deref().map(std::path::Path::new);
+
     // Use streaming for all files
     decrypt_file_streaming(
         validated.input,
@@ -99,6 +103,7 @@ pub async fn decrypt_file(
         &validated.password,
         Some(progress_callback),
         allow_overwrite,
+        kf_path,
     )?;
 
     let _ = app.emit(CRYPTO_PROGRESS_EVENT, ProgressEvent::decrypt_complete());
@@ -131,13 +136,14 @@ mod tests {
             None,
             false,
             None,
+            None,
         )
         .unwrap();
 
         // Now decrypt it
         let decrypted_path = temp_dir.path().join("decrypted.txt");
         let result =
-            decrypt_file_streaming(&encrypted_path, &decrypted_path, &password, None, false);
+            decrypt_file_streaming(&encrypted_path, &decrypted_path, &password, None, false, None);
 
         assert!(result.is_ok());
 
@@ -164,6 +170,7 @@ mod tests {
             None,
             false,
             None,
+            None,
         )
         .unwrap();
 
@@ -176,6 +183,7 @@ mod tests {
             &wrong_password,
             None,
             false,
+            None,
         );
 
         assert!(result.is_err());
@@ -192,7 +200,7 @@ mod tests {
         let password = Password::new("password".to_string());
 
         let result =
-            decrypt_file_streaming(corrupted_file.path(), &output_path, &password, None, false);
+            decrypt_file_streaming(corrupted_file.path(), &output_path, &password, None, false, None);
 
         assert!(result.is_err());
     }

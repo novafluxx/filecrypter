@@ -47,7 +47,8 @@ export function useTauri() {
     password: string,
     allowOverwrite = false,
     compressionEnabled = false,
-    compressionLevel = 3
+    compressionLevel = 3,
+    keyFilePath?: string
   ): Promise<CryptoResponse> {
     try {
       // invoke() is Tauri's IPC mechanism - it calls the Rust function
@@ -59,6 +60,7 @@ export function useTauri() {
         allowOverwrite,
         compressionEnabled,
         compressionLevel,
+        keyFilePath: keyFilePath || null,
       });
       return result;
     } catch (error) {
@@ -88,7 +90,8 @@ export function useTauri() {
     inputPath: string,
     outputPath: string,
     password: string,
-    allowOverwrite = false
+    allowOverwrite = false,
+    keyFilePath?: string
   ): Promise<CryptoResponse> {
     try {
       const result = await invoke<CryptoResponse>('decrypt_file', {
@@ -96,6 +99,7 @@ export function useTauri() {
         outputPath,
         password,
         allowOverwrite,
+        keyFilePath: keyFilePath || null,
       });
       return result;
     } catch (error) {
@@ -226,7 +230,8 @@ export function useTauri() {
     inputPaths: string[],
     outputDir: string,
     password: string,
-    allowOverwrite = false
+    allowOverwrite = false,
+    keyFilePath?: string
   ): Promise<BatchResult> {
     try {
       const result = await invoke<BatchResult>('batch_encrypt', {
@@ -234,6 +239,7 @@ export function useTauri() {
         outputDir,
         password,
         allowOverwrite,
+        keyFilePath: keyFilePath || null,
       });
       return result;
     } catch (error) {
@@ -254,7 +260,8 @@ export function useTauri() {
     inputPaths: string[],
     outputDir: string,
     password: string,
-    allowOverwrite = false
+    allowOverwrite = false,
+    keyFilePath?: string
   ): Promise<BatchResult> {
     try {
       const result = await invoke<BatchResult>('batch_decrypt', {
@@ -262,6 +269,7 @@ export function useTauri() {
         outputDir,
         password,
         allowOverwrite,
+        keyFilePath: keyFilePath || null,
       });
       return result;
     } catch (error) {
@@ -286,7 +294,8 @@ export function useTauri() {
     outputDir: string,
     password: string,
     archiveName?: string,
-    allowOverwrite = false
+    allowOverwrite = false,
+    keyFilePath?: string
   ): Promise<ArchiveResult> {
     try {
       const result = await invoke<ArchiveResult>('batch_encrypt_archive', {
@@ -295,6 +304,7 @@ export function useTauri() {
         password,
         archiveName: archiveName || null,
         allowOverwrite,
+        keyFilePath: keyFilePath || null,
       });
       return result;
     } catch (error) {
@@ -317,7 +327,8 @@ export function useTauri() {
     inputPath: string,
     outputDir: string,
     password: string,
-    allowOverwrite = false
+    allowOverwrite = false,
+    keyFilePath?: string
   ): Promise<ArchiveResult> {
     try {
       const result = await invoke<ArchiveResult>('batch_decrypt_archive', {
@@ -325,10 +336,28 @@ export function useTauri() {
         outputDir,
         password,
         allowOverwrite,
+        keyFilePath: keyFilePath || null,
       });
       return result;
     } catch (error) {
       throw new Error(`Archive decryption failed: ${error}`);
+    }
+  }
+
+  /**
+   * Generate a new key file with 32 random bytes
+   *
+   * @param outputPath - Path where the key file will be saved
+   * @returns Promise resolving to success message
+   */
+  async function generateKeyFile(outputPath: string): Promise<CryptoResponse> {
+    try {
+      const result = await invoke<CryptoResponse>('generate_key_file', {
+        outputPath,
+      });
+      return result;
+    } catch (error) {
+      throw new Error(`Key file generation failed: ${error}`);
     }
   }
 
@@ -344,5 +373,6 @@ export function useTauri() {
     batchDecrypt,
     batchEncryptArchive,
     batchDecryptArchive,
+    generateKeyFile,
   };
 }

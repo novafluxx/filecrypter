@@ -13,7 +13,7 @@ pub mod security;
 // Import commands for registration
 use commands::{
     batch_decrypt, batch_decrypt_archive, batch_encrypt, batch_encrypt_archive, decrypt_file,
-    encrypt_file,
+    encrypt_file, generate_key_file,
 };
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -57,6 +57,7 @@ pub fn run() {
             batch_decrypt,         // Batch decrypt multiple files
             batch_encrypt_archive, // Batch encrypt as single archive
             batch_decrypt_archive, // Batch decrypt archive
+            generate_key_file,     // Generate a key file for two-factor encryption
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

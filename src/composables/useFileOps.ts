@@ -51,6 +51,7 @@ export function useFileOps() {
   const neverOverwrite = ref(true);
   const compressionEnabled = ref(false); // Compression disabled by default for single files
   const compressionLevel = ref(DEFAULT_COMPRESSION_LEVEL); // ZSTD level 3 (balanced)
+  const keyFilePath = ref('');
   const isProcessing = ref(false);
   const statusMessage = ref('');
   const statusType = ref<StatusType>('info');
@@ -208,6 +209,7 @@ export function useFileOps() {
     inputPath.value = '';
     outputPath.value = '';
     password.value = '';
+    keyFilePath.value = '';
     statusMessage.value = '';
     isProcessing.value = false;
   }
@@ -220,6 +222,13 @@ export function useFileOps() {
    */
   function clearPassword() {
     password.value = '';
+  }
+
+  /**
+   * Clear the key file path
+   */
+  function clearKeyFile() {
+    keyFilePath.value = '';
   }
 
   // ========== Main Operations ==========
@@ -257,7 +266,8 @@ export function useFileOps() {
         password.value,
         allowOverwrite,
         compressionEnabled.value,
-        compressionLevel.value
+        compressionLevel.value,
+        keyFilePath.value || undefined
       );
 
       // Success!
@@ -306,7 +316,8 @@ export function useFileOps() {
         inputPath.value,
         outputPath.value,
         password.value,
-        allowOverwrite
+        allowOverwrite,
+        keyFilePath.value || undefined
       );
 
       // Success!
@@ -335,6 +346,7 @@ export function useFileOps() {
     neverOverwrite,
     compressionEnabled,
     compressionLevel,
+    keyFilePath,
     isProcessing,
     statusMessage,
     statusType,
@@ -352,6 +364,7 @@ export function useFileOps() {
     clearStatus,
     resetForm,
     clearPassword,
+    clearKeyFile,
     performEncrypt,
     performDecrypt,
   };

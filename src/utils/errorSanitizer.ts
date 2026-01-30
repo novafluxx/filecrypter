@@ -17,6 +17,8 @@ export const SAFE_ERROR_MESSAGES: Record<string, string> = {
   FileTooLarge: 'File is too large for this operation',
   TooManyFiles: 'Too many files selected for batch operation',
   InvalidPath: 'Invalid file path',
+  'encrypted with a key file': 'This file was encrypted with a key file — please provide it to decrypt',
+  'Key file error': 'Key file is invalid or could not be read',
   permission: 'Permission denied - unable to access file',
   default: 'Operation failed - please try again',
 };

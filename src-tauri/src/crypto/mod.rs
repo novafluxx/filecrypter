@@ -6,6 +6,7 @@
 mod cipher;
 pub mod compression;
 mod kdf;
+pub mod keyfile;
 mod secure;
 pub mod streaming;
 
@@ -13,8 +14,9 @@ pub mod streaming;
 pub use cipher::{decrypt, encrypt};
 pub use compression::{compress, decompress, CompressionAlgorithm, CompressionConfig};
 pub use kdf::{
-    derive_key, derive_key_with_params, generate_salt, generate_salt_with_len, KdfAlgorithm,
-    KdfParams,
+    derive_key, derive_key_with_params, derive_key_with_material, generate_salt,
+    generate_salt_with_len, KdfAlgorithm, KdfParams,
 };
+pub use keyfile::{combine_password_and_keyfile, generate_key_file, hash_key_file};
 pub use secure::{Password, SecureBytes};
 pub use streaming::{decrypt_file_streaming, encrypt_file_streaming, DEFAULT_CHUNK_SIZE};

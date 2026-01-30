@@ -22,6 +22,7 @@ use rand::{rngs::OsRng, TryRngCore};
 
 use crate::crypto::secure::SecureBytes;
 use crate::error::{CryptoError, CryptoResult};
+use crate::security;
 
 /// Maximum key file size (10 MB)
 const MAX_KEY_FILE_SIZE: u64 = 10 * 1024 * 1024;
@@ -52,9 +53,7 @@ pub fn hash_key_file(path: &Path) -> CryptoResult<SecureBytes> {
     let file_size = metadata.len();
 
     if file_size == 0 {
-        return Err(CryptoError::KeyFileError(
-            "Key file is empty".to_string(),
-        ));
+        return Err(CryptoError::KeyFileError("Key file is empty".to_string()));
     }
 
     if file_size > MAX_KEY_FILE_SIZE {
@@ -101,17 +100,9 @@ pub fn generate_key_file(path: &Path) -> CryptoResult<()> {
     rng.try_fill_bytes(&mut key_data)
         .map_err(|_| CryptoError::EncryptionFailed)?;
 
-    let mut file = File::create(path)?;
+    let mut file = security::create_secure_file(path)?;
     file.write_all(&key_data)?;
     file.flush()?;
-
-    // Set restrictive permissions on Unix
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let perms = std::fs::Permissions::from_mode(0o600);
-        std::fs::set_permissions(path, perms)?;
-    }
 
     Ok(())
 }
@@ -127,10 +118,7 @@ pub fn generate_key_file(path: &Path) -> CryptoResult<()> {
 ///
 /// # Returns
 /// A `SecureBytes` containing the concatenated key material
-pub fn combine_password_and_keyfile(
-    password_bytes: &[u8],
-    key_file_hash: &[u8],
-) -> SecureBytes {
+pub fn combine_password_and_keyfile(password_bytes: &[u8], key_file_hash: &[u8]) -> SecureBytes {
     let mut combined = Vec::with_capacity(password_bytes.len() + key_file_hash.len());
     combined.extend_from_slice(password_bytes);
     combined.extend_from_slice(key_file_hash);

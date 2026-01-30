@@ -142,8 +142,14 @@ mod tests {
 
         // Now decrypt it
         let decrypted_path = temp_dir.path().join("decrypted.txt");
-        let result =
-            decrypt_file_streaming(&encrypted_path, &decrypted_path, &password, None, false, None);
+        let result = decrypt_file_streaming(
+            &encrypted_path,
+            &decrypted_path,
+            &password,
+            None,
+            false,
+            None,
+        );
 
         assert!(result.is_ok());
 
@@ -199,8 +205,14 @@ mod tests {
         let output_path = temp_dir.path().join("decrypted.txt");
         let password = Password::new("password".to_string());
 
-        let result =
-            decrypt_file_streaming(corrupted_file.path(), &output_path, &password, None, false, None);
+        let result = decrypt_file_streaming(
+            corrupted_file.path(),
+            &output_path,
+            &password,
+            None,
+            false,
+            None,
+        );
 
         assert!(result.is_err());
     }

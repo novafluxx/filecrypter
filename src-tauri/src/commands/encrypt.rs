@@ -171,7 +171,8 @@ mod tests {
 
         // Verify we can decrypt it
         let decrypted_path = temp_dir.path().join("decrypted.txt");
-        decrypt_file_streaming(&output_path, &decrypted_path, &password, None, false, None).unwrap();
+        decrypt_file_streaming(&output_path, &decrypted_path, &password, None, false, None)
+            .unwrap();
         let decrypted_content = fs::read(&decrypted_path).unwrap();
         assert_eq!(decrypted_content, b"Test content for streaming");
     }
@@ -241,7 +242,8 @@ mod tests {
 
         // Verify we can decrypt it
         let decrypted_path = temp_dir.path().join("decrypted.txt");
-        decrypt_file_streaming(&output_path, &decrypted_path, &password, None, false, None).unwrap();
+        decrypt_file_streaming(&output_path, &decrypted_path, &password, None, false, None)
+            .unwrap();
         let decrypted_content = fs::read(&decrypted_path).unwrap();
         assert_eq!(decrypted_content, content);
     }

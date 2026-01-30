@@ -32,7 +32,15 @@ fn test_streaming_roundtrip_basic() {
     )
     .unwrap();
 
-    decrypt_file_streaming(&encrypted_path, &decrypted_path, &password, None, false, None).unwrap();
+    decrypt_file_streaming(
+        &encrypted_path,
+        &decrypted_path,
+        &password,
+        None,
+        false,
+        None,
+    )
+    .unwrap();
 
     let final_bytes = fs::read(&decrypted_path).unwrap();
     assert_eq!(final_bytes, b"secret content");
@@ -92,7 +100,15 @@ fn test_streaming_roundtrip_large_file() {
     )
     .unwrap();
 
-    decrypt_file_streaming(&encrypted_path, &decrypted_path, &password, None, false, None).unwrap();
+    decrypt_file_streaming(
+        &encrypted_path,
+        &decrypted_path,
+        &password,
+        None,
+        false,
+        None,
+    )
+    .unwrap();
 
     let decrypted = fs::read(&decrypted_path).unwrap();
     assert_eq!(decrypted, content);

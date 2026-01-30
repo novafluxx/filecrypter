@@ -186,7 +186,13 @@ where
     for (index, input_path) in input_paths.iter().enumerate() {
         emit_batch_progress(emit_progress, input_path, index, total_files, "encrypting");
 
-        let result = encrypt_single_file(&password, input_path, output_dir, allow_overwrite, key_file_path);
+        let result = encrypt_single_file(
+            &password,
+            input_path,
+            output_dir,
+            allow_overwrite,
+            key_file_path,
+        );
 
         match result {
             Ok(output_path) => {
@@ -252,7 +258,13 @@ where
     for (index, input_path) in input_paths.iter().enumerate() {
         emit_batch_progress(emit_progress, input_path, index, total_files, "decrypting");
 
-        let result = decrypt_single_file(&password, input_path, output_dir, allow_overwrite, key_file_path);
+        let result = decrypt_single_file(
+            &password,
+            input_path,
+            output_dir,
+            allow_overwrite,
+            key_file_path,
+        );
 
         match result {
             Ok(output_path) => {
@@ -1087,10 +1099,22 @@ mod tests {
         .unwrap();
 
         let password = Password::new("password123".to_string());
-        let first_output =
-            decrypt_single_file(&password, &encrypted_path, &decrypt_dir_canonical, false, None).unwrap();
-        let second_output =
-            decrypt_single_file(&password, &encrypted_path, &decrypt_dir_canonical, false, None).unwrap();
+        let first_output = decrypt_single_file(
+            &password,
+            &encrypted_path,
+            &decrypt_dir_canonical,
+            false,
+            None,
+        )
+        .unwrap();
+        let second_output = decrypt_single_file(
+            &password,
+            &encrypted_path,
+            &decrypt_dir_canonical,
+            false,
+            None,
+        )
+        .unwrap();
 
         assert_ne!(first_output, second_output);
         assert!(Path::new(&first_output).exists());

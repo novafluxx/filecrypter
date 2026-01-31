@@ -194,6 +194,24 @@ pub fn derive_key_with_params(
     salt: &[u8],
     params: &KdfParams,
 ) -> CryptoResult<SecureBytes> {
+    derive_key_with_material(password.as_bytes(), salt, params)
+}
+
+/// Derive a key from raw key material bytes using explicit KDF parameters.
+///
+/// This is the core KDF function that accepts arbitrary bytes as input.
+/// Used by `derive_key_with_params` (password-only) and by the key file path
+/// (password + key file hash concatenated).
+///
+/// # Arguments
+/// * `key_material` - Raw bytes to derive a key from (e.g., password bytes or password || key_file_hash)
+/// * `salt` - Random salt bytes
+/// * `params` - KDF parameters from the file header
+pub fn derive_key_with_material(
+    key_material: &[u8],
+    salt: &[u8],
+    params: &KdfParams,
+) -> CryptoResult<SecureBytes> {
     params.validate()?;
 
     // Validate salt length matches the header parameter (not just range).
@@ -221,7 +239,7 @@ pub fn derive_key_with_params(
         .map_err(|_| CryptoError::FormatError("Invalid salt".to_string()))?;
 
     let password_hash = argon2
-        .hash_password(password.as_bytes(), &salt_string)
+        .hash_password(key_material, &salt_string)
         .map_err(|_| CryptoError::EncryptionFailed)?;
 
     let hash = password_hash.hash.ok_or(CryptoError::EncryptionFailed)?;

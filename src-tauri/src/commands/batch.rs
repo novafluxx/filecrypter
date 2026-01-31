@@ -170,6 +170,7 @@ fn batch_encrypt_impl<F>(
     output_dir: &str,
     password: &str,
     allow_overwrite: bool,
+    key_file_path: Option<&Path>,
     emit_progress: &mut F,
 ) -> CryptoResult<BatchResult>
 where
@@ -185,7 +186,13 @@ where
     for (index, input_path) in input_paths.iter().enumerate() {
         emit_batch_progress(emit_progress, input_path, index, total_files, "encrypting");
 
-        let result = encrypt_single_file(&password, input_path, output_dir, allow_overwrite);
+        let result = encrypt_single_file(
+            &password,
+            input_path,
+            output_dir,
+            allow_overwrite,
+            key_file_path,
+        );
 
         match result {
             Ok(output_path) => {
@@ -235,6 +242,7 @@ fn batch_decrypt_impl<F>(
     output_dir: &str,
     password: &str,
     allow_overwrite: bool,
+    key_file_path: Option<&Path>,
     emit_progress: &mut F,
 ) -> CryptoResult<BatchResult>
 where
@@ -250,7 +258,13 @@ where
     for (index, input_path) in input_paths.iter().enumerate() {
         emit_batch_progress(emit_progress, input_path, index, total_files, "decrypting");
 
-        let result = decrypt_single_file(&password, input_path, output_dir, allow_overwrite);
+        let result = decrypt_single_file(
+            &password,
+            input_path,
+            output_dir,
+            allow_overwrite,
+            key_file_path,
+        );
 
         match result {
             Ok(output_path) => {
@@ -313,6 +327,7 @@ pub async fn batch_encrypt(
     output_dir: String,
     password: String,
     allow_overwrite: Option<bool>,
+    key_file_path: Option<String>,
 ) -> CryptoResult<BatchResult> {
     log::info!(
         "Batch encrypting {} files to {}",
@@ -325,12 +340,14 @@ pub async fn batch_encrypt(
     };
 
     let allow_overwrite = allow_overwrite.unwrap_or(false);
+    let kf_path = key_file_path.as_deref().map(Path::new);
 
     batch_encrypt_impl(
         &input_paths,
         &output_dir,
         &password,
         allow_overwrite,
+        kf_path,
         &mut emit_progress,
     )
 }
@@ -358,6 +375,7 @@ fn encrypt_single_file(
     input_path: &str,
     output_dir: &str,
     allow_overwrite: bool,
+    key_file_path: Option<&Path>,
 ) -> CryptoResult<String> {
     // Validate input path (check for symlinks)
     let validated_path = validate_input_path(input_path)
@@ -381,6 +399,7 @@ fn encrypt_single_file(
         None, // No progress callback - batch has its own progress tracking
         allow_overwrite,
         Some(CompressionConfig::default()), // ZSTD level 3 compression
+        key_file_path,
     )?;
 
     Ok(resolved_output_path.to_string_lossy().to_string())
@@ -404,6 +423,7 @@ pub async fn batch_decrypt(
     output_dir: String,
     password: String,
     allow_overwrite: Option<bool>,
+    key_file_path: Option<String>,
 ) -> CryptoResult<BatchResult> {
     log::info!(
         "Batch decrypting {} files to {}",
@@ -416,12 +436,14 @@ pub async fn batch_decrypt(
     };
 
     let allow_overwrite = allow_overwrite.unwrap_or(false);
+    let kf_path = key_file_path.as_deref().map(Path::new);
 
     batch_decrypt_impl(
         &input_paths,
         &output_dir,
         &password,
         allow_overwrite,
+        kf_path,
         &mut emit_progress,
     )
 }
@@ -448,6 +470,7 @@ fn decrypt_single_file(
     input_path: &str,
     output_dir: &str,
     allow_overwrite: bool,
+    key_file_path: Option<&Path>,
 ) -> CryptoResult<String> {
     // Validate input path (check for symlinks)
     let validated_path = validate_input_path(input_path)
@@ -475,6 +498,7 @@ fn decrypt_single_file(
         password,
         None, // No progress callback - batch has its own progress tracking
         allow_overwrite,
+        key_file_path,
     )?;
 
     Ok(resolved_output_path.to_string_lossy().to_string())
@@ -508,6 +532,7 @@ pub async fn batch_encrypt_archive(
     password: String,
     archive_name: Option<String>,
     allow_overwrite: Option<bool>,
+    key_file_path: Option<String>,
 ) -> CryptoResult<ArchiveResult> {
     log::info!(
         "Batch archive encrypting {} files to {}",
@@ -595,6 +620,7 @@ pub async fn batch_encrypt_archive(
     );
 
     let password_wrapper = Password::new(password);
+    let kf_path = key_file_path.as_deref().map(Path::new);
 
     // Encrypt progress callback (25-100%)
     let encrypt_progress_callback = {
@@ -630,6 +656,7 @@ pub async fn batch_encrypt_archive(
         Some(encrypt_progress_callback),
         allow_overwrite,
         None, // No compression - archive is already ZSTD compressed
+        kf_path,
     );
 
     // Clean up temporary archive file.
@@ -689,6 +716,7 @@ pub async fn batch_decrypt_archive(
     output_dir: String,
     password: String,
     allow_overwrite: Option<bool>,
+    key_file_path: Option<String>,
 ) -> CryptoResult<ArchiveResult> {
     log::info!("Batch archive decrypting {} to {}", input_path, output_dir);
 
@@ -726,6 +754,7 @@ pub async fn batch_decrypt_archive(
     emit_archive_progress("decrypting", None, 0, 0, 0);
 
     let password_wrapper = Password::new(password);
+    let kf_path = key_file_path.as_deref().map(Path::new);
     let input_file_name = Path::new(&input_path)
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
@@ -767,6 +796,7 @@ pub async fn batch_decrypt_archive(
         &password_wrapper,
         Some(decrypt_progress_callback),
         true, // Always overwrite temp file
+        kf_path,
     ) {
         // Attempt cleanup of the temp file after a decryption error.
         // Best-effort: we don't fail the operation if cleanup fails, just log it.
@@ -892,6 +922,7 @@ mod tests {
             &output_dir_str,
             "password123",
             false,
+            None,
             &mut no_progress,
         )
         .unwrap();
@@ -917,9 +948,9 @@ mod tests {
         let password = Password::new("password123".to_string());
 
         let first_output =
-            encrypt_single_file(&password, &input_path, &output_dir_str, false).unwrap();
+            encrypt_single_file(&password, &input_path, &output_dir_str, false, None).unwrap();
         let second_output =
-            encrypt_single_file(&password, &input_path, &output_dir_str, false).unwrap();
+            encrypt_single_file(&password, &input_path, &output_dir_str, false, None).unwrap();
 
         assert_ne!(first_output, second_output);
         assert!(Path::new(&first_output).exists());
@@ -951,6 +982,7 @@ mod tests {
             &output_dir_str,
             "password123",
             false,
+            None,
             &mut no_progress,
         )
         .unwrap();
@@ -972,6 +1004,7 @@ mod tests {
             output_dir.path().to_str().unwrap(),
             "password123",
             false,
+            None,
             &mut no_progress,
         );
 
@@ -992,6 +1025,7 @@ mod tests {
             missing_output.to_str().unwrap(),
             "password123",
             false,
+            None,
             &mut no_progress,
         );
 
@@ -1014,6 +1048,7 @@ mod tests {
             &input_path,
             &encrypt_dir_canonical,
             false,
+            None,
         )
         .unwrap();
         let input_paths = vec![encrypted_path];
@@ -1029,6 +1064,7 @@ mod tests {
             &decrypt_dir_canonical,
             "wrong_password",
             false,
+            None,
             &mut no_progress,
         )
         .unwrap();
@@ -1058,14 +1094,27 @@ mod tests {
             &input_path,
             &encrypt_dir_canonical,
             false,
+            None,
         )
         .unwrap();
 
         let password = Password::new("password123".to_string());
-        let first_output =
-            decrypt_single_file(&password, &encrypted_path, &decrypt_dir_canonical, false).unwrap();
-        let second_output =
-            decrypt_single_file(&password, &encrypted_path, &decrypt_dir_canonical, false).unwrap();
+        let first_output = decrypt_single_file(
+            &password,
+            &encrypted_path,
+            &decrypt_dir_canonical,
+            false,
+            None,
+        )
+        .unwrap();
+        let second_output = decrypt_single_file(
+            &password,
+            &encrypted_path,
+            &decrypt_dir_canonical,
+            false,
+            None,
+        )
+        .unwrap();
 
         assert_ne!(first_output, second_output);
         assert!(Path::new(&first_output).exists());
@@ -1084,6 +1133,7 @@ mod tests {
             output_dir.path().to_str().unwrap(),
             "password123",
             false,
+            None,
             &mut no_progress,
         );
 

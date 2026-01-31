@@ -20,6 +20,7 @@
 import { NButton, NInput } from 'naive-ui';
 import { useCryptoOperation } from '../composables/useCryptoOperation';
 import type { PasswordStrength } from '../composables/usePasswordStrength';
+import KeyFileSection from './KeyFileSection.vue';
 import OverwriteCheckbox from './OverwriteCheckbox.vue';
 import PasswordSection from './PasswordSection.vue';
 import ProgressBar from './ProgressBar.vue';
@@ -153,6 +154,13 @@ defineExpose({
         :strength="passwordStrength"
         :is-password-valid="fileOps.isPasswordValid.value"
         :hint-text="passwordHintText"
+      />
+
+      <!-- Key File Section -->
+      <KeyFileSection
+        v-model="fileOps.keyFilePath.value"
+        :disabled="fileOps.isProcessing.value"
+        :show-generate="mode !== 'decrypt'"
       />
 
       <!-- Action Button -->

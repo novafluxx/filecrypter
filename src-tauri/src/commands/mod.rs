@@ -16,6 +16,7 @@ pub mod command_utils;
 mod decrypt;
 mod encrypt;
 pub mod file_utils;
+mod keyfile;
 
 /// Standard response for encrypt/decrypt commands.
 ///
@@ -33,3 +34,4 @@ pub struct CryptoResponse {
 pub use batch::{batch_decrypt, batch_decrypt_archive, batch_encrypt, batch_encrypt_archive};
 pub use decrypt::decrypt_file;
 pub use encrypt::encrypt_file;
+pub use keyfile::generate_key_file;

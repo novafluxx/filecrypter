@@ -52,10 +52,28 @@ pub enum CryptoError {
     /// Path traversal attempt detected
     #[error("PathTraversal: {0}")]
     PathTraversal(String),
+
+    /// File was encrypted with a key file but none was provided
+    #[error("This file was encrypted with a key file. Please provide the key file to decrypt.")]
+    KeyFileRequired,
+
+    /// Key file operation error
+    #[error("Key file error: {0}")]
+    KeyFileError(String),
 }
 
 /// Result type alias for crypto operations
 pub type CryptoResult<T> = Result<T, CryptoError>;
+
+#[cfg(windows)]
+impl From<crate::security::DaclError> for CryptoError {
+    fn from(err: crate::security::DaclError) -> Self {
+        CryptoError::Io(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            err.to_string(),
+        ))
+    }
+}
 
 // Implement Serialize for CryptoError so it can be sent to the frontend
 // Tauri requires all command return types to be serializable

@@ -5,6 +5,18 @@ All notable changes to FileCrypter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-01-31
+
+
+
+### Features
+
+- **crypto:** Add optional key file support for two-factor encryption ([7405b5e](https://github.com/novafluxx/filecrypter/commit/7405b5ed420c76aa38bcaff5b552b7fdf0d49673)) in [#24](https://github.com/novafluxx/filecrypter/pull/24)
+
+
+### Dependencies
+
+- **deps:** Bun.lock update ([a1e6f26](https://github.com/novafluxx/filecrypter/commit/a1e6f26ac77a97dc2ab5afa83c4d95d4a9ba5e1e))
 ## [0.2.0] - 2026-01-29
 
 

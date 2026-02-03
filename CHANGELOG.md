@@ -5,6 +5,13 @@ All notable changes to FileCrypter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-02-03
+
+
+
+### Dependencies
+
+- **deps:** Update Tauri to 2.10 and increase window height ([d3934ee](https://github.com/novafluxx/filecrypter/commit/d3934eec8bc9f8a054800c6b6a0b70396d7a7ca0))
 ## [1.0.0] - 2026-01-31
 
 

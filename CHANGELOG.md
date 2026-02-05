@@ -5,6 +5,13 @@ All notable changes to FileCrypter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2026-02-05
+
+
+
+### Dependencies
+
+- **deps:** Update @tauri-apps/plugin-updater to 2.10.0 ([8dbaec1](https://github.com/novafluxx/filecrypter/commit/8dbaec17e87a958ed9b5f217f2a8cc7d8e567d50))
 ## [1.0.1] - 2026-02-03
 
 

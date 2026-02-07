@@ -5,6 +5,15 @@ All notable changes to FileCrypter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] - 2026-02-07
+
+
+
+### Bug Fixes
+
+- **deps:** Sync bun.lock with package.json ([902b0d0](https://github.com/novafluxx/filecrypter/commit/902b0d0288592d15ccbd817926dd097e52379e73))
+- **deps:** Update time crate to 0.3.47 to fix CVE-2026-25727 ([499ce18](https://github.com/novafluxx/filecrypter/commit/499ce18a3a769e5055a3b70b7015287841f36a04))
+- Address code review findings across frontend and backend ([967e8ad](https://github.com/novafluxx/filecrypter/commit/967e8adbf8634652b355f5dcb273084c7c387691)) in [#25](https://github.com/novafluxx/filecrypter/pull/25)
 ## [1.0.2] - 2026-02-05
 
 

@@ -19,12 +19,14 @@ import { NInput } from 'naive-ui';
 import PasswordStrengthMeter from './PasswordStrengthMeter.vue';
 import type { PasswordStrength } from '../composables/usePasswordStrength';
 
+type PasswordAutocomplete = 'new-password' | 'current-password';
+
 defineProps<{
   inputId: string;
   modelValue: string;
   placeholder: string;
   disabled: boolean;
-  autocomplete: 'new-password' | 'current-password';
+  autocomplete?: PasswordAutocomplete;
   showStrengthMeter?: boolean;
   strength?: PasswordStrength;
   isPasswordValid?: boolean;
@@ -42,7 +44,7 @@ defineEmits<{
     <NInput
       :input-props="{
         id: inputId,
-        autocomplete,
+        autocomplete: autocomplete ?? 'current-password',
         spellcheck: 'false',
         autocapitalize: 'off',
         autocorrect: 'off'

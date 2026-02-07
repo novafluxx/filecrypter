@@ -11,6 +11,13 @@
 // - Real implementations on Windows (`windows_acl`).
 // - Small, safe stubs on non-Windows targets.
 
+use std::fs;
+use std::path::Path;
+
+use tempfile::NamedTempFile;
+
+use crate::error::{CryptoError, CryptoResult};
+
 #[cfg(windows)]
 pub mod windows_acl;
 
@@ -44,4 +51,34 @@ pub fn create_secure_file<P: AsRef<std::path::Path>>(
         .truncate(true)
         .mode(0o600)
         .open(path)
+}
+
+/// Create a temporary file with restrictive permissions (owner read/write only).
+///
+/// The file is created in the specified parent directory. On Unix, permissions are set to 0o600.
+/// On Windows, a restrictive DACL is applied via `set_owner_only_dacl`.
+pub fn create_secure_tempfile(parent: &Path) -> CryptoResult<NamedTempFile> {
+    let temp_file = NamedTempFile::new_in(parent).map_err(CryptoError::Io)?;
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = temp_file
+            .as_file()
+            .metadata()
+            .map_err(CryptoError::Io)?
+            .permissions();
+        perms.set_mode(0o600);
+        fs::set_permissions(temp_file.path(), perms).map_err(CryptoError::Io)?;
+    }
+
+    #[cfg(windows)]
+    {
+        if let Err(err) = set_owner_only_dacl(temp_file.path()) {
+            let _ = fs::remove_file(temp_file.path());
+            return Err(CryptoError::Io(err.into()));
+        }
+    }
+
+    Ok(temp_file)
 }

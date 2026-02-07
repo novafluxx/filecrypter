@@ -14,7 +14,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
-import { NConfigProvider, NTabs, NTab, darkTheme, type GlobalThemeOverrides } from 'naive-ui';
+import { NConfigProvider, NDialogProvider, NTabs, NTab, darkTheme, type GlobalThemeOverrides } from 'naive-ui';
 import EncryptTab from './components/EncryptTab.vue';
 import DecryptTab from './components/DecryptTab.vue';
 import BatchTab from './components/BatchTab.vue';
@@ -112,6 +112,7 @@ function switchTab(tab: TabName) {
 
 <template>
   <NConfigProvider :theme="naiveTheme" :theme-overrides="themeOverrides">
+  <NDialogProvider>
     <!-- Update notification banner (desktop only) -->
     <UpdateNotification v-if="isInitialized && !isMobile" />
 
@@ -135,31 +136,21 @@ function switchTab(tab: TabName) {
 
       <!-- Tab Content Area -->
       <div class="tab-panels">
-        <KeepAlive>
-          <div v-show="activeTab === 'encrypt'" class="tab-panel">
-            <EncryptTab />
-          </div>
-        </KeepAlive>
-        <KeepAlive>
-          <div v-show="activeTab === 'decrypt'" class="tab-panel">
-            <DecryptTab />
-          </div>
-        </KeepAlive>
-        <KeepAlive>
-          <div v-show="activeTab === 'batch'" class="tab-panel">
-            <BatchTab />
-          </div>
-        </KeepAlive>
-        <KeepAlive>
-          <div v-show="activeTab === 'settings'" class="tab-panel">
-            <SettingsTab />
-          </div>
-        </KeepAlive>
-        <KeepAlive>
-          <div v-show="activeTab === 'help'" class="tab-panel">
-            <HelpTab />
-          </div>
-        </KeepAlive>
+        <div v-show="activeTab === 'encrypt'" class="tab-panel">
+          <EncryptTab />
+        </div>
+        <div v-show="activeTab === 'decrypt'" class="tab-panel">
+          <DecryptTab />
+        </div>
+        <div v-show="activeTab === 'batch'" class="tab-panel">
+          <BatchTab />
+        </div>
+        <div v-show="activeTab === 'settings'" class="tab-panel">
+          <SettingsTab />
+        </div>
+        <div v-show="activeTab === 'help'" class="tab-panel">
+          <HelpTab />
+        </div>
       </div>
 
       <!-- Mobile Bottom Navigation (shown only on iOS/Android, waits for platform detection) -->
@@ -169,6 +160,7 @@ function switchTab(tab: TabName) {
         @switch-tab="switchTab"
       />
     </div>
+  </NDialogProvider>
   </NConfigProvider>
 </template>
 

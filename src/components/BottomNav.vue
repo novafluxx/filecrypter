@@ -27,7 +27,7 @@
 import type { TabName } from '../types/tabs';
 
 // Props: receives the currently active tab from parent
-defineProps<{
+const props = defineProps<{
   activeTab: TabName;
 }>();
 
@@ -45,17 +45,44 @@ const tabs: { id: TabName; label: string }[] = [
   { id: 'settings', label: 'Settings' },
   { id: 'help', label: 'Help' },
 ];
+
+// Keyboard navigation handler for arrow keys
+function handleTabKeydown(event: KeyboardEvent) {
+  const tabIds: TabName[] = tabs.map(t => t.id);
+  const currentIndex = tabIds.indexOf(props.activeTab);
+  let newIndex = -1;
+
+  if (event.key === 'ArrowRight') {
+    newIndex = (currentIndex + 1) % tabIds.length;
+  } else if (event.key === 'ArrowLeft') {
+    newIndex = (currentIndex - 1 + tabIds.length) % tabIds.length;
+  }
+
+  if (newIndex !== -1) {
+    event.preventDefault();
+    const newTab = tabIds[newIndex];
+    if (newTab) {
+      emit('switch-tab', newTab);
+      // Focus the new tab button
+      const buttons = (event.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('[role="tab"]');
+      buttons[newIndex]?.focus();
+    }
+  }
+}
 </script>
 
 <template>
-  <nav class="bottom-nav">
+  <nav class="bottom-nav" aria-label="Main navigation">
+    <div class="nav-tabs" role="tablist" @keydown="handleTabKeydown">
     <button
       v-for="tab in tabs"
       :key="tab.id"
+      role="tab"
       class="nav-item"
       :class="{ active: activeTab === tab.id }"
       :aria-label="`Switch to ${tab.label} tab`"
-      :aria-current="activeTab === tab.id ? 'page' : undefined"
+      :aria-selected="activeTab === tab.id"
+      :tabindex="activeTab === tab.id ? 0 : -1"
       @click="emit('switch-tab', tab.id)"
     >
       <!-- Encrypt Icon (Lock) - aria-hidden since button has aria-label -->
@@ -92,6 +119,7 @@ const tabs: { id: TabName; label: string }[] = [
 
       <span class="nav-label">{{ tab.label }}</span>
     </button>
+    </div>
   </nav>
 </template>
 
@@ -106,6 +134,10 @@ const tabs: { id: TabName; label: string }[] = [
  */
 
 .bottom-nav {
+  flex-shrink: 0;
+}
+
+.nav-tabs {
   display: flex;
   justify-content: space-around;
   align-items: center;
@@ -115,8 +147,6 @@ const tabs: { id: TabName; label: string }[] = [
   /* Safe area inset for notched devices (iPhone X and later)
      Adds extra padding at the bottom to avoid the home indicator */
   padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
-  /* Prevent nav from shrinking when content is tall */
-  flex-shrink: 0;
 }
 
 .nav-item {

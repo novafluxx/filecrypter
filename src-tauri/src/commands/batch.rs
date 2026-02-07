@@ -1139,4 +1139,80 @@ mod tests {
 
         assert!(result.is_err());
     }
+
+    #[test]
+    fn test_batch_decrypt_roundtrip() {
+        let input_dir = tempdir().unwrap();
+        let encrypt_dir = tempdir().unwrap();
+        let decrypt_dir = tempdir().unwrap();
+
+        // Create multiple input files with different content
+        let files = vec![
+            ("doc.txt", b"Hello, world!" as &[u8]),
+            ("data.bin", &[0u8, 1, 2, 3, 4, 255, 254, 253]),
+            ("empty.txt", b""),
+        ];
+
+        let input_paths: Vec<String> = files
+            .iter()
+            .map(|(name, content)| write_input_file(input_dir.path(), name, content))
+            .collect();
+
+        let encrypt_dir_str = fs::canonicalize(encrypt_dir.path())
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
+        let decrypt_dir_str = fs::canonicalize(decrypt_dir.path())
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
+
+        let mut no_progress = |_progress: BatchProgress| {};
+
+        // Batch encrypt
+        let encrypt_result = batch_encrypt_impl(
+            &input_paths,
+            &encrypt_dir_str,
+            "roundtrip-password",
+            false,
+            None,
+            &mut no_progress,
+        )
+        .unwrap();
+
+        assert_eq!(encrypt_result.success_count, 3);
+        assert_eq!(encrypt_result.failed_count, 0);
+
+        // Collect encrypted file paths
+        let encrypted_paths: Vec<String> = encrypt_result
+            .files
+            .iter()
+            .map(|r| r.output_path.clone().unwrap())
+            .collect();
+
+        // Batch decrypt
+        let decrypt_result = batch_decrypt_impl(
+            &encrypted_paths,
+            &decrypt_dir_str,
+            "roundtrip-password",
+            false,
+            None,
+            &mut no_progress,
+        )
+        .unwrap();
+
+        assert_eq!(decrypt_result.success_count, 3);
+        assert_eq!(decrypt_result.failed_count, 0);
+
+        // Verify decrypted contents match originals byte-for-byte
+        for (i, (name, original_content)) in files.iter().enumerate() {
+            let decrypted_path = decrypt_result.files[i].output_path.as_ref().unwrap();
+            let decrypted_content = fs::read(decrypted_path).unwrap();
+            assert_eq!(
+                &decrypted_content, original_content,
+                "Decrypted content mismatch for {}",
+                name
+            );
+        }
+    }
 }

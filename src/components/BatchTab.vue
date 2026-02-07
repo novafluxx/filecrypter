@@ -13,7 +13,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { NButton, NButtonGroup, NCheckbox, NAlert, NInput, NRadioGroup, NRadio } from 'naive-ui';
+import { NButton, NButtonGroup, NCheckbox, NAlert, NInput, NRadioGroup, NRadio, useDialog } from 'naive-ui';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useTauri } from '../composables/useTauri';
 import { usePasswordStrength } from '../composables/usePasswordStrength';
@@ -28,6 +28,7 @@ import type { BatchProgress, BatchResult, ArchiveProgress, ArchiveResult, BatchM
 import { MIN_PASSWORD_LENGTH } from '../constants';
 
 // Initialize composables
+const dialog = useDialog();
 const tauri = useTauri();
 const settings = useSettings();
 
@@ -214,6 +215,27 @@ function clearFiles() {
   statusMessage.value = '';
 }
 
+// Show confirmation dialog before batch operation
+function confirmBatchOperation() {
+  if (!isFormValid.value) return;
+
+  const action = mode.value === 'encrypt' ? 'encrypt' : 'decrypt';
+  const count = inputPaths.value.length;
+  const content = batchMode.value === 'archive'
+    ? `Are you sure you want to ${action} ${count} file${count !== 1 ? 's' : ''} as an archive?`
+    : `Are you sure you want to ${action} ${count} file${count !== 1 ? 's' : ''} individually?`;
+
+  dialog.warning({
+    title: 'Confirm Batch Operation',
+    content,
+    positiveText: 'Confirm',
+    negativeText: 'Cancel',
+    onPositiveClick: () => {
+      handleBatchOperation();
+    },
+  });
+}
+
 // Handle batch operation
 async function handleBatchOperation() {
   if (!isFormValid.value) return;
@@ -335,7 +357,7 @@ async function handleArchiveOperation(allowOverwrite: boolean) {
       }
       statusType.value = 'success';
     } else {
-      statusMessage.value = result.error || `Archive ${mode.value}ion failed`;
+      statusMessage.value = result.error ? sanitizeErrorMessage(result.error) : `Archive ${mode.value}ion failed`;
       statusType.value = 'error';
     }
   } catch (error) {
@@ -601,7 +623,7 @@ function getPhaseLabel(phase: string): string {
         block
         strong
         class="action-btn"
-        @click="handleBatchOperation"
+        @click="confirmBatchOperation"
         :disabled="!isFormValid"
         :title="mode === 'encrypt' ? 'Encrypt all selected files' : 'Decrypt all selected files'"
       >
@@ -630,7 +652,7 @@ function getPhaseLabel(phase: string): string {
 
       <!-- Progress Bar (Individual Mode) -->
       <div v-if="showProgress && batchMode === 'individual' && batchProgress" class="progress-container">
-        <div class="progress-bar-bg">
+        <div class="progress-bar-bg" role="progressbar" aria-label="Batch operation progress" :aria-valuenow="batchProgress.percent" aria-valuemin="0" aria-valuemax="100">
           <div
             class="progress-bar-fill"
             :style="{ width: `${batchProgress.percent}%` }"
@@ -648,7 +670,7 @@ function getPhaseLabel(phase: string): string {
 
       <!-- Progress Bar (Archive Mode) -->
       <div v-if="showProgress && batchMode === 'archive' && archiveProgress" class="progress-container">
-        <div class="progress-bar-bg">
+        <div class="progress-bar-bg" role="progressbar" aria-label="Batch operation progress" :aria-valuenow="archiveProgress.percent" aria-valuemin="0" aria-valuemax="100">
           <div
             class="progress-bar-fill"
             :style="{ width: `${archiveProgress.percent}%` }"

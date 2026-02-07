@@ -246,7 +246,7 @@ pub fn validate_input_path(path: &str) -> CryptoResult<PathBuf> {
 ///
 /// Walks through each path component and checks if it's a symlink using
 /// `symlink_metadata()` which doesn't follow symlinks.
-fn validate_no_symlinks(path: &Path) -> CryptoResult<()> {
+pub fn validate_no_symlinks(path: &Path) -> CryptoResult<()> {
     let mut current = if path.is_absolute() {
         PathBuf::new()
     } else {

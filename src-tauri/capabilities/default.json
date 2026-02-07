@@ -10,7 +10,6 @@
     "dialog:default",
     "store:default",
     "os:default",
-    "opener:default",
     "updater:default",
     "process:default"
   ]

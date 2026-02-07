@@ -150,6 +150,7 @@ defineExpose({
         v-model="fileOps.password.value"
         :placeholder="passwordPlaceholder"
         :disabled="fileOps.isProcessing.value"
+        :autocomplete="mode === 'encrypt' ? 'new-password' : 'current-password'"
         :show-strength-meter="showStrengthMeter"
         :strength="passwordStrength"
         :is-password-valid="fileOps.isPasswordValid.value"

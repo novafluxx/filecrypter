@@ -22,7 +22,7 @@ import { useSettings } from '../composables/useSettings';
 import { useSettingsSync } from '../composables/useSettingsSync';
 import { sanitizeErrorMessage } from '../utils/errorSanitizer';
 import KeyFileSection from './KeyFileSection.vue';
-import PasswordStrengthMeter from './PasswordStrengthMeter.vue';
+import PasswordSection from './PasswordSection.vue';
 import StatusMessage from './StatusMessage.vue';
 import type { BatchProgress, BatchResult, ArchiveProgress, ArchiveResult, BatchMode } from '../types/crypto';
 import { MIN_PASSWORD_LENGTH } from '../constants';
@@ -284,9 +284,6 @@ async function handleIndividualOperation(allowOverwrite: boolean) {
 
     batchResult.value = result;
 
-    // Clear password for security
-    password.value = '';
-
     // Set status message
     if (result.failed_count === 0) {
       statusMessage.value = `Successfully ${mode.value === 'encrypt' ? 'encrypted' : 'decrypted'} ${result.success_count} file${result.success_count !== 1 ? 's' : ''}`;
@@ -302,6 +299,8 @@ async function handleIndividualOperation(allowOverwrite: boolean) {
     statusMessage.value = sanitizeErrorMessage(error);
     statusType.value = 'error';
   } finally {
+    // Always clear password, even when the operation fails
+    password.value = '';
     isProcessing.value = false;
     showProgress.value = false;
     stopProgressListener();
@@ -345,9 +344,6 @@ async function handleArchiveOperation(allowOverwrite: boolean) {
       );
     }
 
-    // Clear password for security
-    password.value = '';
-
     // Set status message
     if (result.success) {
       if (mode.value === 'encrypt') {
@@ -364,6 +360,8 @@ async function handleArchiveOperation(allowOverwrite: boolean) {
     statusMessage.value = sanitizeErrorMessage(error);
     statusType.value = 'error';
   } finally {
+    // Always clear password, even when the operation fails
+    password.value = '';
     isProcessing.value = false;
     showProgress.value = false;
     stopProgressListener();
@@ -589,26 +587,17 @@ function getPhaseLabel(phase: string): string {
       </div>
 
       <!-- Password Input -->
-      <div class="form-group">
-        <label>Password:</label>
-        <NInput
-          type="password"
-          show-password-on="click"
-          v-model:value="password"
-          :placeholder="mode === 'encrypt' ? 'Enter password (min 8 characters)' : 'Enter decryption password'"
-          :disabled="isProcessing"
-        />
-        <!-- Password strength meter (encryption only) -->
-        <PasswordStrengthMeter
-          v-if="mode === 'encrypt' && password.length > 0"
-          :strength="passwordStrength"
-          :show-feedback="!isPasswordValid"
-        />
-        <!-- Info hint for decryption -->
-        <p v-if="mode === 'decrypt' && password.length === 0" class="hint-text">
-          Enter the password used to encrypt these files
-        </p>
-      </div>
+      <PasswordSection
+        input-id="batch-password"
+        v-model="password"
+        :placeholder="mode === 'encrypt' ? 'Enter password (min 8 characters)' : 'Enter decryption password'"
+        :disabled="isProcessing"
+        :autocomplete="mode === 'encrypt' ? 'new-password' : 'current-password'"
+        :show-strength-meter="mode === 'encrypt'"
+        :strength="passwordStrength"
+        :is-password-valid="isPasswordValid"
+        :hint-text="mode === 'decrypt' ? 'Enter the password used to encrypt these files' : undefined"
+      />
 
       <!-- Key File Section -->
       <KeyFileSection

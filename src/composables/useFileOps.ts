@@ -273,7 +273,6 @@ export function useFileOps() {
       // Success!
       showStatus(result.message, 'success');
       outputPath.value = result.output_path;
-      clearPassword(); // Clear password for security
 
       return true;
     } catch (error) {
@@ -282,6 +281,8 @@ export function useFileOps() {
       showStatus(errorMessage, 'error', 0);
       return false;
     } finally {
+      // Always clear password, even when the operation fails
+      clearPassword();
       isProcessing.value = false;
     }
   }
@@ -323,7 +324,6 @@ export function useFileOps() {
       // Success!
       showStatus(result.message, 'success');
       outputPath.value = result.output_path;
-      clearPassword(); // Clear password for security
 
       return true;
     } catch (error) {
@@ -332,6 +332,8 @@ export function useFileOps() {
       showStatus(errorMessage, 'error', 0);
       return false;
     } finally {
+      // Always clear password, even when the operation fails
+      clearPassword();
       isProcessing.value = false;
     }
   }

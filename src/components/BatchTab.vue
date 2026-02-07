@@ -223,7 +223,7 @@ function confirmBatchOperation() {
   const count = inputPaths.value.length;
   const content = batchMode.value === 'archive'
     ? `Are you sure you want to ${action} ${count} file${count !== 1 ? 's' : ''} as an archive?`
-    : `Are you sure you want to ${action} ${count} file${count !== 1 ? 's' : ''}?`;
+    : `Are you sure you want to ${action} ${count} file${count !== 1 ? 's' : ''} individually?`;
 
   dialog.warning({
     title: 'Confirm Batch Operation',
@@ -652,7 +652,7 @@ function getPhaseLabel(phase: string): string {
 
       <!-- Progress Bar (Individual Mode) -->
       <div v-if="showProgress && batchMode === 'individual' && batchProgress" class="progress-container">
-        <div class="progress-bar-bg" role="progressbar" :aria-valuenow="batchProgress.percent" aria-valuemin="0" aria-valuemax="100">
+        <div class="progress-bar-bg" role="progressbar" aria-label="Batch operation progress" :aria-valuenow="batchProgress.percent" aria-valuemin="0" aria-valuemax="100">
           <div
             class="progress-bar-fill"
             :style="{ width: `${batchProgress.percent}%` }"
@@ -670,7 +670,7 @@ function getPhaseLabel(phase: string): string {
 
       <!-- Progress Bar (Archive Mode) -->
       <div v-if="showProgress && batchMode === 'archive' && archiveProgress" class="progress-container">
-        <div class="progress-bar-bg" role="progressbar" :aria-valuenow="archiveProgress.percent" aria-valuemin="0" aria-valuemax="100">
+        <div class="progress-bar-bg" role="progressbar" aria-label="Batch operation progress" :aria-valuenow="archiveProgress.percent" aria-valuemin="0" aria-valuemax="100">
           <div
             class="progress-bar-fill"
             :style="{ width: `${archiveProgress.percent}%` }"

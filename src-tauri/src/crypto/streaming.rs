@@ -1426,11 +1426,11 @@ mod tests {
     // Helper: encrypt test content and return raw encrypted file bytes
     // ---------------------------------------------------------------
     fn encrypt_test_file(content: &[u8], password: &str, chunk_size: usize) -> Vec<u8> {
-        let temp_dir = tempfile::tempdir().unwrap();
+        let output_dir = tempfile::tempdir().unwrap();
         let input_file = NamedTempFile::new().unwrap();
         fs::write(input_file.path(), content).unwrap();
 
-        let encrypted_path = temp_dir.path().join("encrypted.bin");
+        let encrypted_path = output_dir.path().join("encrypted.bin");
         let pw = Password::new(password.to_string());
         encrypt_file_streaming(
             input_file.path(),
@@ -1529,20 +1529,18 @@ mod tests {
         let mem_cost_offset = VERSION_SIZE + SALT_LEN_SIZE + 1; // 6
 
         let mut tampered = data.clone();
-        // Change mem_cost to a different valid value (double it)
-        let orig = u32::from_le_bytes(
-            tampered[mem_cost_offset..mem_cost_offset + 4]
-                .try_into()
-                .unwrap(),
-        );
-        let new_val = orig * 2;
+        // Change mem_cost to a small invalid value (avoids memory allocation)
+        let new_val = 1u32;
         tampered[mem_cost_offset..mem_cost_offset + 4].copy_from_slice(&new_val.to_le_bytes());
 
         let result = try_decrypt_bytes(&tampered, password);
-        // Different KDF params -> different key -> AEAD failure
+        // Tampered KDF params -> either rejected by validation (FormatError) or wrong key (InvalidPassword)
         assert!(
-            matches!(result, Err(CryptoError::InvalidPassword)),
-            "Expected InvalidPassword for corrupted KDF mem_cost, got: {:?}",
+            matches!(
+                result,
+                Err(CryptoError::InvalidPassword) | Err(CryptoError::FormatError(_))
+            ),
+            "Expected InvalidPassword or FormatError for corrupted KDF mem_cost, got: {:?}",
             result
         );
     }

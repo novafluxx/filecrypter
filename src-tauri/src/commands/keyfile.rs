@@ -14,6 +14,13 @@ use crate::error::{CryptoError, CryptoResult};
 /// Validate that the output path's parent directory exists, is a directory,
 /// and contains no symlinks.
 fn validate_output_path(path: &Path) -> CryptoResult<()> {
+    // Reject if the output path itself is a symlink (prevents write redirection)
+    if let Ok(metadata) = std::fs::symlink_metadata(path) {
+        if metadata.file_type().is_symlink() {
+            return Err(CryptoError::InvalidPath("Output path is a symlink".into()));
+        }
+    }
+
     let parent = path
         .parent()
         .ok_or_else(|| CryptoError::InvalidPath("Output path has no parent directory".into()))?;
@@ -104,6 +111,20 @@ mod tests {
         // Relative path like "keyfile.bin" has parent "" which should normalize to "."
         let path = Path::new("keyfile.bin");
         assert!(validate_output_path(path).is_ok());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_validate_output_path_rejects_symlink_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let canonical_dir = dir.path().canonicalize().unwrap();
+        let real_file = canonical_dir.join("real.bin");
+        std::fs::write(&real_file, b"data").unwrap();
+        let symlink_path = canonical_dir.join("keyfile.bin");
+        std::os::unix::fs::symlink(&real_file, &symlink_path).unwrap();
+
+        let err = validate_output_path(&symlink_path).unwrap_err();
+        assert!(matches!(err, CryptoError::InvalidPath(_)));
     }
 
     #[cfg(unix)]

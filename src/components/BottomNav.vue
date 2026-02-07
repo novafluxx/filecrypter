@@ -60,10 +60,13 @@ function handleTabKeydown(event: KeyboardEvent) {
 
   if (newIndex !== -1) {
     event.preventDefault();
-    emit('switch-tab', tabIds[newIndex]);
-    // Focus the new tab button
-    const buttons = (event.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('[role="tab"]');
-    buttons[newIndex]?.focus();
+    const newTab = tabIds[newIndex];
+    if (newTab) {
+      emit('switch-tab', newTab);
+      // Focus the new tab button
+      const buttons = (event.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('[role="tab"]');
+      buttons[newIndex]?.focus();
+    }
   }
 }
 </script>

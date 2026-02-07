@@ -74,7 +74,6 @@ use aes_gcm::{
     Aes256Gcm, Nonce,
 };
 use rand::{rngs::OsRng, TryRngCore};
-use tempfile::NamedTempFile;
 
 use crate::crypto::compression::{
     compress, decompress_with_limit, CompressionAlgorithm, CompressionConfig,
@@ -87,8 +86,7 @@ use crate::crypto::keyfile::{combine_password_and_keyfile, hash_key_file};
 use crate::crypto::secure::Password;
 use crate::error::{CryptoError, CryptoResult};
 
-#[cfg(windows)]
-use crate::security::set_owner_only_dacl;
+use crate::security::create_secure_tempfile;
 
 /// Default chunk size: 1 MB
 pub const DEFAULT_CHUNK_SIZE: usize = 1024 * 1024;
@@ -744,32 +742,6 @@ fn max_ciphertext_len(
     max_payload_len.checked_add(TAG_SIZE).ok_or_else(|| {
         CryptoError::FormatError("Chunk size too large to compute ciphertext bound".to_string())
     })
-}
-
-fn create_secure_tempfile(parent: &Path) -> CryptoResult<NamedTempFile> {
-    let temp_file = NamedTempFile::new_in(parent).map_err(CryptoError::Io)?;
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let mut perms = temp_file
-            .as_file()
-            .metadata()
-            .map_err(CryptoError::Io)?
-            .permissions();
-        perms.set_mode(0o600);
-        fs::set_permissions(temp_file.path(), perms).map_err(CryptoError::Io)?;
-    }
-
-    #[cfg(windows)]
-    {
-        if let Err(err) = set_owner_only_dacl(temp_file.path()) {
-            let _ = fs::remove_file(temp_file.path());
-            return Err(CryptoError::Io(err.into()));
-        }
-    }
-
-    Ok(temp_file)
 }
 
 /// Check if a file should use streaming encryption based on size
@@ -1448,5 +1420,341 @@ mod tests {
         let decrypted_v5 = temp_dir.path().join("decrypted_v5.bin");
         decrypt_file_streaming(&encrypted_v5, &decrypted_v5, &password, None, false, None).unwrap();
         assert_eq!(fs::read(&decrypted_v5).unwrap(), content);
+    }
+
+    // ---------------------------------------------------------------
+    // Helper: encrypt test content and return raw encrypted file bytes
+    // ---------------------------------------------------------------
+    fn encrypt_test_file(content: &[u8], password: &str, chunk_size: usize) -> Vec<u8> {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let input_file = NamedTempFile::new().unwrap();
+        fs::write(input_file.path(), content).unwrap();
+
+        let encrypted_path = temp_dir.path().join("encrypted.bin");
+        let pw = Password::new(password.to_string());
+        encrypt_file_streaming(
+            input_file.path(),
+            &encrypted_path,
+            &pw,
+            chunk_size,
+            None,
+            false,
+            None,
+            None,
+        )
+        .unwrap();
+
+        fs::read(&encrypted_path).unwrap()
+    }
+
+    /// Try to decrypt raw bytes; returns the CryptoResult.
+    fn try_decrypt_bytes(data: &[u8], password: &str) -> CryptoResult<Vec<u8>> {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let enc_path = temp_dir.path().join("tampered.bin");
+        fs::write(&enc_path, data).unwrap();
+
+        let dec_path = temp_dir.path().join("decrypted.bin");
+        let pw = Password::new(password.to_string());
+        decrypt_file_streaming(&enc_path, &dec_path, &pw, None, false, None)?;
+        Ok(fs::read(&dec_path).unwrap())
+    }
+
+    // ---------------------------------------------------------------
+    // Header tampering tests
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn test_tamper_version_byte() {
+        let password = "tamper_test";
+        let data = encrypt_test_file(b"hello world", password, 1024);
+        assert_eq!(data[0], STREAMING_VERSION_V4);
+
+        // Set version to an unsupported value
+        let mut tampered = data.clone();
+        tampered[0] = 99;
+        let result = try_decrypt_bytes(&tampered, password);
+        assert!(
+            matches!(result, Err(CryptoError::FormatError(ref msg)) if msg.contains("Unsupported file format version")),
+            "Expected FormatError for invalid version, got: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_tamper_salt_bytes() {
+        let password = "tamper_test";
+        let data = encrypt_test_file(b"hello world", password, 1024);
+
+        // Salt starts at offset 22 (after VERSION:1 + SALT_LEN:4 + KDF_PARAMS:17)
+        let salt_offset = VERSION_SIZE + SALT_LEN_SIZE + KDF_PARAMS_SIZE;
+
+        let mut tampered = data.clone();
+        tampered[salt_offset] ^= 0xFF; // flip bits in first salt byte
+        let result = try_decrypt_bytes(&tampered, password);
+        // Corrupted salt -> different key -> AEAD tag mismatch -> InvalidPassword
+        assert!(
+            matches!(result, Err(CryptoError::InvalidPassword)),
+            "Expected InvalidPassword for corrupted salt, got: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_tamper_base_nonce() {
+        let password = "tamper_test";
+        let data = encrypt_test_file(b"hello world", password, 1024);
+
+        // Base nonce follows salt: offset = 22 + salt_len (16 for default)
+        let kdf = KdfParams::default();
+        let nonce_offset =
+            VERSION_SIZE + SALT_LEN_SIZE + KDF_PARAMS_SIZE + kdf.salt_length as usize;
+
+        let mut tampered = data.clone();
+        tampered[nonce_offset] ^= 0xFF;
+        let result = try_decrypt_bytes(&tampered, password);
+        // Corrupted nonce -> wrong chunk nonces AND wrong AAD -> AEAD failure
+        assert!(
+            matches!(result, Err(CryptoError::InvalidPassword)),
+            "Expected InvalidPassword for corrupted nonce, got: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_tamper_kdf_mem_cost() {
+        let password = "tamper_test";
+        let data = encrypt_test_file(b"hello world", password, 1024);
+
+        // KDF mem_cost is at offset 6..10 (after VERSION:1 + SALT_LEN:4 + KDF_ALG:1)
+        let mem_cost_offset = VERSION_SIZE + SALT_LEN_SIZE + 1; // 6
+
+        let mut tampered = data.clone();
+        // Change mem_cost to a different valid value (double it)
+        let orig = u32::from_le_bytes(
+            tampered[mem_cost_offset..mem_cost_offset + 4]
+                .try_into()
+                .unwrap(),
+        );
+        let new_val = orig * 2;
+        tampered[mem_cost_offset..mem_cost_offset + 4].copy_from_slice(&new_val.to_le_bytes());
+
+        let result = try_decrypt_bytes(&tampered, password);
+        // Different KDF params -> different key -> AEAD failure
+        assert!(
+            matches!(result, Err(CryptoError::InvalidPassword)),
+            "Expected InvalidPassword for corrupted KDF mem_cost, got: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_tamper_kdf_time_cost() {
+        let password = "tamper_test";
+        let data = encrypt_test_file(b"hello world", password, 1024);
+
+        // KDF time_cost at offset 10..14
+        let time_cost_offset = VERSION_SIZE + SALT_LEN_SIZE + 1 + 4; // 10
+
+        let mut tampered = data.clone();
+        let orig = u32::from_le_bytes(
+            tampered[time_cost_offset..time_cost_offset + 4]
+                .try_into()
+                .unwrap(),
+        );
+        let new_val = orig + 1;
+        tampered[time_cost_offset..time_cost_offset + 4].copy_from_slice(&new_val.to_le_bytes());
+
+        let result = try_decrypt_bytes(&tampered, password);
+        assert!(
+            matches!(result, Err(CryptoError::InvalidPassword)),
+            "Expected InvalidPassword for corrupted KDF time_cost, got: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_tamper_chunk_ciphertext() {
+        let password = "tamper_test";
+        let data = encrypt_test_file(b"hello world", password, 1024);
+
+        // Flip a byte in the ciphertext (last byte of the file, part of chunk data)
+        let mut tampered = data.clone();
+        let last = tampered.len() - 1;
+        tampered[last] ^= 0xFF;
+        let result = try_decrypt_bytes(&tampered, password);
+        assert!(
+            matches!(result, Err(CryptoError::InvalidPassword)),
+            "Expected InvalidPassword for corrupted ciphertext, got: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_tamper_chunk_length_field() {
+        let password = "tamper_test";
+        let data = encrypt_test_file(b"hello world", password, 1024);
+
+        // The chunk length field is right after the header.
+        // Header size for V4 = HEADER_V4_FIXED_SIZE + salt_len
+        let kdf = KdfParams::default();
+        let header_size = HEADER_V4_FIXED_SIZE + kdf.salt_length as usize;
+
+        let mut tampered = data.clone();
+        // Set chunk length to something huge (but within file bounds won't match)
+        tampered[header_size] = 0xFF;
+        tampered[header_size + 1] = 0xFF;
+        let result = try_decrypt_bytes(&tampered, password);
+        // Either FormatError (invalid chunk length) or Io (unexpected EOF)
+        assert!(
+            result.is_err(),
+            "Expected error for corrupted chunk length, got: {:?}",
+            result
+        );
+        match result {
+            Err(CryptoError::FormatError(_)) | Err(CryptoError::Io(_)) => {} // expected
+            other => panic!("Expected FormatError or Io, got: {:?}", other),
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // Truncated file tests
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn test_truncated_empty_file() {
+        let result = try_decrypt_bytes(&[], "password");
+        assert!(
+            matches!(result, Err(CryptoError::Io(_))),
+            "Expected Io error for empty file, got: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_truncated_mid_header_version_only() {
+        // File contains only the version byte, nothing else
+        let result = try_decrypt_bytes(&[STREAMING_VERSION_V4], "password");
+        assert!(
+            matches!(result, Err(CryptoError::Io(_))),
+            "Expected Io error for truncated header (version only), got: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_truncated_mid_header_partial_kdf() {
+        let password = "truncate_test";
+        let data = encrypt_test_file(b"test data", password, 1024);
+
+        // Truncate in the middle of the KDF parameters (e.g., 10 bytes in)
+        let truncated = &data[..10];
+        let result = try_decrypt_bytes(truncated, password);
+        assert!(
+            matches!(result, Err(CryptoError::Io(_))),
+            "Expected Io error for truncation mid-KDF params, got: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_truncated_mid_header_before_nonce() {
+        let password = "truncate_test";
+        let data = encrypt_test_file(b"test data", password, 1024);
+
+        // Truncate just before the base nonce (after salt)
+        let kdf = KdfParams::default();
+        let nonce_offset =
+            VERSION_SIZE + SALT_LEN_SIZE + KDF_PARAMS_SIZE + kdf.salt_length as usize;
+        let truncated = &data[..nonce_offset];
+        let result = try_decrypt_bytes(truncated, password);
+        assert!(
+            matches!(result, Err(CryptoError::Io(_))),
+            "Expected Io error for truncation before nonce, got: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_truncated_header_complete_but_no_chunks() {
+        let password = "truncate_test";
+        let data = encrypt_test_file(b"test data", password, 1024);
+
+        // Truncate right at end of header (no chunk data at all)
+        let kdf = KdfParams::default();
+        let header_size = HEADER_V4_FIXED_SIZE + kdf.salt_length as usize;
+        let truncated = &data[..header_size];
+        let result = try_decrypt_bytes(truncated, password);
+        // Will try to read chunk length field and fail with Io (UnexpectedEof)
+        assert!(
+            matches!(result, Err(CryptoError::Io(_))),
+            "Expected Io error for header-only file, got: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_truncated_mid_chunk_data() {
+        let password = "truncate_test";
+        let data = encrypt_test_file(b"hello world", password, 1024);
+
+        // Truncate in the middle of the chunk ciphertext (remove last 5 bytes)
+        let truncated = &data[..data.len() - 5];
+        let result = try_decrypt_bytes(truncated, password);
+        // read_exact for chunk ciphertext will fail with UnexpectedEof
+        assert!(
+            matches!(result, Err(CryptoError::Io(_))),
+            "Expected Io error for truncation mid-chunk, got: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_truncated_between_chunks() {
+        let password = "truncate_test";
+        // Create multi-chunk file: 3 chunks of 64 bytes each
+        let content: Vec<u8> = (0..192).map(|i| (i % 256) as u8).collect();
+        let data = encrypt_test_file(&content, password, 64);
+
+        // Find where second chunk starts and truncate there
+        let kdf = KdfParams::default();
+        let header_size = HEADER_V4_FIXED_SIZE + kdf.salt_length as usize;
+
+        // Read first chunk length to find boundary
+        let chunk1_len =
+            u32::from_le_bytes(data[header_size..header_size + 4].try_into().unwrap()) as usize;
+        let after_chunk1 = header_size + 4 + chunk1_len;
+
+        // Truncate right after first chunk (before second chunk's length field)
+        let truncated = &data[..after_chunk1];
+        let result = try_decrypt_bytes(truncated, password);
+        assert!(
+            matches!(result, Err(CryptoError::Io(_))),
+            "Expected Io error for truncation between chunks, got: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_truncated_at_chunk_length_field() {
+        let password = "truncate_test";
+        let content: Vec<u8> = (0..192).map(|i| (i % 256) as u8).collect();
+        let data = encrypt_test_file(&content, password, 64);
+
+        let kdf = KdfParams::default();
+        let header_size = HEADER_V4_FIXED_SIZE + kdf.salt_length as usize;
+
+        // Read first chunk length
+        let chunk1_len =
+            u32::from_le_bytes(data[header_size..header_size + 4].try_into().unwrap()) as usize;
+        let chunk2_len_offset = header_size + 4 + chunk1_len;
+
+        // Truncate in the middle of the second chunk's length field (2 of 4 bytes)
+        let truncated = &data[..chunk2_len_offset + 2];
+        let result = try_decrypt_bytes(truncated, password);
+        assert!(
+            matches!(result, Err(CryptoError::Io(_))),
+            "Expected Io error for truncation at chunk length field, got: {:?}",
+            result
+        );
     }
 }

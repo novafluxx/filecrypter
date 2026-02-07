@@ -16,11 +16,10 @@ use std::fs::{self, File};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 
+use crate::error::{CryptoError, CryptoResult};
+use crate::security::create_secure_tempfile;
 use chrono::Local;
 use tar::{Archive, Builder, EntryType};
-use tempfile::NamedTempFile;
-
-use crate::error::{CryptoError, CryptoResult};
 
 #[cfg(windows)]
 use crate::security::set_owner_only_dacl;
@@ -549,33 +548,6 @@ pub fn generate_archive_name(custom_name: Option<&str>) -> String {
     format!("archive_{}.tar.zst", timestamp)
 }
 
-/// Create a secure temporary file
-fn create_secure_tempfile(parent: &Path) -> CryptoResult<NamedTempFile> {
-    let temp_file = NamedTempFile::new_in(parent).map_err(CryptoError::Io)?;
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let mut perms = temp_file
-            .as_file()
-            .metadata()
-            .map_err(CryptoError::Io)?
-            .permissions();
-        perms.set_mode(0o600);
-        fs::set_permissions(temp_file.path(), perms).map_err(CryptoError::Io)?;
-    }
-
-    #[cfg(windows)]
-    {
-        if let Err(err) = set_owner_only_dacl(temp_file.path()) {
-            let _ = fs::remove_file(temp_file.path());
-            return Err(CryptoError::Io(err.into()));
-        }
-    }
-
-    Ok(temp_file)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -809,6 +781,97 @@ mod tests {
 
         assert!(!result.is_absolute());
         assert_eq!(result, PathBuf::from("docs/file.txt"));
+    }
+
+    #[test]
+    fn test_archive_encrypt_decrypt_pipeline() {
+        use crate::crypto::{
+            decrypt_file_streaming, encrypt_file_streaming, Password, DEFAULT_CHUNK_SIZE,
+        };
+
+        let temp = tempdir().unwrap();
+        let input_dir = temp.path().join("input");
+        let archive_dir = temp.path().join("archive");
+        let encrypted_dir = temp.path().join("encrypted");
+        let decrypted_dir = temp.path().join("decrypted");
+        let extract_dir = temp.path().join("extract");
+
+        fs::create_dir_all(&input_dir).unwrap();
+        fs::create_dir_all(&archive_dir).unwrap();
+        fs::create_dir_all(&encrypted_dir).unwrap();
+        fs::create_dir_all(&decrypted_dir).unwrap();
+        fs::create_dir_all(&extract_dir).unwrap();
+
+        // Create test files with varied content
+        let files = vec![
+            ("readme.txt", b"This is a readme file." as &[u8]),
+            ("binary.dat", &[0u8, 1, 2, 128, 255, 0, 42]),
+            ("notes.md", b"# Notes\n\nSome markdown content.\n"),
+        ];
+
+        let input_paths: Vec<PathBuf> = files
+            .iter()
+            .map(|(name, content)| {
+                let path = input_dir.join(name);
+                fs::write(&path, content).unwrap();
+                path
+            })
+            .collect();
+
+        let input_refs: Vec<&Path> = input_paths.iter().map(|p| p.as_path()).collect();
+
+        // Step 1: Create archive
+        let archive_path = archive_dir.join("test.tar.zst");
+        create_tar_zstd_archive(&input_refs, &archive_path, None).unwrap();
+        assert!(archive_path.exists());
+
+        // Step 2: Encrypt the archive
+        let encrypted_path = encrypted_dir.join("test.tar.zst.encrypted");
+        let password = Password::new("pipeline-test-pw".to_string());
+        encrypt_file_streaming(
+            &archive_path,
+            &encrypted_path,
+            &password,
+            DEFAULT_CHUNK_SIZE,
+            None,
+            false,
+            None,
+            None,
+        )
+        .unwrap();
+        assert!(encrypted_path.exists());
+
+        // Step 3: Decrypt the archive
+        let decrypted_archive_path = decrypted_dir.join("test.tar.zst");
+        decrypt_file_streaming(
+            &encrypted_path,
+            &decrypted_archive_path,
+            &password,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+        assert!(decrypted_archive_path.exists());
+
+        // Step 4: Extract the archive
+        let extracted =
+            extract_tar_zstd_archive(&decrypted_archive_path, &extract_dir, false, None).unwrap();
+        assert_eq!(extracted.len(), files.len());
+
+        // Step 5: Verify contents match originals
+        for (name, original_content) in &files {
+            let extracted_path = extracted
+                .iter()
+                .find(|p| p.file_name().unwrap().to_string_lossy() == *name)
+                .unwrap_or_else(|| panic!("Missing extracted file: {}", name));
+            let extracted_content = fs::read(extracted_path).unwrap();
+            assert_eq!(
+                &extracted_content, original_content,
+                "Content mismatch for {}",
+                name
+            );
+        }
     }
 
     #[test]

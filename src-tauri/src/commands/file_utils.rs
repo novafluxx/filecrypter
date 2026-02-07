@@ -368,4 +368,61 @@ mod tests {
         let result = validate_input_path(dir.path().to_str().unwrap());
         assert!(matches!(result, Err(CryptoError::InvalidPath(_))));
     }
+
+    #[test]
+    fn test_resolve_output_path_allow_overwrite_returns_same() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let path = temp_dir.path().join("existing.txt");
+        fs::write(&path, b"data").unwrap();
+
+        let result = resolve_output_path(&path, true).unwrap();
+        assert_eq!(result, path);
+    }
+
+    #[test]
+    fn test_resolve_output_path_no_collision_returns_same() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let path = temp_dir.path().join("nonexistent.txt");
+
+        let result = resolve_output_path(&path, false).unwrap();
+        assert_eq!(result, path);
+    }
+
+    #[test]
+    fn test_resolve_output_path_collision_appends_index() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let path = temp_dir.path().join("file.txt");
+        fs::write(&path, b"data").unwrap();
+
+        let result = resolve_output_path(&path, false).unwrap();
+        assert_eq!(
+            result.file_name().unwrap().to_string_lossy(),
+            "file (1).txt"
+        );
+    }
+
+    #[test]
+    fn test_resolve_output_path_multiple_collisions() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let path = temp_dir.path().join("file.txt");
+        fs::write(&path, b"data").unwrap();
+        fs::write(temp_dir.path().join("file (1).txt"), b"data").unwrap();
+        fs::write(temp_dir.path().join("file (2).txt"), b"data").unwrap();
+
+        let result = resolve_output_path(&path, false).unwrap();
+        assert_eq!(
+            result.file_name().unwrap().to_string_lossy(),
+            "file (3).txt"
+        );
+    }
+
+    #[test]
+    fn test_resolve_output_path_no_extension() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let path = temp_dir.path().join("noext");
+        fs::write(&path, b"data").unwrap();
+
+        let result = resolve_output_path(&path, false).unwrap();
+        assert_eq!(result.file_name().unwrap().to_string_lossy(), "noext (1)");
+    }
 }

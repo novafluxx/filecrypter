@@ -135,31 +135,21 @@ function switchTab(tab: TabName) {
 
       <!-- Tab Content Area -->
       <div class="tab-panels">
-        <KeepAlive>
-          <div v-show="activeTab === 'encrypt'" class="tab-panel">
-            <EncryptTab />
-          </div>
-        </KeepAlive>
-        <KeepAlive>
-          <div v-show="activeTab === 'decrypt'" class="tab-panel">
-            <DecryptTab />
-          </div>
-        </KeepAlive>
-        <KeepAlive>
-          <div v-show="activeTab === 'batch'" class="tab-panel">
-            <BatchTab />
-          </div>
-        </KeepAlive>
-        <KeepAlive>
-          <div v-show="activeTab === 'settings'" class="tab-panel">
-            <SettingsTab />
-          </div>
-        </KeepAlive>
-        <KeepAlive>
-          <div v-show="activeTab === 'help'" class="tab-panel">
-            <HelpTab />
-          </div>
-        </KeepAlive>
+        <div v-show="activeTab === 'encrypt'" class="tab-panel">
+          <EncryptTab />
+        </div>
+        <div v-show="activeTab === 'decrypt'" class="tab-panel">
+          <DecryptTab />
+        </div>
+        <div v-show="activeTab === 'batch'" class="tab-panel">
+          <BatchTab />
+        </div>
+        <div v-show="activeTab === 'settings'" class="tab-panel">
+          <SettingsTab />
+        </div>
+        <div v-show="activeTab === 'help'" class="tab-panel">
+          <HelpTab />
+        </div>
       </div>
 
       <!-- Mobile Bottom Navigation (shown only on iOS/Android, waits for platform detection) -->

@@ -14,7 +14,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
-import { NConfigProvider, NTabs, NTab, darkTheme, type GlobalThemeOverrides } from 'naive-ui';
+import { NConfigProvider, NDialogProvider, NTabs, NTab, darkTheme, type GlobalThemeOverrides } from 'naive-ui';
 import EncryptTab from './components/EncryptTab.vue';
 import DecryptTab from './components/DecryptTab.vue';
 import BatchTab from './components/BatchTab.vue';
@@ -112,6 +112,7 @@ function switchTab(tab: TabName) {
 
 <template>
   <NConfigProvider :theme="naiveTheme" :theme-overrides="themeOverrides">
+  <NDialogProvider>
     <!-- Update notification banner (desktop only) -->
     <UpdateNotification v-if="isInitialized && !isMobile" />
 
@@ -159,6 +160,7 @@ function switchTab(tab: TabName) {
         @switch-tab="switchTab"
       />
     </div>
+  </NDialogProvider>
   </NConfigProvider>
 </template>
 

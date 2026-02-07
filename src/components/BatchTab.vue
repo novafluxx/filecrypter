@@ -284,9 +284,6 @@ async function handleIndividualOperation(allowOverwrite: boolean) {
 
     batchResult.value = result;
 
-    // Clear password for security
-    password.value = '';
-
     // Set status message
     if (result.failed_count === 0) {
       statusMessage.value = `Successfully ${mode.value === 'encrypt' ? 'encrypted' : 'decrypted'} ${result.success_count} file${result.success_count !== 1 ? 's' : ''}`;
@@ -302,6 +299,8 @@ async function handleIndividualOperation(allowOverwrite: boolean) {
     statusMessage.value = sanitizeErrorMessage(error);
     statusType.value = 'error';
   } finally {
+    // Always clear password, even when the operation fails
+    password.value = '';
     isProcessing.value = false;
     showProgress.value = false;
     stopProgressListener();
@@ -345,9 +344,6 @@ async function handleArchiveOperation(allowOverwrite: boolean) {
       );
     }
 
-    // Clear password for security
-    password.value = '';
-
     // Set status message
     if (result.success) {
       if (mode.value === 'encrypt') {
@@ -364,6 +360,8 @@ async function handleArchiveOperation(allowOverwrite: boolean) {
     statusMessage.value = sanitizeErrorMessage(error);
     statusType.value = 'error';
   } finally {
+    // Always clear password, even when the operation fails
+    password.value = '';
     isProcessing.value = false;
     showProgress.value = false;
     stopProgressListener();
@@ -592,6 +590,13 @@ function getPhaseLabel(phase: string): string {
       <div class="form-group">
         <label>Password:</label>
         <NInput
+          :input-props="{
+            id: 'batch-password',
+            autocomplete: mode === 'encrypt' ? 'new-password' : 'current-password',
+            spellcheck: 'false',
+            autocapitalize: 'off',
+            autocorrect: 'off'
+          }"
           type="password"
           show-password-on="click"
           v-model:value="password"

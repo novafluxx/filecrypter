@@ -24,6 +24,7 @@ defineProps<{
   modelValue: string;
   placeholder: string;
   disabled: boolean;
+  autocomplete: 'new-password' | 'current-password';
   showStrengthMeter?: boolean;
   strength?: PasswordStrength;
   isPasswordValid?: boolean;
@@ -39,7 +40,13 @@ defineEmits<{
   <div class="form-group">
     <label :for="inputId">Password:</label>
     <NInput
-      :input-props="{ id: inputId }"
+      :input-props="{
+        id: inputId,
+        autocomplete,
+        spellcheck: 'false',
+        autocapitalize: 'off',
+        autocorrect: 'off'
+      }"
       type="password"
       show-password-on="click"
       :value="modelValue"

@@ -1,6 +1,6 @@
 [package]
 name = "filecrypter"
-version = "1.0.3"
+version = "1.0.4"
 description = "Secure cross-platform file encryption desktop application"
 authors = ["Justin High"]
 license = "MIT"

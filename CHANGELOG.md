@@ -5,6 +5,14 @@ All notable changes to FileCrypter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.4] - 2026-02-07
+
+
+
+### Bug Fixes
+
+- **security:** IPC security hardening ([0b0ce6d](https://github.com/novafluxx/filecrypter/commit/0b0ce6d1724cb377e7f28fcaa0ad5e1bceb4cba9)) in [#26](https://github.com/novafluxx/filecrypter/pull/26)
+- Harden password input handling ([9448920](https://github.com/novafluxx/filecrypter/commit/9448920c6c312edcb1bdbbc88749a662a9e0b9a1)) in [#27](https://github.com/novafluxx/filecrypter/pull/27)
 ## [1.0.3] - 2026-02-07
 
 

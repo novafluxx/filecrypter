@@ -18,6 +18,13 @@ fn validate_output_path(path: &Path) -> CryptoResult<()> {
         .parent()
         .ok_or_else(|| CryptoError::InvalidPath("Output path has no parent directory".into()))?;
 
+    // Normalize empty parent (from relative paths like "keyfile.bin") to "."
+    let parent = if parent.as_os_str().is_empty() {
+        Path::new(".")
+    } else {
+        parent
+    };
+
     if !parent.exists() {
         return Err(CryptoError::InvalidPath(
             "Parent directory does not exist".into(),
@@ -90,6 +97,13 @@ mod tests {
         let path = file_path.join("keyfile.bin");
         let err = validate_output_path(&path).unwrap_err();
         assert!(matches!(err, CryptoError::InvalidPath(_)));
+    }
+
+    #[test]
+    fn test_validate_output_path_relative() {
+        // Relative path like "keyfile.bin" has parent "" which should normalize to "."
+        let path = Path::new("keyfile.bin");
+        assert!(validate_output_path(path).is_ok());
     }
 
     #[cfg(unix)]

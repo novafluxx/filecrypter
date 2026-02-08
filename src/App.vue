@@ -283,6 +283,7 @@ body {
   align-items: center;
   justify-content: space-between;
   background: var(--panel);
+  border-bottom: 1px solid var(--border);
   padding-right: 16px;
   flex-shrink: 0;
   flex-grow: 0;
@@ -328,5 +329,10 @@ body {
 /* Bold tab labels */
 .desktop-tabs :deep(.n-tabs-tab__label) {
   font-weight: 600;
+}
+
+/* Use a single full-width header divider instead of tab-only divider */
+.desktop-tabs :deep(.n-tabs-nav-scroll-content) {
+  border-bottom: none !important;
 }
 </style>

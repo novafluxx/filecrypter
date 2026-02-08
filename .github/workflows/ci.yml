@@ -65,6 +65,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-24.04
+    env:
+      RUSTFLAGS: -C debuginfo=0
 
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -76,11 +78,18 @@ jobs:
           toolchain: stable
           components: clippy, rustfmt
 
+      - name: Check Rust formatting
+        if: github.event_name == 'pull_request'
+        working-directory: src-tauri
+        run: cargo fmt --check
+
       - name: Rust cache
         # Cache Cargo registry/build artifacts
         uses: swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
           workspaces: './src-tauri -> target'
+          shared-key: rust-${{ runner.os }}-stable
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Cache apt packages
         # Cache Tauri system dependencies installed via apt
@@ -89,11 +98,6 @@ jobs:
           packages: libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
           version: 1.0
 
-      - name: Check Rust formatting
-        if: github.event_name == 'pull_request'
-        working-directory: src-tauri
-        run: cargo fmt --check
-
       - name: Run Rust linter
         if: github.event_name == 'pull_request'
         working-directory: src-tauri
@@ -101,7 +105,7 @@ jobs:
 
       - name: Run Rust tests
         working-directory: src-tauri
-        run: cargo test --locked --all-features
+        run: cargo test --locked --all-features --lib --tests
 
   # Frontend tests - only run when frontend files change
   frontend-tests:

@@ -890,7 +890,19 @@ mod tests {
     use crate::commands::file_utils::MAX_BATCH_FILES;
     use std::fs;
     use std::path::Path;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
     use tempfile::tempdir;
+
+    fn test_password() -> String {
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let counter = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let now_nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|duration| duration.as_nanos())
+            .unwrap_or_default();
+        format!("{now_nanos:x}{counter:x}")
+    }
 
     fn write_input_file(dir: &Path, name: &str, content: &[u8]) -> String {
         let path = dir.join(name);
@@ -917,10 +929,11 @@ mod tests {
             .to_string();
         let mut no_progress = |_progress: BatchProgress| {};
 
+        let password = test_password();
         let result = batch_encrypt_impl(
             &input_paths,
             &output_dir_str,
-            "password123",
+            &password,
             false,
             None,
             &mut no_progress,
@@ -945,7 +958,7 @@ mod tests {
             .unwrap()
             .to_string_lossy()
             .to_string();
-        let password = Password::new("password123".to_string());
+        let password = Password::new(test_password());
 
         let first_output =
             encrypt_single_file(&password, &input_path, &output_dir_str, false, None).unwrap();
@@ -977,10 +990,11 @@ mod tests {
             .to_string();
         let mut no_progress = |_progress: BatchProgress| {};
 
+        let password = test_password();
         let result = batch_encrypt_impl(
             &input_paths,
             &output_dir_str,
-            "password123",
+            &password,
             false,
             None,
             &mut no_progress,
@@ -998,11 +1012,12 @@ mod tests {
         let output_dir = tempdir().unwrap();
         let input_paths: Vec<String> = Vec::new();
         let mut no_progress = |_progress: BatchProgress| {};
+        let password = test_password();
 
         let result = batch_encrypt_impl(
             &input_paths,
             output_dir.path().to_str().unwrap(),
-            "password123",
+            &password,
             false,
             None,
             &mut no_progress,
@@ -1019,11 +1034,12 @@ mod tests {
         let missing_output = fs::canonicalize(output_dir.path()).unwrap().join("missing");
         let input_paths = vec![write_input_file(input_dir.path(), "file1.txt", b"alpha")];
         let mut no_progress = |_progress: BatchProgress| {};
+        let password = test_password();
 
         let result = batch_encrypt_impl(
             &input_paths,
             missing_output.to_str().unwrap(),
-            "password123",
+            &password,
             false,
             None,
             &mut no_progress,
@@ -1043,8 +1059,14 @@ mod tests {
             .unwrap()
             .to_string_lossy()
             .to_string();
+        let correct_password = test_password();
+        let mut wrong_password = test_password();
+        while wrong_password == correct_password {
+            wrong_password = test_password();
+        }
+
         let encrypted_path = encrypt_single_file(
-            &Password::new("correct_password".to_string()),
+            &Password::new(correct_password.clone()),
             &input_path,
             &encrypt_dir_canonical,
             false,
@@ -1062,7 +1084,7 @@ mod tests {
         let result = batch_decrypt_impl(
             &input_paths,
             &decrypt_dir_canonical,
-            "wrong_password",
+            &wrong_password,
             false,
             None,
             &mut no_progress,
@@ -1089,8 +1111,9 @@ mod tests {
             .to_string_lossy()
             .to_string();
 
+        let password_value = test_password();
         let encrypted_path = encrypt_single_file(
-            &Password::new("password123".to_string()),
+            &Password::new(password_value.clone()),
             &input_path,
             &encrypt_dir_canonical,
             false,
@@ -1098,7 +1121,7 @@ mod tests {
         )
         .unwrap();
 
-        let password = Password::new("password123".to_string());
+        let password = Password::new(password_value);
         let first_output = decrypt_single_file(
             &password,
             &encrypted_path,
@@ -1127,11 +1150,12 @@ mod tests {
         let output_dir = tempdir().unwrap();
         let input_paths = vec!["missing".to_string(); MAX_BATCH_FILES + 1];
         let mut no_progress = |_progress: BatchProgress| {};
+        let password = test_password();
 
         let result = batch_encrypt_impl(
             &input_paths,
             output_dir.path().to_str().unwrap(),
-            "password123",
+            &password,
             false,
             None,
             &mut no_progress,
@@ -1168,12 +1192,13 @@ mod tests {
             .to_string();
 
         let mut no_progress = |_progress: BatchProgress| {};
+        let roundtrip_password = test_password();
 
         // Batch encrypt
         let encrypt_result = batch_encrypt_impl(
             &input_paths,
             &encrypt_dir_str,
-            "roundtrip-password",
+            &roundtrip_password,
             false,
             None,
             &mut no_progress,
@@ -1194,7 +1219,7 @@ mod tests {
         let decrypt_result = batch_decrypt_impl(
             &encrypted_paths,
             &decrypt_dir_str,
-            "roundtrip-password",
+            &roundtrip_password,
             false,
             None,
             &mut no_progress,

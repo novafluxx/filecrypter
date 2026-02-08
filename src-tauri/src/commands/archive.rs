@@ -551,7 +551,19 @@ pub fn generate_archive_name(custom_name: Option<&str>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
     use tempfile::tempdir;
+
+    fn test_password() -> String {
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let counter = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let now_nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|duration| duration.as_nanos())
+            .unwrap_or_default();
+        format!("{now_nanos:x}{counter:x}")
+    }
 
     #[test]
     fn test_compute_common_prefix_single_file() {
@@ -827,7 +839,7 @@ mod tests {
 
         // Step 2: Encrypt the archive
         let encrypted_path = encrypted_dir.join("test.tar.zst.encrypted");
-        let password = Password::new("pipeline-test-pw".to_string());
+        let password = Password::new(test_password());
         encrypt_file_streaming(
             &archive_path,
             &encrypted_path,

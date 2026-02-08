@@ -771,7 +771,19 @@ mod tests {
     use super::*;
     use crate::crypto::kdf::KdfParams;
     use std::fs;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
     use tempfile::NamedTempFile;
+
+    fn test_password() -> String {
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let counter = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let now_nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|duration| duration.as_nanos())
+            .unwrap_or_default();
+        format!("{now_nanos:x}{counter:x}")
+    }
 
     #[test]
     fn test_derive_chunk_nonce() {
@@ -807,7 +819,7 @@ mod tests {
 
         // Encrypt (no compression - V4)
         let encrypted_path = temp_dir.path().join("encrypted.bin");
-        let password = Password::new("test_password".to_string());
+        let password = Password::new(test_password());
         encrypt_file_streaming(
             input_file.path(),
             &encrypted_path,
@@ -853,7 +865,7 @@ mod tests {
 
         // Encrypt with compression (V5)
         let encrypted_path = temp_dir.path().join("encrypted_compressed.bin");
-        let password = Password::new("test_password".to_string());
+        let password = Password::new(test_password());
         encrypt_file_streaming(
             input_file.path(),
             &encrypted_path,
@@ -897,7 +909,7 @@ mod tests {
         fs::write(input_file.path(), content).unwrap();
 
         let encrypted_path = temp_dir.path().join("encrypted_small_chunk.bin");
-        let password = Password::new("test_password".to_string());
+        let password = Password::new(test_password());
         encrypt_file_streaming(
             input_file.path(),
             &encrypted_path,
@@ -933,7 +945,7 @@ mod tests {
         let input_file = NamedTempFile::new().unwrap(); // Empty by default
 
         let encrypted_path = temp_dir.path().join("encrypted_empty.bin");
-        let password = Password::new("test_password".to_string());
+        let password = Password::new(test_password());
         encrypt_file_streaming(
             input_file.path(),
             &encrypted_path,
@@ -976,7 +988,7 @@ mod tests {
         fs::write(input_file.path(), content).unwrap();
 
         let encrypted_path = temp_dir.path().join("encrypted.bin");
-        let correct_password = Password::new("correct_password".to_string());
+        let correct_password = Password::new(test_password());
         encrypt_file_streaming(
             input_file.path(),
             &encrypted_path,
@@ -991,7 +1003,11 @@ mod tests {
 
         // Try to decrypt with wrong password
         let decrypted_path = temp_dir.path().join("decrypted.bin");
-        let wrong_password = Password::new("wrong_password".to_string());
+        let mut wrong_password_value = test_password();
+        while wrong_password_value == correct_password.as_str() {
+            wrong_password_value = test_password();
+        }
+        let wrong_password = Password::new(wrong_password_value);
         let result = decrypt_file_streaming(
             &encrypted_path,
             &decrypted_path,
@@ -1010,7 +1026,7 @@ mod tests {
         let input_file = NamedTempFile::new().unwrap();
         let output_file = NamedTempFile::new().unwrap();
 
-        let empty_password = Password::new("".to_string());
+        let empty_password = Password::new(String::new());
         let result = encrypt_file_streaming(
             input_file.path(),
             output_file.path(),
@@ -1047,7 +1063,7 @@ mod tests {
         });
         fs::write(&encrypted_path, header).unwrap();
 
-        let password = Password::new("test_password".to_string());
+        let password = Password::new(test_password());
         let result =
             decrypt_file_streaming(&encrypted_path, &output_path, &password, None, false, None);
         assert!(result.is_err());
@@ -1075,7 +1091,7 @@ mod tests {
         });
         fs::write(&encrypted_path, header).unwrap();
 
-        let password = Password::new("test_password".to_string());
+        let password = Password::new(test_password());
         let result =
             decrypt_file_streaming(&encrypted_path, &output_path, &password, None, false, None);
         assert!(result.is_err());
@@ -1108,7 +1124,7 @@ mod tests {
             flags: None,
         });
 
-        let password = Password::new("test_password".to_string());
+        let password = Password::new(test_password());
         let key = derive_key_with_params(&password, &salt, &kdf_params).unwrap();
         let cipher = Aes256Gcm::new_from_slice(key.as_slice()).unwrap();
 
@@ -1155,7 +1171,7 @@ mod tests {
 
         // Encrypt
         let encrypted_path = temp_dir.path().join("encrypted.bin");
-        let password = Password::new("multi_chunk_test".to_string());
+        let password = Password::new(test_password());
         encrypt_file_streaming(
             input_file.path(),
             &encrypted_path,
@@ -1209,7 +1225,7 @@ mod tests {
         crate::crypto::keyfile::generate_key_file(&key_file_path).unwrap();
 
         let encrypted_path = temp_dir.path().join("encrypted_v6.bin");
-        let password = Password::new("test_password".to_string());
+        let password = Password::new(test_password());
 
         encrypt_file_streaming(
             input_file.path(),
@@ -1255,7 +1271,7 @@ mod tests {
         crate::crypto::keyfile::generate_key_file(&key_file_path).unwrap();
 
         let encrypted_path = temp_dir.path().join("encrypted_v7.bin");
-        let password = Password::new("test_password".to_string());
+        let password = Password::new(test_password());
 
         encrypt_file_streaming(
             input_file.path(),
@@ -1301,7 +1317,7 @@ mod tests {
         crate::crypto::keyfile::generate_key_file(&key_file_path).unwrap();
 
         let encrypted_path = temp_dir.path().join("encrypted.bin");
-        let password = Password::new("test_password".to_string());
+        let password = Password::new(test_password());
 
         encrypt_file_streaming(
             input_file.path(),
@@ -1344,7 +1360,7 @@ mod tests {
         crate::crypto::keyfile::generate_key_file(&key_file_2).unwrap();
 
         let encrypted_path = temp_dir.path().join("encrypted.bin");
-        let password = Password::new("test_password".to_string());
+        let password = Password::new(test_password());
 
         encrypt_file_streaming(
             input_file.path(),
@@ -1381,7 +1397,7 @@ mod tests {
         let input_file = NamedTempFile::new().unwrap();
         fs::write(input_file.path(), content).unwrap();
 
-        let password = Password::new("test_password".to_string());
+        let password = Password::new(test_password());
 
         // V4 (no compression, no key file)
         let encrypted_v4 = temp_dir.path().join("encrypted_v4.bin");
@@ -1465,14 +1481,14 @@ mod tests {
 
     #[test]
     fn test_tamper_version_byte() {
-        let password = "tamper_test";
-        let data = encrypt_test_file(b"hello world", password, 1024);
+        let password = test_password();
+        let data = encrypt_test_file(b"hello world", &password, 1024);
         assert_eq!(data[0], STREAMING_VERSION_V4);
 
         // Set version to an unsupported value
         let mut tampered = data.clone();
         tampered[0] = 99;
-        let result = try_decrypt_bytes(&tampered, password);
+        let result = try_decrypt_bytes(&tampered, &password);
         assert!(
             matches!(result, Err(CryptoError::FormatError(ref msg)) if msg.contains("Unsupported file format version")),
             "Expected FormatError for invalid version, got: {:?}",
@@ -1482,15 +1498,15 @@ mod tests {
 
     #[test]
     fn test_tamper_salt_bytes() {
-        let password = "tamper_test";
-        let data = encrypt_test_file(b"hello world", password, 1024);
+        let password = test_password();
+        let data = encrypt_test_file(b"hello world", &password, 1024);
 
         // Salt starts at offset 22 (after VERSION:1 + SALT_LEN:4 + KDF_PARAMS:17)
         let salt_offset = VERSION_SIZE + SALT_LEN_SIZE + KDF_PARAMS_SIZE;
 
         let mut tampered = data.clone();
         tampered[salt_offset] ^= 0xFF; // flip bits in first salt byte
-        let result = try_decrypt_bytes(&tampered, password);
+        let result = try_decrypt_bytes(&tampered, &password);
         // Corrupted salt -> different key -> AEAD tag mismatch -> InvalidPassword
         assert!(
             matches!(result, Err(CryptoError::InvalidPassword)),
@@ -1501,8 +1517,8 @@ mod tests {
 
     #[test]
     fn test_tamper_base_nonce() {
-        let password = "tamper_test";
-        let data = encrypt_test_file(b"hello world", password, 1024);
+        let password = test_password();
+        let data = encrypt_test_file(b"hello world", &password, 1024);
 
         // Base nonce follows salt: offset = 22 + salt_len (16 for default)
         let kdf = KdfParams::default();
@@ -1511,7 +1527,7 @@ mod tests {
 
         let mut tampered = data.clone();
         tampered[nonce_offset] ^= 0xFF;
-        let result = try_decrypt_bytes(&tampered, password);
+        let result = try_decrypt_bytes(&tampered, &password);
         // Corrupted nonce -> wrong chunk nonces AND wrong AAD -> AEAD failure
         assert!(
             matches!(result, Err(CryptoError::InvalidPassword)),
@@ -1522,8 +1538,8 @@ mod tests {
 
     #[test]
     fn test_tamper_kdf_mem_cost() {
-        let password = "tamper_test";
-        let data = encrypt_test_file(b"hello world", password, 1024);
+        let password = test_password();
+        let data = encrypt_test_file(b"hello world", &password, 1024);
 
         // KDF mem_cost is at offset 6..10 (after VERSION:1 + SALT_LEN:4 + KDF_ALG:1)
         let mem_cost_offset = VERSION_SIZE + SALT_LEN_SIZE + 1; // 6
@@ -1533,7 +1549,7 @@ mod tests {
         let new_val = 1u32;
         tampered[mem_cost_offset..mem_cost_offset + 4].copy_from_slice(&new_val.to_le_bytes());
 
-        let result = try_decrypt_bytes(&tampered, password);
+        let result = try_decrypt_bytes(&tampered, &password);
         // Tampered KDF params -> either rejected by validation (FormatError) or wrong key (InvalidPassword)
         assert!(
             matches!(
@@ -1547,8 +1563,8 @@ mod tests {
 
     #[test]
     fn test_tamper_kdf_time_cost() {
-        let password = "tamper_test";
-        let data = encrypt_test_file(b"hello world", password, 1024);
+        let password = test_password();
+        let data = encrypt_test_file(b"hello world", &password, 1024);
 
         // KDF time_cost at offset 10..14
         let time_cost_offset = VERSION_SIZE + SALT_LEN_SIZE + 1 + 4; // 10
@@ -1562,7 +1578,7 @@ mod tests {
         let new_val = orig + 1;
         tampered[time_cost_offset..time_cost_offset + 4].copy_from_slice(&new_val.to_le_bytes());
 
-        let result = try_decrypt_bytes(&tampered, password);
+        let result = try_decrypt_bytes(&tampered, &password);
         assert!(
             matches!(result, Err(CryptoError::InvalidPassword)),
             "Expected InvalidPassword for corrupted KDF time_cost, got: {:?}",
@@ -1572,14 +1588,14 @@ mod tests {
 
     #[test]
     fn test_tamper_chunk_ciphertext() {
-        let password = "tamper_test";
-        let data = encrypt_test_file(b"hello world", password, 1024);
+        let password = test_password();
+        let data = encrypt_test_file(b"hello world", &password, 1024);
 
         // Flip a byte in the ciphertext (last byte of the file, part of chunk data)
         let mut tampered = data.clone();
         let last = tampered.len() - 1;
         tampered[last] ^= 0xFF;
-        let result = try_decrypt_bytes(&tampered, password);
+        let result = try_decrypt_bytes(&tampered, &password);
         assert!(
             matches!(result, Err(CryptoError::InvalidPassword)),
             "Expected InvalidPassword for corrupted ciphertext, got: {:?}",
@@ -1589,8 +1605,8 @@ mod tests {
 
     #[test]
     fn test_tamper_chunk_length_field() {
-        let password = "tamper_test";
-        let data = encrypt_test_file(b"hello world", password, 1024);
+        let password = test_password();
+        let data = encrypt_test_file(b"hello world", &password, 1024);
 
         // The chunk length field is right after the header.
         // Header size for V4 = HEADER_V4_FIXED_SIZE + salt_len
@@ -1601,7 +1617,7 @@ mod tests {
         // Set chunk length to something huge (but within file bounds won't match)
         tampered[header_size] = 0xFF;
         tampered[header_size + 1] = 0xFF;
-        let result = try_decrypt_bytes(&tampered, password);
+        let result = try_decrypt_bytes(&tampered, &password);
         // Either FormatError (invalid chunk length) or Io (unexpected EOF)
         assert!(
             result.is_err(),
@@ -1620,7 +1636,8 @@ mod tests {
 
     #[test]
     fn test_truncated_empty_file() {
-        let result = try_decrypt_bytes(&[], "password");
+        let password = test_password();
+        let result = try_decrypt_bytes(&[], &password);
         assert!(
             matches!(result, Err(CryptoError::Io(_))),
             "Expected Io error for empty file, got: {:?}",
@@ -1631,7 +1648,8 @@ mod tests {
     #[test]
     fn test_truncated_mid_header_version_only() {
         // File contains only the version byte, nothing else
-        let result = try_decrypt_bytes(&[STREAMING_VERSION_V4], "password");
+        let password = test_password();
+        let result = try_decrypt_bytes(&[STREAMING_VERSION_V4], &password);
         assert!(
             matches!(result, Err(CryptoError::Io(_))),
             "Expected Io error for truncated header (version only), got: {:?}",
@@ -1641,12 +1659,12 @@ mod tests {
 
     #[test]
     fn test_truncated_mid_header_partial_kdf() {
-        let password = "truncate_test";
-        let data = encrypt_test_file(b"test data", password, 1024);
+        let password = test_password();
+        let data = encrypt_test_file(b"test data", &password, 1024);
 
         // Truncate in the middle of the KDF parameters (e.g., 10 bytes in)
         let truncated = &data[..10];
-        let result = try_decrypt_bytes(truncated, password);
+        let result = try_decrypt_bytes(truncated, &password);
         assert!(
             matches!(result, Err(CryptoError::Io(_))),
             "Expected Io error for truncation mid-KDF params, got: {:?}",
@@ -1656,15 +1674,15 @@ mod tests {
 
     #[test]
     fn test_truncated_mid_header_before_nonce() {
-        let password = "truncate_test";
-        let data = encrypt_test_file(b"test data", password, 1024);
+        let password = test_password();
+        let data = encrypt_test_file(b"test data", &password, 1024);
 
         // Truncate just before the base nonce (after salt)
         let kdf = KdfParams::default();
         let nonce_offset =
             VERSION_SIZE + SALT_LEN_SIZE + KDF_PARAMS_SIZE + kdf.salt_length as usize;
         let truncated = &data[..nonce_offset];
-        let result = try_decrypt_bytes(truncated, password);
+        let result = try_decrypt_bytes(truncated, &password);
         assert!(
             matches!(result, Err(CryptoError::Io(_))),
             "Expected Io error for truncation before nonce, got: {:?}",
@@ -1674,14 +1692,14 @@ mod tests {
 
     #[test]
     fn test_truncated_header_complete_but_no_chunks() {
-        let password = "truncate_test";
-        let data = encrypt_test_file(b"test data", password, 1024);
+        let password = test_password();
+        let data = encrypt_test_file(b"test data", &password, 1024);
 
         // Truncate right at end of header (no chunk data at all)
         let kdf = KdfParams::default();
         let header_size = HEADER_V4_FIXED_SIZE + kdf.salt_length as usize;
         let truncated = &data[..header_size];
-        let result = try_decrypt_bytes(truncated, password);
+        let result = try_decrypt_bytes(truncated, &password);
         // Will try to read chunk length field and fail with Io (UnexpectedEof)
         assert!(
             matches!(result, Err(CryptoError::Io(_))),
@@ -1692,12 +1710,12 @@ mod tests {
 
     #[test]
     fn test_truncated_mid_chunk_data() {
-        let password = "truncate_test";
-        let data = encrypt_test_file(b"hello world", password, 1024);
+        let password = test_password();
+        let data = encrypt_test_file(b"hello world", &password, 1024);
 
         // Truncate in the middle of the chunk ciphertext (remove last 5 bytes)
         let truncated = &data[..data.len() - 5];
-        let result = try_decrypt_bytes(truncated, password);
+        let result = try_decrypt_bytes(truncated, &password);
         // read_exact for chunk ciphertext will fail with UnexpectedEof
         assert!(
             matches!(result, Err(CryptoError::Io(_))),
@@ -1708,10 +1726,10 @@ mod tests {
 
     #[test]
     fn test_truncated_between_chunks() {
-        let password = "truncate_test";
+        let password = test_password();
         // Create multi-chunk file: 3 chunks of 64 bytes each
         let content: Vec<u8> = (0..192).map(|i| (i % 256) as u8).collect();
-        let data = encrypt_test_file(&content, password, 64);
+        let data = encrypt_test_file(&content, &password, 64);
 
         // Find where second chunk starts and truncate there
         let kdf = KdfParams::default();
@@ -1724,7 +1742,7 @@ mod tests {
 
         // Truncate right after first chunk (before second chunk's length field)
         let truncated = &data[..after_chunk1];
-        let result = try_decrypt_bytes(truncated, password);
+        let result = try_decrypt_bytes(truncated, &password);
         assert!(
             matches!(result, Err(CryptoError::Io(_))),
             "Expected Io error for truncation between chunks, got: {:?}",
@@ -1734,9 +1752,9 @@ mod tests {
 
     #[test]
     fn test_truncated_at_chunk_length_field() {
-        let password = "truncate_test";
+        let password = test_password();
         let content: Vec<u8> = (0..192).map(|i| (i % 256) as u8).collect();
-        let data = encrypt_test_file(&content, password, 64);
+        let data = encrypt_test_file(&content, &password, 64);
 
         let kdf = KdfParams::default();
         let header_size = HEADER_V4_FIXED_SIZE + kdf.salt_length as usize;
@@ -1748,7 +1766,7 @@ mod tests {
 
         // Truncate in the middle of the second chunk's length field (2 of 4 bytes)
         let truncated = &data[..chunk2_len_offset + 2];
-        let result = try_decrypt_bytes(truncated, password);
+        let result = try_decrypt_bytes(truncated, &password);
         assert!(
             matches!(result, Err(CryptoError::Io(_))),
             "Expected Io error for truncation at chunk length field, got: {:?}",

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-FileCrypter is a cross-platform file encryption application built with Tauri v2. It uses Vue 3 for the frontend and Rust for the cryptographic backend, providing secure password-based file encryption using industry-standard algorithms. The app supports desktop (macOS, Windows, Linux) and mobile (iOS, Android) platforms.
+FileCrypter is a cross-platform file encryption application built with Tauri v2. It uses Vue 3 for the frontend and Rust for the cryptographic backend, providing secure password-based file encryption using industry-standard algorithms. The project is currently desktop-first (macOS, Windows, Linux). Mobile (iOS/Android) is a future goal and not part of the actively maintained workflow yet.
 
 ## Tech Stack
 
@@ -30,31 +30,8 @@ bun run tauri:dev              # Run in development mode (hot reload)
 bun run tauri:build            # Build production executable
 ```
 
-### iOS Development
-```bash
-# Prerequisites (one-time setup):
-# 1. Install Xcode from Mac App Store and launch it once
-# 2. rustup target add aarch64-apple-ios aarch64-apple-ios-sim
-# 3. brew install cocoapods
-
-bun tauri ios init             # Initialize iOS project (one-time)
-bun tauri ios dev              # Run in iOS Simulator
-bun tauri ios dev --device     # Run on physical device (requires signing)
-bun tauri ios build --open     # Build and open in Xcode
-```
-
-### Android Development
-```bash
-# Prerequisites (one-time setup):
-# 1. Install Android Studio with SDK Manager components:
-#    - Android SDK Platform, Platform-Tools, NDK (Side by side), Build-Tools, Command-line Tools
-# 2. Set environment variables: JAVA_HOME, ANDROID_HOME, NDK_HOME
-# 3. rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
-
-bun tauri android init         # Initialize Android project (one-time)
-bun tauri android dev          # Run in Android Emulator
-bun tauri android build --apk  # Build APK for testing/distribution
-```
+### Mobile Development (Future Goal / Experimental)
+Mobile targets are not currently part of the standard development, CI, or release workflow. If mobile exploration resumes, use Tauri mobile commands (`bun tauri ios ...`, `bun tauri android ...`) as experimental and validate assumptions against current Tauri docs before relying on them.
 
 ### Rust Testing
 ```bash
@@ -69,9 +46,9 @@ cargo clippy                   # Run linter
 
 ### Frontend Structure (Vue 3 Composition API)
 
-- **src/App.vue**: Root component with adaptive navigation (top tabs on desktop, bottom nav on mobile)
+- **src/App.vue**: Root component with adaptive navigation (desktop-first with mobile-aware UI scaffolding)
 - **src/components/**: Tab UI components (`EncryptTab`, `DecryptTab`, `BatchTab`, `SettingsTab`, `HelpTab`) and widgets
-  - `BottomNav.vue`: Mobile-only bottom navigation bar with icons
+  - `BottomNav.vue`: Mobile-oriented bottom navigation scaffold with icons
 - **src/composables/**: Shared logic (file ops, Tauri IPC, progress, theme, drag-drop, platform detection)
   - `usePlatform.ts`: Detects iOS/Android vs desktop for conditional UI rendering
 - **src/types/**: TypeScript type definitions
@@ -87,12 +64,16 @@ src-tauri/src/
 │   ├── encrypt.rs         # Single file streaming encryption
 │   ├── decrypt.rs         # Single file streaming decryption
 │   ├── batch.rs           # Batch encrypt/decrypt operations
-│   └── file_utils.rs      # File system utilities
+│   ├── archive.rs         # Archive mode batch operations
+│   ├── keyfile.rs         # Key file generation helpers/commands
+│   ├── file_utils.rs      # File system utilities
+│   └── command_utils.rs   # Shared command helpers
 ├── crypto/                # Cryptographic implementations
 │   ├── mod.rs             # Module exports
 │   ├── cipher.rs          # AES-256-GCM encryption/decryption
 │   ├── compression.rs     # ZSTD compression for optional file size reduction
 │   ├── kdf.rs             # Argon2id key derivation
+│   ├── keyfile.rs         # Key file derivation/composition logic
 │   ├── secure.rs          # Password and SecureBytes wrappers (zeroization)
 │   └── streaming.rs       # Chunked encryption (Version 4/5 format, all files)
 ├── security/              # Platform-specific security
@@ -167,10 +148,12 @@ Chunks:
 Frontend calls Rust via `invoke()` in `src/composables/useTauri.ts`:
 - `encrypt_file` / `decrypt_file`: Single file streaming encryption/decryption
 - `batch_encrypt` / `batch_decrypt`: Multiple files with progress events
+- `batch_encrypt_archive` / `batch_decrypt_archive`: Archive-mode batch operations
+- `generate_key_file`: Create key files for optional two-factor encryption
 
-### Mobile Architecture
+### Mobile Readiness (Future Goal)
 
-The app uses platform-aware navigation that adapts to the device:
+The app includes platform-aware UI pieces intended to help future mobile support, but they are not currently part of a fully supported mobile release workflow:
 
 **Platform Detection (`src/composables/usePlatform.ts`)**
 - Uses `@tauri-apps/plugin-os` to detect the current platform
@@ -179,13 +162,11 @@ The app uses platform-aware navigation that adapts to the device:
 
 **Adaptive Navigation**
 - **Desktop**: Traditional top tab bar in `App.vue`
-- **Mobile**: Bottom navigation bar (`BottomNav.vue`) with icons for thumb-friendly access
+- **Mobile (future)**: Bottom navigation bar (`BottomNav.vue`) with icons for thumb-friendly access
 - Navigation is conditionally rendered based on `isMobile` state
 
-**Mobile-Specific CSS**
-- **Dynamic Viewport Height (`100dvh`)**: Used instead of `100vh` because iOS Safari's address bar collapses when scrolling. With `100vh`, the bottom navigation would be hidden behind the address bar on initial load. `100dvh` adjusts to the actual visible viewport, ensuring the bottom nav is always accessible. Falls back to `100vh` for browsers that don't support `dvh`.
-- **Safe Area Insets**: Bottom nav includes `env(safe-area-inset-bottom)` padding to avoid overlap with the home indicator on notched devices (iPhone X and later).
-- **Flex Overflow Fix**: `min-height: 0` on `.tab-panels` is required for flex children with `overflow-y: auto` to properly constrain their height and enable scrolling.
+**Mobile-Oriented Styling**
+- The codebase includes mobile-oriented viewport and safe-area styling for future work, but this behavior is not currently part of a maintained mobile release target.
 
 ### Security Notes
 
@@ -201,12 +182,10 @@ The app uses platform-aware navigation that adapts to the device:
 - All file I/O happens in Rust backend for security
 - Events flow from Rust → Frontend for progress updates during batch operations
 
-### iOS-Specific Notes
+### Mobile Notes (When Work Resumes)
 
-- The `src-tauri/gen/apple/` directory is generated by `tauri ios init` and should not be committed
-- iOS icons are stored in `src-tauri/icons/ios/` and must be manually copied to `src-tauri/gen/apple/Assets.xcassets/AppIcon.appiconset/` after init
-- Physical device testing requires an Apple Developer account and code signing configured in Xcode
-- The iOS Simulator requires Xcode to be fully installed and launched at least once
+- Reconfirm toolchain steps from current Tauri mobile documentation before enabling iOS/Android workflows.
+- Treat generated mobile project directories (for example under `src-tauri/gen/`) as derived artifacts unless explicitly tracked.
 
 ### Auto-Updater (Desktop Only)
 
@@ -226,7 +205,7 @@ The app includes automatic update checking for desktop platforms using Tauri's u
 - Shows notification banner with version info when update available
 - Tracks download progress (0-100%) during installation
 - Auto-relaunches app after update installation
-- Mobile platforms skip update checks (app stores handle updates)
+- If mobile targets are enabled in the future, update checks should remain desktop-only (app stores handle mobile updates)
 
 **Dependencies:**
 - `@tauri-apps/plugin-updater`: Update checking and installation

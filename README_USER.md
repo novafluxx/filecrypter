@@ -115,8 +115,8 @@ FileCrypter includes a **Never overwrite existing files** option.
 - Encryption and decryption speed depend on file size and your device; key derivation is intentionally slow to make password guessing harder.
 - Enabling compression adds a small performance overhead but can significantly reduce output file size.
 
-## Updates (Desktop)
-- Desktop builds can notify you when an update is available.
+## Updates
+- Some builds can notify you when an update is available.
 - Click **Update Now** to download, install, and relaunch the app, or **Later** to dismiss.
 
 ## Password & Key File Tips (Important)
@@ -163,4 +163,4 @@ Yes. Copy the `.encrypted` file to the other computer and decrypt it with the sa
 Yes. The extension is mainly for convenience. Just make sure you select the correct file when decrypting.
 
 ### Where can I find the app version?
-The app version is shown in the desktop header.
+The app version is shown in the app header.

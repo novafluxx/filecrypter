@@ -43,15 +43,12 @@ interface Props {
   showStrengthMeter?: boolean;
   passwordStrength?: PasswordStrength;
   passwordHintText?: string;
-  // Input clickable (encrypt only)
-  inputClickable?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   showStrengthMeter: false,
   passwordStrength: undefined,
   passwordHintText: undefined,
-  inputClickable: false,
 });
 
 // Initialize the unified composable
@@ -65,7 +62,6 @@ const {
   handleSelectFile,
   handleSelectOutput,
   handleOperation,
-  handleSelectFileInputClick,
   handleDragOver,
   handleDragLeave,
   handleDrop,
@@ -94,15 +90,13 @@ defineExpose({
 
       <!-- File Input Section -->
       <div class="form-group">
-        <label :for="inputClickable ? undefined : inputId">{{ inputLabel }}</label>
+        <label :for="inputId">{{ inputLabel }}</label>
         <div class="file-input-group">
           <NInput
-            :input-props="{ id: inputId, title: inputClickable ? 'Click to choose a file' : undefined }"
+            :input-props="{ id: inputId }"
             :value="fileOps.inputPath.value"
             readonly
-            :class="{ 'clickable-input': inputClickable }"
             :placeholder="inputPlaceholder"
-            @click="inputClickable ? handleSelectFileInputClick() : undefined"
           />
           <NButton
             type="primary"
@@ -224,9 +218,5 @@ defineExpose({
 
 .action-btn {
   margin-top: 8px;
-}
-
-.clickable-input :deep(input) {
-  cursor: pointer;
 }
 </style>

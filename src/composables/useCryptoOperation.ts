@@ -39,7 +39,6 @@ export interface UseCryptoOperationReturn {
   handleSelectFile: () => Promise<void>;
   handleSelectOutput: () => Promise<void>;
   handleOperation: () => Promise<void>;
-  handleSelectFileInputClick: () => Promise<void>;
 
   // Drag event handlers (for template binding)
   handleDragOver: (e: DragEvent) => void;
@@ -173,16 +172,6 @@ export function useCryptoOperation(options: UseCryptoOperationOptions): UseCrypt
   }
 
   /**
-   * Handle click on the readonly input (mirrors Browse button)
-   */
-  async function handleSelectFileInputClick() {
-    if (fileOps.isProcessing.value) {
-      return;
-    }
-    await handleSelectFile();
-  }
-
-  /**
    * Handle output path selection
    */
   async function handleSelectOutput() {
@@ -223,7 +212,6 @@ export function useCryptoOperation(options: UseCryptoOperationOptions): UseCrypt
     handleSelectFile,
     handleSelectOutput,
     handleOperation,
-    handleSelectFileInputClick,
     handleDragOver,
     handleDragLeave,
     handleDrop,

@@ -23,6 +23,15 @@
 - `cd src-tauri && cargo test` runs Rust unit + integration tests.
 - `cd src-tauri && cargo clippy` runs the Rust linter.
 
+## Mobile Workflow Notes (Future Goal / Experimental)
+- Use `bun run tauri -- <args>` for direct Tauri CLI commands (or shorthand `bun tauri <args>`).
+- One-time mobile project setup: `bun run tauri -- android init` and `bun run tauri -- ios init`.
+- Android prerequisites: Android Studio SDK/NDK and JDK 17+, plus Rust targets (`aarch64-linux-android`, `armv7-linux-androideabi`, `i686-linux-android`, `x86_64-linux-android`).
+- iOS prerequisites (macOS only): Xcode + CocoaPods, plus Rust targets (`aarch64-apple-ios`, `aarch64-apple-ios-sim`).
+- Common dev commands: `bun run tauri -- android dev`, `bun run tauri -- ios dev`, and optional `--open` to launch Android Studio/Xcode.
+- Device/LAN workflow: use `--host` and set `TAURI_DEV_HOST=<LAN_IP>` so the mobile target can reach the Vite dev server.
+- Common build commands: `bun run tauri -- android build --apk` and `bun run tauri -- ios build --open`.
+
 ## Coding Style & Naming Conventions
 - TypeScript: use 2-space indentation; prefer Composition API patterns in `src/`.
 - Vue files: PascalCase component filenames (e.g., `EncryptTab.vue`).

@@ -31,7 +31,49 @@ bun run tauri:build            # Build production executable
 ```
 
 ### Mobile Development (Future Goal / Experimental)
-Mobile targets are not currently part of the standard development, CI, or release workflow. If mobile exploration resumes, use Tauri mobile commands (`bun tauri ios ...`, `bun tauri android ...`) as experimental and validate assumptions against current Tauri docs before relying on them.
+Mobile targets are not currently part of the standard development, CI, or release workflow. Keep this as a reference playbook for future work.
+
+Use either `bun run tauri -- <args>` or shorthand `bun tauri <args>`.
+
+**One-time setup (when mobile work resumes):**
+```bash
+# Android Rust targets
+rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+
+# iOS Rust targets (macOS only)
+rustup target add aarch64-apple-ios aarch64-apple-ios-sim
+
+# Generate native projects
+bun run tauri -- android init
+bun run tauri -- ios init
+```
+
+**Platform prerequisites:**
+- Android: Android Studio SDK/NDK, JDK 17+, and environment variables (`JAVA_HOME`, `ANDROID_HOME`, `NDK_HOME`).
+- iOS: Xcode, CocoaPods, and Apple code-signing configuration for physical devices.
+
+**Common development commands:**
+```bash
+bun run tauri -- android dev
+bun run tauri -- android dev --open
+bun run tauri -- android dev --host
+
+bun run tauri -- ios dev
+bun run tauri -- ios dev --open
+bun run tauri -- ios dev --host
+bun run tauri -- ios dev --force-ip-prompt
+```
+
+**Common build commands:**
+```bash
+bun run tauri -- android build --apk
+bun run tauri -- ios build --open
+```
+
+**Networking notes for physical devices:**
+- Use `--host` for LAN device testing and set `TAURI_DEV_HOST=<LAN_IP>`.
+- Ensure `build.devUrl` in `src-tauri/tauri.conf.json` points to a reachable dev server during mobile runs.
+- If a device cannot reach Vite, run the dev server with host binding (`bun run dev -- --host`) or temporarily set `server.host` in `vite.config.ts`.
 
 ### Rust Testing
 ```bash

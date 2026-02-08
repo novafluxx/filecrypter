@@ -423,7 +423,7 @@ function getPhaseLabel(phase: string): string {
       <!-- Mode Toggle -->
       <NButtonGroup class="mode-toggle">
         <NButton
-          :type="mode === 'encrypt' ? 'primary' : 'default'"
+          :type="'primary'"
           :ghost="mode !== 'encrypt'"
           :disabled="isProcessing"
           @click="switchMode('encrypt')"
@@ -431,7 +431,7 @@ function getPhaseLabel(phase: string): string {
           Encrypt
         </NButton>
         <NButton
-          :type="mode === 'decrypt' ? 'primary' : 'default'"
+          :type="'primary'"
           :ghost="mode !== 'decrypt'"
           :disabled="isProcessing"
           @click="switchMode('decrypt')"
@@ -564,6 +564,7 @@ function getPhaseLabel(phase: string): string {
             placeholder="Select output directory..."
           />
           <NButton
+            type="primary"
             @click="handleSelectOutputDir"
             :disabled="isProcessing"
             title="Choose the output folder"

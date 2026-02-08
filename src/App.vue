@@ -22,6 +22,7 @@ import SettingsTab from './components/SettingsTab.vue';
 import HelpTab from './components/HelpTab.vue';
 import BottomNav from './components/BottomNav.vue';
 import UpdateNotification from './components/UpdateNotification.vue';
+import ChangelogAction from './components/ChangelogAction.vue';
 import { useTheme } from './composables/useTheme';
 import { useSettings } from './composables/useSettings';
 import { usePlatform } from './composables/usePlatform';
@@ -131,7 +132,10 @@ function switchTab(tab: TabName) {
           <NTab name="settings">Settings</NTab>
           <NTab name="help">Help</NTab>
         </NTabs>
-        <span v-if="version" class="version-display">v{{ version }}</span>
+        <div class="header-actions">
+          <ChangelogAction />
+          <span v-if="version" class="version-display">v{{ version }}</span>
+        </div>
       </div>
 
       <!-- Tab Content Area -->
@@ -289,6 +293,12 @@ body {
   padding: 0 16px;
   flex: 1;
   min-width: 0;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* Version Display */

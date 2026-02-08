@@ -126,6 +126,7 @@ defineExpose({
             :placeholder="outputPlaceholder"
           />
           <NButton
+            type="primary"
             @click="handleSelectOutput"
             :disabled="fileOps.isProcessing.value"
             :title="`Choose where to save the ${mode}ed file`"

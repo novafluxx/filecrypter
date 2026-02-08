@@ -67,6 +67,7 @@ function handleClear() {
       />
       <NButton
         v-if="modelValue"
+        type="primary"
         @click="handleClear"
         :disabled="disabled"
         title="Remove key file"
@@ -74,6 +75,7 @@ function handleClear() {
         Clear
       </NButton>
       <NButton
+        type="primary"
         @click="handleBrowse"
         :disabled="disabled"
         title="Select an existing key file"
@@ -82,6 +84,7 @@ function handleClear() {
       </NButton>
       <NButton
         v-if="showGenerate"
+        type="primary"
         @click="handleGenerate"
         :disabled="disabled"
         title="Generate a new random key file"

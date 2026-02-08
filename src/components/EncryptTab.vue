@@ -33,7 +33,6 @@ const { strength: passwordStrength } = usePasswordStrength(password);
     action-button-text="Encrypt File"
     processing-button-text="Encrypting..."
     drop-overlay-text="Drop file here to encrypt"
-    :input-clickable="true"
     :show-strength-meter="true"
     :password-strength="passwordStrength"
   >

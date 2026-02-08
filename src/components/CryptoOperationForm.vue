@@ -94,7 +94,7 @@ defineExpose({
 
       <!-- File Input Section -->
       <div class="form-group">
-        <label :for="inputId">{{ inputLabel }}</label>
+        <label :for="inputClickable ? undefined : inputId">{{ inputLabel }}</label>
         <div class="file-input-group">
           <NInput
             :input-props="{ id: inputId, title: inputClickable ? 'Click to choose a file' : undefined }"

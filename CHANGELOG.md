@@ -5,6 +5,24 @@ All notable changes to FileCrypter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.5] - 2026-02-08
+
+
+
+### Features
+
+- Add changelog header action and align button styles ([6e0dcc6](https://github.com/novafluxx/filecrypter/commit/6e0dcc69055bf9ba5e7c70f170dc047f9a3ea4b9))
+
+
+### Bug Fixes
+
+- Make encrypt file picker button-only ([6b0d460](https://github.com/novafluxx/filecrypter/commit/6b0d4608f4d879e5df7ffe530b152dcf3619dfd9))
+- Make desktop header divider full width ([206fe00](https://github.com/novafluxx/filecrypter/commit/206fe00525d5131d6f2063d9dde56601bae2b96c))
+
+
+### Miscellaneous
+
+- Remove unused clickable input flow ([ca17861](https://github.com/novafluxx/filecrypter/commit/ca178617b3a082e7aaa0cf27fa3c520a014b5186))
 ## [1.0.4] - 2026-02-07
 
 

@@ -61,7 +61,7 @@ impl ProgressEvent {
         }
     }
 
-    // Convenience constructors for common stages
+    // Convenience constructors for common lifecycle stages
 
     /// Create "reading file" progress event
     pub fn reading() -> Self {
@@ -75,21 +75,6 @@ impl ProgressEvent {
             20,
             "Deriving encryption key (this may take a moment)...",
         )
-    }
-
-    /// Create "encrypting" progress event
-    pub fn encrypting() -> Self {
-        Self::new("encrypting", 60, "Encrypting file content...")
-    }
-
-    /// Create "decrypting" progress event
-    pub fn decrypting() -> Self {
-        Self::new("decrypting", 60, "Decrypting file content...")
-    }
-
-    /// Create "writing" progress event
-    pub fn writing() -> Self {
-        Self::new("writing", 80, "Writing file to disk...")
     }
 
     /// Create "complete" progress event for encryption

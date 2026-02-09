@@ -14,7 +14,7 @@ export type ThemeMode = 'light' | 'dark' | 'system';
 /**
  * Application settings structure
  */
-export interface AppSettings {
+interface AppSettings {
   theme: ThemeMode;
   defaultCompression: boolean;
   defaultNeverOverwrite: boolean;
@@ -181,18 +181,6 @@ export function useSettings() {
     await store?.set('defaultOutputDirectory', DEFAULTS.defaultOutputDirectory);
   }
 
-  /**
-   * Get all current settings as an object
-   */
-  function getAllSettings(): AppSettings {
-    return {
-      theme: theme.value,
-      defaultCompression: defaultCompression.value,
-      defaultNeverOverwrite: defaultNeverOverwrite.value,
-      defaultOutputDirectory: defaultOutputDirectory.value,
-    };
-  }
-
   return {
     // State (readonly refs to prevent direct mutation)
     theme: readonly(theme),
@@ -208,6 +196,5 @@ export function useSettings() {
     setDefaultNeverOverwrite,
     setDefaultOutputDirectory,
     resetToDefaults,
-    getAllSettings,
   };
 }

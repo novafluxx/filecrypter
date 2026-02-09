@@ -4,8 +4,8 @@
 // Uses Tauri's @tauri-apps/plugin-os for reliable native platform detection.
 //
 // Usage:
-//   const { isMobile, platformName } = usePlatform();
-//   // In template: v-if="isMobile" for mobile-only components
+//   const { isMobile, isInitialized } = usePlatform();
+//   // In template: v-if="isInitialized && isMobile" for mobile-only components
 //
 // Supported platforms:
 //   - Desktop: 'macos', 'windows', 'linux'
@@ -18,7 +18,6 @@ import { platform } from '@tauri-apps/plugin-os';
 // This ensures platform detection only happens once, regardless of how many
 // components use usePlatform()
 const isMobile = ref(false);
-const platformName = ref<string>('');
 const isInitialized = ref(false);
 
 /**
@@ -29,7 +28,6 @@ const isInitialized = ref(false);
  *
  * @returns {Object} Platform detection state
  * @returns {Ref<boolean>} isMobile - True if running on iOS or Android
- * @returns {Ref<string>} platformName - Raw platform name ('ios', 'macos', 'windows', etc.)
  * @returns {Ref<boolean>} isInitialized - True once platform detection has completed
  */
 export function usePlatform() {
@@ -40,7 +38,6 @@ export function usePlatform() {
     try {
       // Call Tauri OS plugin to get the native platform
       const currentPlatform = await platform();
-      platformName.value = currentPlatform;
 
       // Determine if this is a mobile platform
       isMobile.value = ['ios', 'android'].includes(currentPlatform);
@@ -56,8 +53,6 @@ export function usePlatform() {
   return {
     /** True if running on iOS or Android */
     isMobile,
-    /** Raw platform identifier (e.g., 'ios', 'macos', 'windows') */
-    platformName,
     /** True once platform detection has completed */
     isInitialized,
   };

@@ -119,15 +119,6 @@ export function useProgress() {
     progress.value = null;
   }
 
-  /**
-   * Reset progress state without removing listener
-   *
-   * Useful for preparing for a new operation while keeping listener active
-   */
-  function reset() {
-    progress.value = null;
-  }
-
   // Clean up listener when component unmounts
   onUnmounted(() => {
     if (unlisten) {
@@ -141,6 +132,5 @@ export function useProgress() {
     isActive,
     startListening,
     stopListening,
-    reset,
   };
 }

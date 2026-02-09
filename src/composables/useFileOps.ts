@@ -151,15 +151,6 @@ export function useFileOps() {
   }
 
   /**
-   * Set the password
-   *
-   * @param pwd - User-entered password
-   */
-  function setPassword(pwd: string) {
-    password.value = pwd;
-  }
-
-  /**
    * Display a status message to the user
    *
    * @param message - Message text to display
@@ -186,35 +177,6 @@ export function useFileOps() {
   }
 
   /**
-   * Clear the status message
-   */
-  function clearStatus() {
-    if (statusTimeoutId !== null) {
-      clearTimeout(statusTimeoutId);
-      statusTimeoutId = null;
-    }
-    statusMessage.value = '';
-  }
-
-  /**
-   * Reset all form fields
-   *
-   * Used after successful operation or when switching tabs.
-   */
-  function resetForm() {
-    if (statusTimeoutId !== null) {
-      clearTimeout(statusTimeoutId);
-      statusTimeoutId = null;
-    }
-    inputPath.value = '';
-    outputPath.value = '';
-    password.value = '';
-    keyFilePath.value = '';
-    statusMessage.value = '';
-    isProcessing.value = false;
-  }
-
-  /**
    * Clear only the password field
    *
    * For security, we clear the password after each operation
@@ -222,13 +184,6 @@ export function useFileOps() {
    */
   function clearPassword() {
     password.value = '';
-  }
-
-  /**
-   * Clear the key file path
-   */
-  function clearKeyFile() {
-    keyFilePath.value = '';
   }
 
   // ========== Main Operations ==========
@@ -361,12 +316,8 @@ export function useFileOps() {
     // Methods
     setInputPath,
     setOutputPath,
-    setPassword,
     showStatus,
-    clearStatus,
-    resetForm,
     clearPassword,
-    clearKeyFile,
     performEncrypt,
     performDecrypt,
   };

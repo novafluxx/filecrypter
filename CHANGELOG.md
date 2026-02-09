@@ -5,6 +5,30 @@ All notable changes to FileCrypter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.6] - 2026-02-09
+
+
+
+### Miscellaneous
+
+- Remove unused composable and progress helpers ([7dbdd62](https://github.com/novafluxx/filecrypter/commit/7dbdd628eba82be225d93f51f2b79c55d8ee9dbb))
+- Add Codex local metadata to .gitignore ([b6f71c8](https://github.com/novafluxx/filecrypter/commit/b6f71c86ec1612a4cfa190ccd4e1a4f17ec078f0))
+
+
+### Documentation
+
+- Align desktop-first platform documentation ([dc2f515](https://github.com/novafluxx/filecrypter/commit/dc2f515b9aab34819ff3f112a32cff1d1937e1a9))
+- Add tauri v2 mobile workflow reference ([422b8f3](https://github.com/novafluxx/filecrypter/commit/422b8f35f33bf30cc6f4eed9605553d1d5215183))
+
+
+### Testing
+
+- Replace hardcoded test passwords with generated values ([4108cf9](https://github.com/novafluxx/filecrypter/commit/4108cf9ead004d8487acd71912fbe1c80ff104b0))
+
+
+### CI
+
+- Speed up rust backend checks in github actions ([6ad43b0](https://github.com/novafluxx/filecrypter/commit/6ad43b09e40539750b321dd6467d38040d82d9b9))
 ## [1.0.5] - 2026-02-08
 
 

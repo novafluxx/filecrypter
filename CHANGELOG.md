@@ -5,6 +5,22 @@ All notable changes to FileCrypter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.7] - 2026-02-15
+
+
+
+### Dependencies
+
+- Update typescript-eslint and vue dependencies ([daf5e6e](https://github.com/novafluxx/filecrypter/commit/daf5e6e4c8a2c585ecd6913f5ca1e61ddee23812))
+- **deps:** Update frontend types and rust dependencies ([1881fb9](https://github.com/novafluxx/filecrypter/commit/1881fb938c8bcbb9b7bb75e4dec701fa2a1d8b10))
+- **deps:** Update @types/bun to 1.3.9 ([69cb7ee](https://github.com/novafluxx/filecrypter/commit/69cb7ee3dcd3eb64e1d83866367cc714e6b9350e))
+- Update dependencies ([0649acd](https://github.com/novafluxx/filecrypter/commit/0649acd6164067170a962b24b7e47e90d237c207))
+- **deps:** Update Rust dependencies ([2ef2381](https://github.com/novafluxx/filecrypter/commit/2ef2381ac954ec09752cb9e0b543e96bb86e8031))
+
+
+### Miscellaneous
+
+- Update marked to 17.0.2 ([3c4fa35](https://github.com/novafluxx/filecrypter/commit/3c4fa35f23b27948d3c100c499059aa9b1e9ac7a))
 ## [1.0.6] - 2026-02-09
 
 

@@ -12,7 +12,10 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { NButton, NButtonGroup, NCheckbox, NInput } from 'naive-ui';
+import Button from 'primevue/button';
+import ButtonGroup from 'primevue/buttongroup';
+import Checkbox from 'primevue/checkbox';
+import InputText from 'primevue/inputtext';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useSettings, type ThemeMode } from '../composables/useSettings';
 
@@ -22,8 +25,16 @@ const settings = useSettings();
 // Computed for cleaner template bindings
 const currentTheme = computed(() => settings.theme.value);
 
-const compressionEnabled = computed(() => settings.defaultCompression.value);
-const neverOverwrite = computed(() => settings.defaultNeverOverwrite.value);
+const compressionEnabled = computed({
+  get: () => settings.defaultCompression.value,
+  set: (v: boolean) => settings.setDefaultCompression(v),
+});
+
+const neverOverwrite = computed({
+  get: () => settings.defaultNeverOverwrite.value,
+  set: (v: boolean) => settings.setDefaultNeverOverwrite(v),
+});
+
 const outputDirectory = computed(() => settings.defaultOutputDirectory.value);
 
 /**
@@ -72,29 +83,26 @@ async function handleResetToDefaults() {
 
         <div class="form-group">
           <label class="setting-label">Theme:</label>
-          <NButtonGroup>
-            <NButton
-              :type="currentTheme === 'light' ? 'primary' : 'default'"
-              :ghost="currentTheme !== 'light'"
+          <ButtonGroup>
+            <Button
+              :severity="currentTheme === 'light' ? undefined : 'secondary'"
+              :outlined="currentTheme !== 'light'"
               @click="handleThemeChange('light')"
-            >
-              Light
-            </NButton>
-            <NButton
-              :type="currentTheme === 'dark' ? 'primary' : 'default'"
-              :ghost="currentTheme !== 'dark'"
+              label="Light"
+            />
+            <Button
+              :severity="currentTheme === 'dark' ? undefined : 'secondary'"
+              :outlined="currentTheme !== 'dark'"
               @click="handleThemeChange('dark')"
-            >
-              Dark
-            </NButton>
-            <NButton
-              :type="currentTheme === 'system' ? 'primary' : 'default'"
-              :ghost="currentTheme !== 'system'"
+              label="Dark"
+            />
+            <Button
+              :severity="currentTheme === 'system' ? undefined : 'secondary'"
+              :outlined="currentTheme !== 'system'"
               @click="handleThemeChange('system')"
-            >
-              System
-            </NButton>
-          </NButtonGroup>
+              label="System"
+            />
+          </ButtonGroup>
         </div>
       </section>
 
@@ -103,24 +111,28 @@ async function handleResetToDefaults() {
         <h2 class="section-title">Encryption Defaults</h2>
 
         <div class="form-group">
-          <NCheckbox
-            :checked="compressionEnabled"
-            @update:checked="v => settings.setDefaultCompression(v)"
-          >
-            Enable compression by default
-          </NCheckbox>
+          <div class="checkbox-field">
+            <Checkbox
+              v-model="compressionEnabled"
+              :binary="true"
+              inputId="settings-compression"
+            />
+            <label for="settings-compression">Enable compression by default</label>
+          </div>
           <p class="hint-text">
             Single file encryption only. Batch mode always uses compression.
           </p>
         </div>
 
         <div class="form-group">
-          <NCheckbox
-            :checked="neverOverwrite"
-            @update:checked="v => settings.setDefaultNeverOverwrite(v)"
-          >
-            Never overwrite existing files by default
-          </NCheckbox>
+          <div class="checkbox-field">
+            <Checkbox
+              v-model="neverOverwrite"
+              :binary="true"
+              inputId="settings-overwrite"
+            />
+            <label for="settings-overwrite">Never overwrite existing files by default</label>
+          </div>
           <p class="hint-text">
             Auto-rename to "name (1)" on conflicts.
           </p>
@@ -129,25 +141,24 @@ async function handleResetToDefaults() {
         <div class="form-group">
           <label class="setting-label">Default Output Directory:</label>
           <div class="file-input-group">
-            <NInput
-              :value="outputDirectory || ''"
+            <InputText
+              :modelValue="outputDirectory || ''"
               readonly
               placeholder="Same as input file (default)"
+              fluid
             />
-            <NButton
+            <Button
               v-if="outputDirectory"
               @click="handleClearOutputDir"
               title="Clear default directory"
-            >
-              Clear
-            </NButton>
-            <NButton
-              type="primary"
+              severity="secondary"
+              label="Clear"
+            />
+            <Button
               @click="handleSelectOutputDir"
               title="Choose a default folder for encrypted/decrypted files"
-            >
-              Browse
-            </NButton>
+              label="Browse"
+            />
           </div>
           <p class="hint-text">
             Leave empty to save files alongside the originals.
@@ -157,12 +168,12 @@ async function handleResetToDefaults() {
 
       <!-- Reset Section -->
       <section class="settings-section reset-section">
-        <NButton
+        <Button
           @click="handleResetToDefaults"
           title="Restore all settings to their original values"
-        >
-          Reset to Defaults
-        </NButton>
+          outlined
+          label="Reset to Defaults"
+        />
       </section>
     </div>
   </div>

@@ -13,7 +13,13 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { NButton, NButtonGroup, NCheckbox, NAlert, NInput, NRadioGroup, NRadio, useDialog } from 'naive-ui';
+import Button from 'primevue/button';
+import ButtonGroup from 'primevue/buttongroup';
+import Checkbox from 'primevue/checkbox';
+import Message from 'primevue/message';
+import InputText from 'primevue/inputtext';
+import RadioButton from 'primevue/radiobutton';
+import { useConfirm } from 'primevue/useconfirm';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useTauri } from '../composables/useTauri';
 import { usePasswordStrength } from '../composables/usePasswordStrength';
@@ -28,7 +34,7 @@ import type { BatchProgress, BatchResult, ArchiveProgress, ArchiveResult, BatchM
 import { MIN_PASSWORD_LENGTH } from '../constants';
 
 // Initialize composables
-const dialog = useDialog();
+const confirm = useConfirm();
 const tauri = useTauri();
 const settings = useSettings();
 
@@ -221,16 +227,16 @@ function confirmBatchOperation() {
 
   const action = mode.value === 'encrypt' ? 'encrypt' : 'decrypt';
   const count = inputPaths.value.length;
-  const content = batchMode.value === 'archive'
+  const message = batchMode.value === 'archive'
     ? `Are you sure you want to ${action} ${count} file${count !== 1 ? 's' : ''} as an archive?`
     : `Are you sure you want to ${action} ${count} file${count !== 1 ? 's' : ''} individually?`;
 
-  dialog.warning({
-    title: 'Confirm Batch Operation',
-    content,
-    positiveText: 'Confirm',
-    negativeText: 'Cancel',
-    onPositiveClick: () => {
+  confirm.require({
+    header: 'Confirm Batch Operation',
+    message,
+    acceptLabel: 'Confirm',
+    rejectLabel: 'Cancel',
+    accept: () => {
       handleBatchOperation();
     },
   });
@@ -421,44 +427,56 @@ function getPhaseLabel(phase: string): string {
       </div>
 
       <!-- Mode Toggle -->
-      <NButtonGroup class="mode-toggle">
-        <NButton
-          :type="'primary'"
-          :ghost="mode !== 'encrypt'"
+      <ButtonGroup class="mode-toggle">
+        <Button
+          :outlined="mode !== 'encrypt'"
           :disabled="isProcessing"
           @click="switchMode('encrypt')"
-        >
-          Encrypt
-        </NButton>
-        <NButton
-          :type="'primary'"
-          :ghost="mode !== 'decrypt'"
+          label="Encrypt"
+        />
+        <Button
+          :outlined="mode !== 'decrypt'"
           :disabled="isProcessing"
           @click="switchMode('decrypt')"
-        >
-          Decrypt
-        </NButton>
-      </NButtonGroup>
+          label="Decrypt"
+        />
+      </ButtonGroup>
 
       <!-- Batch Mode Selector -->
       <div class="form-group batch-mode-selector">
         <label>Batch Mode:</label>
-        <NRadioGroup :value="batchMode" @update:value="switchBatchMode" :disabled="isProcessing">
-          <div class="batch-mode-options">
-            <div class="batch-mode-option">
-              <NRadio value="individual">Individual files</NRadio>
-              <span class="radio-description">Each file encrypted separately</span>
+        <div class="batch-mode-options">
+          <div class="batch-mode-option">
+            <div class="radio-field">
+              <RadioButton
+                :modelValue="batchMode"
+                inputId="batch-individual"
+                value="individual"
+                :disabled="isProcessing"
+                @update:modelValue="switchBatchMode"
+              />
+              <label for="batch-individual">Individual files</label>
             </div>
-            <div class="batch-mode-option">
-              <NRadio value="archive">Archive mode</NRadio>
-              <span class="radio-description">Bundle into one encrypted archive</span>
-            </div>
+            <span class="radio-description">Each file encrypted separately</span>
           </div>
-        </NRadioGroup>
+          <div class="batch-mode-option">
+            <div class="radio-field">
+              <RadioButton
+                :modelValue="batchMode"
+                inputId="batch-archive"
+                value="archive"
+                :disabled="isProcessing"
+                @update:modelValue="switchBatchMode"
+              />
+              <label for="batch-archive">Archive mode</label>
+            </div>
+            <span class="radio-description">Bundle into one encrypted archive</span>
+          </div>
+        </div>
       </div>
 
       <!-- Compression Info Banner -->
-      <NAlert v-if="mode === 'encrypt'" type="info" :show-icon="false" class="info-banner">
+      <Message v-if="mode === 'encrypt'" severity="info" :closable="false" class="info-banner">
         <template v-if="batchMode === 'archive'">
           Files will be bundled into a compressed TAR archive, then encrypted as a single file.
         </template>
@@ -466,17 +484,18 @@ function getPhaseLabel(phase: string): string {
           Compression is automatically enabled for batch operations.
           Files are compressed with ZSTD before encryption for optimal size reduction.
         </template>
-      </NAlert>
+      </Message>
 
       <!-- Archive Name (archive mode encrypt only) -->
       <div v-if="batchMode === 'archive' && mode === 'encrypt'" class="form-group">
         <label for="archive-name">Archive Name (optional):</label>
-        <NInput
-          :input-props="{ id: 'archive-name' }"
-          v-model:value="archiveName"
+        <InputText
+          id="archive-name"
+          v-model="archiveName"
           placeholder="Leave empty for auto-generated name (archive_YYYYMMDD_HHMMSS)"
           :disabled="isProcessing"
-          :status="archiveNameError ? 'error' : undefined"
+          :invalid="!!archiveNameError"
+          fluid
         />
         <p v-if="archiveNameError" class="error-text">
           {{ archiveNameError }}
@@ -505,14 +524,12 @@ function getPhaseLabel(phase: string): string {
               {{ fileCount }} file{{ fileCount !== 1 ? 's' : '' }} selected
             </template>
           </div>
-          <NButton
-            type="primary"
+          <Button
             @click="handleSelectFiles"
             :disabled="isProcessing"
             :title="batchMode === 'archive' && mode === 'decrypt' ? 'Choose an encrypted archive' : 'Choose multiple files to process'"
-          >
-            Browse
-          </NButton>
+            label="Browse"
+          />
         </div>
 
         <!-- Selected Files List -->
@@ -558,30 +575,34 @@ function getPhaseLabel(phase: string): string {
       <div class="form-group">
         <label>Output Directory:</label>
         <div class="file-input-group">
-          <NInput
-            :value="outputDir"
+          <InputText
+            :modelValue="outputDir"
             readonly
             placeholder="Select output directory..."
+            fluid
           />
-          <NButton
-            type="primary"
+          <Button
             @click="handleSelectOutputDir"
             :disabled="isProcessing"
             title="Choose the output folder"
-          >
-            Browse
-          </NButton>
+            label="Browse"
+          />
         </div>
       </div>
 
       <!-- Output Safety Options -->
       <div class="form-group">
-        <NCheckbox
-          v-model:checked="neverOverwrite"
-          :disabled="isProcessing"
-        >
-          Never overwrite existing files (auto-rename on conflicts)
-        </NCheckbox>
+        <div class="checkbox-field">
+          <Checkbox
+            v-model="neverOverwrite"
+            :disabled="isProcessing"
+            :binary="true"
+            inputId="batch-overwrite"
+          />
+          <label for="batch-overwrite">
+            Never overwrite existing files (auto-rename on conflicts)
+          </label>
+        </div>
         <p class="hint-text">
           If a filename already exists, we'll save as "name (1)".
         </p>
@@ -608,14 +629,12 @@ function getPhaseLabel(phase: string): string {
       />
 
       <!-- Action Button -->
-      <NButton
-        type="primary"
-        block
-        strong
+      <Button
         class="action-btn"
         @click="confirmBatchOperation"
         :disabled="!isFormValid"
         :title="mode === 'encrypt' ? 'Encrypt all selected files' : 'Decrypt all selected files'"
+        fluid
       >
         <span v-if="isProcessing">
           <template v-if="batchMode === 'archive'">
@@ -638,7 +657,7 @@ function getPhaseLabel(phase: string): string {
             {{ mode === 'encrypt' ? 'Encrypt' : 'Decrypt' }} {{ fileCount }} File{{ fileCount !== 1 ? 's' : '' }}
           </template>
         </span>
-      </NButton>
+      </Button>
 
       <!-- Progress Bar (Individual Mode) -->
       <div v-if="showProgress && batchMode === 'individual' && batchProgress" class="progress-container">
@@ -890,9 +909,15 @@ function getPhaseLabel(phase: string): string {
   gap: 2px;
 }
 
+.radio-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .radio-description {
   font-size: 12px;
   color: var(--muted);
-  margin-left: 24px;
+  margin-left: 28px;
 }
 </style>

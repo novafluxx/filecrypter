@@ -15,7 +15,7 @@
 -->
 
 <script setup lang="ts">
-import { NInput } from 'naive-ui';
+import Password from 'primevue/password';
 import PasswordStrengthMeter from './PasswordStrengthMeter.vue';
 import type { PasswordStrength } from '../composables/usePasswordStrength';
 
@@ -41,20 +41,21 @@ defineEmits<{
 <template>
   <div class="form-group">
     <label :for="inputId">Password:</label>
-    <NInput
-      :input-props="{
-        id: inputId,
+    <Password
+      :inputId="inputId"
+      :modelValue="modelValue"
+      @update:modelValue="$emit('update:modelValue', $event)"
+      :placeholder="placeholder"
+      :disabled="disabled"
+      :feedback="false"
+      toggleMask
+      :inputProps="{
         autocomplete: autocomplete ?? 'current-password',
         spellcheck: 'false',
         autocapitalize: 'off',
-        autocorrect: 'off'
+        autocorrect: 'off',
       }"
-      type="password"
-      show-password-on="click"
-      :value="modelValue"
-      @update:value="$emit('update:modelValue', $event)"
-      :placeholder="placeholder"
-      :disabled="disabled"
+      fluid
     />
     <!-- Password strength meter (encrypt mode) -->
     <PasswordStrengthMeter

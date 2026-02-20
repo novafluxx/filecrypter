@@ -15,7 +15,9 @@
         "title": "FileCrypter",
         "width": 700,
         "height": 680,
-        "resizable": false,
+        "minWidth": 500,
+        "minHeight": 500,
+        "resizable": true,
         "fullscreen": false,
         "backgroundColor": "#1e1e1e"
       }

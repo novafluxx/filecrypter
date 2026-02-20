@@ -12,7 +12,8 @@
 -->
 
 <script setup lang="ts">
-import { NButton, NInput } from 'naive-ui';
+import Button from 'primevue/button';
+import InputText from 'primevue/inputtext';
 import { useTauri } from '../composables/useTauri';
 
 withDefaults(
@@ -59,38 +60,33 @@ function handleClear() {
   <div class="form-group">
     <label>Key File (optional):</label>
     <div class="file-input-group">
-      <NInput
-        :value="modelValue"
+      <InputText
+        :modelValue="modelValue"
         readonly
         placeholder="No key file selected"
         :disabled="disabled"
+        fluid
       />
-      <NButton
+      <Button
         v-if="modelValue"
-        type="primary"
         @click="handleClear"
         :disabled="disabled"
         title="Remove key file"
-      >
-        Clear
-      </NButton>
-      <NButton
-        type="primary"
+        label="Clear"
+      />
+      <Button
         @click="handleBrowse"
         :disabled="disabled"
         title="Select an existing key file"
-      >
-        Browse
-      </NButton>
-      <NButton
+        label="Browse"
+      />
+      <Button
         v-if="showGenerate"
-        type="primary"
         @click="handleGenerate"
         :disabled="disabled"
         title="Generate a new random key file"
-      >
-        Generate
-      </NButton>
+        label="Generate"
+      />
     </div>
     <p class="hint-text">
       Optional two-factor protection. The same key file is required for decryption.

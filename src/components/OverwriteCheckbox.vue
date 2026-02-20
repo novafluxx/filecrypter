@@ -6,14 +6,17 @@
   Props:
   - modelValue: Whether never-overwrite mode is enabled
   - disabled: Whether the checkbox is disabled (during processing)
+  - inputId: Unique ID for the checkbox (required to avoid duplicate IDs when
+    multiple instances are mounted via v-show)
 -->
 
 <script setup lang="ts">
-import { NCheckbox } from 'naive-ui';
+import Checkbox from 'primevue/checkbox';
 
 defineProps<{
   modelValue: boolean;
   disabled: boolean;
+  inputId: string;
 }>();
 
 defineEmits<{
@@ -23,13 +26,18 @@ defineEmits<{
 
 <template>
   <div class="form-group">
-    <NCheckbox
-      :checked="modelValue"
-      @update:checked="$emit('update:modelValue', $event)"
-      :disabled="disabled"
-    >
-      Never overwrite existing files (auto-rename on conflicts)
-    </NCheckbox>
+    <div class="checkbox-field">
+      <Checkbox
+        :modelValue="modelValue"
+        @update:modelValue="$emit('update:modelValue', $event)"
+        :disabled="disabled"
+        :binary="true"
+        :inputId="inputId"
+      />
+      <label :for="inputId">
+        Never overwrite existing files (auto-rename on conflicts)
+      </label>
+    </div>
     <p class="hint-text">
       If the output name already exists, we'll save as "name (1)".
     </p>

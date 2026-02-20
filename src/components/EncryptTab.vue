@@ -6,7 +6,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { NCheckbox } from 'naive-ui';
+import Checkbox from 'primevue/checkbox';
 import CryptoOperationForm from './CryptoOperationForm.vue';
 import { usePasswordStrength } from '../composables/usePasswordStrength';
 
@@ -39,12 +39,15 @@ const { strength: passwordStrength } = usePasswordStrength(password);
     <template #after-overwrite="{ fileOps }">
       <!-- Compression Option -->
       <div class="form-group">
-        <NCheckbox
-          v-model:checked="fileOps.compressionEnabled.value"
-          :disabled="fileOps.isProcessing.value"
-        >
-          Enable compression (ZSTD)
-        </NCheckbox>
+        <div class="checkbox-field">
+          <Checkbox
+            v-model="fileOps.compressionEnabled.value"
+            :disabled="fileOps.isProcessing.value"
+            :binary="true"
+            inputId="compression-checkbox"
+          />
+          <label for="compression-checkbox">Enable compression (ZSTD)</label>
+        </div>
         <p class="hint-text">
           Compresses file before encryption. Reduces size by ~70% for text/documents,
           less for images/videos. Slightly slower encryption.

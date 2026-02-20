@@ -108,6 +108,7 @@ function switchTab(tab: string | number) {
     <div v-if="isInitialized && !isMobile" class="desktop-header">
       <Tabs
         :value="activeTab"
+        :scrollable="true"
         @update:value="switchTab"
         class="desktop-tabs"
       >
@@ -309,11 +310,12 @@ body {
   background: transparent;
 }
 
-.desktop-tabs :deep(.p-tablist-content) {
+.desktop-tabs :deep(.p-tablist-tab-list) {
   padding-left: 16px;
 }
 
 .desktop-tabs :deep(.p-tab) {
   font-weight: 600;
 }
+
 </style>

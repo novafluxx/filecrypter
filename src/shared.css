@@ -27,10 +27,12 @@ select {
 /* Override PrimeVue's web-style pointer cursors for desktop app feel */
 .p-button,
 .p-checkbox,
+.p-checkbox-input,
 .p-checkbox-label,
 .p-inputtext,
 .p-tab,
 .p-tablist,
+.p-tablist-nav-button,
 .p-message,
 .p-progressbar,
 .p-radiobutton,

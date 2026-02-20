@@ -1,19 +1,41 @@
-// main.ts - Vue Application Entry Point
-//
-// This file initializes and mounts the Vue application.
-// It's the first JavaScript file that runs when the app starts.
-//
-// Vue 3 uses createApp() instead of new Vue() from Vue 2
-// TypeScript provides type safety throughout the application
-
 import { createApp } from 'vue';
+import PrimeVue from 'primevue/config';
+import ConfirmationService from 'primevue/confirmationservice';
+import { definePreset } from '@primeuix/themes';
+import Aura from '@primeuix/themes/aura';
 import App from './App.vue';
 import './shared.css';
 
-// Create the Vue application instance
-// App.vue is the root component
+const AppPreset = definePreset(Aura, {
+  semantic: {
+    primary: {
+      50: '#eff6ff',
+      100: '#dbeafe',
+      200: '#bfdbfe',
+      300: '#93c5fd',
+      400: '#60a5fa',
+      500: '#3b82f6',
+      600: '#2563eb',
+      700: '#1d4ed8',
+      800: '#1e40af',
+      900: '#1e3a8a',
+      950: '#172554',
+    },
+  },
+});
+
 const app = createApp(App);
 
-// Mount the app to the DOM
-// The #app element is defined in index.html
+app.use(PrimeVue, {
+  theme: {
+    preset: AppPreset,
+    options: {
+      darkModeSelector: '[data-theme="dark"]',
+      cssLayer: false,
+    },
+  },
+});
+
+app.use(ConfirmationService);
+
 app.mount('#app');

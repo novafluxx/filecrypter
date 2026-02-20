@@ -1,34 +1,37 @@
 <!-- components/StatusMessage.vue - Status Message Display -->
 <!--
-  Displays status messages using Naive UI's NAlert component.
+  Displays status messages using PrimeVue's Message component.
 
   Props:
   - message: The message text to display
   - type: Message type ('success' | 'error' | 'info')
-
-  Replaces the custom .status-message CSS with Naive UI's NAlert.
 -->
 
 <script setup lang="ts">
-import { NAlert } from 'naive-ui';
+import Message from 'primevue/message';
 import type { StatusType } from '../types/crypto';
 
 defineProps<{
   message: string;
   type: StatusType;
 }>();
+
+// Map app status types to PrimeVue severity values
+function toSeverity(type: StatusType): 'success' | 'error' | 'info' {
+  return type;
+}
 </script>
 
 <template>
-  <NAlert
+  <Message
     class="status-message"
-    :type="type"
-    :show-icon="true"
+    :severity="toSeverity(type)"
+    :closable="false"
     role="status"
     aria-live="polite"
   >
     <span class="selectable">{{ message }}</span>
-  </NAlert>
+  </Message>
 </template>
 
 <style scoped>

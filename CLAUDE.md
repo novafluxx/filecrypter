@@ -8,7 +8,7 @@ FileCrypter is a cross-platform file encryption application built with Tauri v2.
 
 ## Tech Stack
 
-- **Frontend**: Vue 3 (Composition API) + TypeScript + Vite + naive-ui
+- **Frontend**: Vue 3 (Composition API) + TypeScript + Vite + PrimeVue 4
 - **Backend**: Rust + Tauri v2
 - **Cryptography**: AES-256-GCM encryption with Argon2id key derivation
 - **Package Manager**: Bun (for frontend), Cargo (for Rust)
@@ -88,7 +88,7 @@ cargo clippy                   # Run linter
 
 ### Frontend Structure (Vue 3 Composition API)
 
-- **src/App.vue**: Root component with adaptive navigation (desktop-first with mobile-aware UI scaffolding)
+- **src/App.vue**: Root component with adaptive navigation (desktop-first with mobile-aware UI scaffolding), PrimeVue ConfirmDialog, and Tabs
 - **src/components/**: Tab UI components (`EncryptTab`, `DecryptTab`, `BatchTab`, `SettingsTab`, `HelpTab`) and widgets
   - `BottomNav.vue`: Mobile-oriented bottom navigation scaffold with icons
 - **src/composables/**: Shared logic (file ops, Tauri IPC, progress, theme, drag-drop, platform detection)

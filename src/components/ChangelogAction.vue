@@ -1,40 +1,20 @@
 <!-- components/ChangelogAction.vue - Desktop header action to open repository changelog -->
 <script setup lang="ts">
-import { NButton, useDialog } from 'naive-ui';
+import Button from 'primevue/button';
+import { useConfirm } from 'primevue/useconfirm';
 import { openUrl } from '@tauri-apps/plugin-opener';
 
-const dialog = useDialog();
+const confirm = useConfirm();
 
 const CHANGELOG_URL = 'https://github.com/novafluxx/filecrypter/blob/main/CHANGELOG.md';
 
 function handleOpenChangelog() {
-  dialog.warning({
-    title: 'Open Changelog',
-    content: 'This will open the changelog in your default browser.',
-    positiveText: 'Continue',
-    negativeText: 'No',
-    positiveButtonProps: {
-      type: 'primary',
-      ghost: false,
-      size: 'medium',
-    },
-    negativeButtonProps: {
-      type: 'primary',
-      ghost: false,
-      size: 'medium',
-    },
-    onAfterEnter() {
-      const actionButtons = Array.from(
-        document.querySelectorAll('.n-dialog__action .n-button')
-      );
-      const continueButton = actionButtons.find(
-        (button) => button.textContent?.trim() === 'Continue'
-      );
-      if (continueButton instanceof HTMLElement) {
-        continueButton.focus();
-      }
-    },
-    async onPositiveClick() {
+  confirm.require({
+    header: 'Open Changelog',
+    message: 'This will open the changelog in your default browser.',
+    acceptLabel: 'Continue',
+    rejectLabel: 'No',
+    accept: async () => {
       try {
         await openUrl(CHANGELOG_URL);
       } catch (error) {
@@ -46,12 +26,11 @@ function handleOpenChangelog() {
 </script>
 
 <template>
-  <NButton
-    quaternary
+  <Button
+    text
     size="small"
     title="Open project changelog in your default browser"
     @click="handleOpenChangelog"
-  >
-    Changelog
-  </NButton>
+    label="Changelog"
+  />
 </template>

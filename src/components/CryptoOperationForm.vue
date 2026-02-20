@@ -17,7 +17,8 @@
 -->
 
 <script setup lang="ts">
-import { NButton, NInput } from 'naive-ui';
+import Button from 'primevue/button';
+import InputText from 'primevue/inputtext';
 import { useCryptoOperation } from '../composables/useCryptoOperation';
 import type { PasswordStrength } from '../composables/usePasswordStrength';
 import KeyFileSection from './KeyFileSection.vue';
@@ -92,20 +93,19 @@ defineExpose({
       <div class="form-group">
         <label :for="inputId">{{ inputLabel }}</label>
         <div class="file-input-group">
-          <NInput
-            :input-props="{ id: inputId }"
-            :value="fileOps.inputPath.value"
+          <InputText
+            :id="inputId"
+            :modelValue="fileOps.inputPath.value"
             readonly
             :placeholder="inputPlaceholder"
+            fluid
           />
-          <NButton
-            type="primary"
+          <Button
             @click="handleSelectFile"
             :disabled="fileOps.isProcessing.value"
             :title="`Choose a file to ${mode}`"
-          >
-            Browse
-          </NButton>
+            label="Browse"
+          />
         </div>
       </div>
 
@@ -113,20 +113,19 @@ defineExpose({
       <div class="form-group">
         <label :for="outputId">{{ outputLabel }}</label>
         <div class="file-input-group">
-          <NInput
-            :input-props="{ id: outputId }"
-            :value="fileOps.outputPath.value"
+          <InputText
+            :id="outputId"
+            :modelValue="fileOps.outputPath.value"
             readonly
             :placeholder="outputPlaceholder"
+            fluid
           />
-          <NButton
-            type="primary"
+          <Button
             @click="handleSelectOutput"
             :disabled="fileOps.isProcessing.value"
             :title="`Choose where to save the ${mode}ed file`"
-          >
-            Change
-          </NButton>
+            label="Change"
+          />
         </div>
       </div>
 
@@ -160,18 +159,16 @@ defineExpose({
       />
 
       <!-- Action Button -->
-      <NButton
-        type="primary"
-        block
-        strong
+      <Button
         class="action-btn"
         @click="handleOperation"
         :disabled="!isFormValid"
         :title="`Start ${mode}ing with the selected file and password`"
+        fluid
       >
         <span v-if="fileOps.isProcessing.value">{{ processingButtonText }}</span>
         <span v-else>{{ actionButtonText }}</span>
-      </NButton>
+      </Button>
 
       <!-- Progress Bar -->
       <ProgressBar

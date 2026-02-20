@@ -27,6 +27,7 @@
     "vue-tsc": "^3.2.4"
   },
   "dependencies": {
+    "@primeuix/themes": "^2.0.3",
     "@tauri-apps/api": "^2.10.1",
     "@tauri-apps/plugin-dialog": "^2.6.0",
     "@tauri-apps/plugin-opener": "^2.5.3",
@@ -36,6 +37,6 @@
     "@tauri-apps/plugin-updater": "^2.10.0",
     "dompurify": "^3.3.1",
     "marked": "^17.0.3",
-    "naive-ui": "^2.43.2"
+    "primevue": "^4.5.4"
   }
 }

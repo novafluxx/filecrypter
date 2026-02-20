@@ -9,7 +9,7 @@
 -->
 
 <script setup lang="ts">
-import { NCheckbox } from 'naive-ui';
+import Checkbox from 'primevue/checkbox';
 
 defineProps<{
   modelValue: boolean;
@@ -23,13 +23,18 @@ defineEmits<{
 
 <template>
   <div class="form-group">
-    <NCheckbox
-      :checked="modelValue"
-      @update:checked="$emit('update:modelValue', $event)"
-      :disabled="disabled"
-    >
-      Never overwrite existing files (auto-rename on conflicts)
-    </NCheckbox>
+    <div class="checkbox-field">
+      <Checkbox
+        :modelValue="modelValue"
+        @update:modelValue="$emit('update:modelValue', $event)"
+        :disabled="disabled"
+        :binary="true"
+        inputId="overwrite-checkbox"
+      />
+      <label for="overwrite-checkbox">
+        Never overwrite existing files (auto-rename on conflicts)
+      </label>
+    </div>
     <p class="hint-text">
       If the output name already exists, we'll save as "name (1)".
     </p>

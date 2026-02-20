@@ -13,8 +13,11 @@
 -->
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
-import { NConfigProvider, NDialogProvider, NTabs, NTab, darkTheme, type GlobalThemeOverrides } from 'naive-ui';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
+import Tabs from 'primevue/tabs';
+import TabList from 'primevue/tablist';
+import Tab from 'primevue/tab';
+import ConfirmDialog from 'primevue/confirmdialog';
 import EncryptTab from './components/EncryptTab.vue';
 import DecryptTab from './components/DecryptTab.vue';
 import BatchTab from './components/BatchTab.vue';
@@ -28,7 +31,6 @@ import { useSettings } from './composables/useSettings';
 import { usePlatform } from './composables/usePlatform';
 import { useUpdater } from './composables/useUpdater';
 import { useVersion } from './composables/useVersion';
-import { FONT_FAMILY, LIGHT_THEME, DARK_THEME } from './constants';
 import type { TabName } from './types/tabs';
 
 // Active tab state
@@ -36,24 +38,7 @@ const activeTab = ref<TabName>('encrypt');
 
 // Initialize theme (applies theme from settings)
 // appliedTheme is 'light' or 'dark' (resolved from system preference if needed)
-const { appliedTheme } = useTheme();
-
-// Naive UI theme - use dark theme when app is in dark mode
-const naiveTheme = computed(() => appliedTheme.value === 'dark' ? darkTheme : null);
-
-// Theme overrides to match app's CSS variable colors
-// Colors are defined in src/constants.ts to maintain a single source of truth
-const themeOverrides = computed<GlobalThemeOverrides>(() => {
-  const colors = appliedTheme.value === 'dark' ? DARK_THEME : LIGHT_THEME;
-  return {
-    common: {
-      primaryColor: colors.accent,
-      primaryColorHover: colors.accentHover,
-      primaryColorPressed: colors.accentPressed,
-      fontFamily: FONT_FAMILY,
-    },
-  };
-});
+useTheme();
 
 // Platform detection for conditional navigation
 // isInitialized prevents UI flash before detection completes
@@ -105,67 +90,67 @@ onUnmounted(() => {
  *
  * @param tab - Tab to activate
  */
-function switchTab(tab: TabName) {
-  activeTab.value = tab;
+function switchTab(tab: string | number) {
+  activeTab.value = tab as TabName;
 }
 
 </script>
 
 <template>
-  <NConfigProvider :theme="naiveTheme" :theme-overrides="themeOverrides">
-  <NDialogProvider>
-    <!-- Update notification banner (desktop only) -->
-    <UpdateNotification v-if="isInitialized && !isMobile" />
+  <!-- Global ConfirmDialog (replaces NDialogProvider) -->
+  <ConfirmDialog />
 
-    <div class="app-container">
-      <!-- Desktop Header with Tab Navigation (hidden on mobile, waits for platform detection) -->
-      <div v-if="isInitialized && !isMobile" class="desktop-header">
-        <NTabs
-          :value="activeTab"
-          @update:value="switchTab"
-          type="line"
-          class="desktop-tabs"
-        >
-          <NTab name="encrypt">Encrypt</NTab>
-          <NTab name="decrypt">Decrypt</NTab>
-          <NTab name="batch">Batch</NTab>
-          <NTab name="settings">Settings</NTab>
-          <NTab name="help">Help</NTab>
-        </NTabs>
-        <div class="header-actions">
-          <ChangelogAction />
-          <span v-if="version" class="version-display">v{{ version }}</span>
-        </div>
+  <!-- Update notification banner (desktop only) -->
+  <UpdateNotification v-if="isInitialized && !isMobile" />
+
+  <div class="app-container">
+    <!-- Desktop Header with Tab Navigation (hidden on mobile, waits for platform detection) -->
+    <div v-if="isInitialized && !isMobile" class="desktop-header">
+      <Tabs
+        :value="activeTab"
+        @update:value="switchTab"
+        class="desktop-tabs"
+      >
+        <TabList>
+          <Tab value="encrypt">Encrypt</Tab>
+          <Tab value="decrypt">Decrypt</Tab>
+          <Tab value="batch">Batch</Tab>
+          <Tab value="settings">Settings</Tab>
+          <Tab value="help">Help</Tab>
+        </TabList>
+      </Tabs>
+      <div class="header-actions">
+        <ChangelogAction />
+        <span v-if="version" class="version-display">v{{ version }}</span>
       </div>
-
-      <!-- Tab Content Area -->
-      <div class="tab-panels">
-        <div v-show="activeTab === 'encrypt'" class="tab-panel">
-          <EncryptTab />
-        </div>
-        <div v-show="activeTab === 'decrypt'" class="tab-panel">
-          <DecryptTab />
-        </div>
-        <div v-show="activeTab === 'batch'" class="tab-panel">
-          <BatchTab />
-        </div>
-        <div v-show="activeTab === 'settings'" class="tab-panel">
-          <SettingsTab />
-        </div>
-        <div v-show="activeTab === 'help'" class="tab-panel">
-          <HelpTab />
-        </div>
-      </div>
-
-      <!-- Mobile Bottom Navigation (shown only on iOS/Android, waits for platform detection) -->
-      <BottomNav
-        v-if="isInitialized && isMobile"
-        :active-tab="activeTab"
-        @switch-tab="switchTab"
-      />
     </div>
-  </NDialogProvider>
-  </NConfigProvider>
+
+    <!-- Tab Content Area -->
+    <div class="tab-panels">
+      <div v-show="activeTab === 'encrypt'" class="tab-panel">
+        <EncryptTab />
+      </div>
+      <div v-show="activeTab === 'decrypt'" class="tab-panel">
+        <DecryptTab />
+      </div>
+      <div v-show="activeTab === 'batch'" class="tab-panel">
+        <BatchTab />
+      </div>
+      <div v-show="activeTab === 'settings'" class="tab-panel">
+        <SettingsTab />
+      </div>
+      <div v-show="activeTab === 'help'" class="tab-panel">
+        <HelpTab />
+      </div>
+    </div>
+
+    <!-- Mobile Bottom Navigation (shown only on iOS/Android, waits for platform detection) -->
+    <BottomNav
+      v-if="isInitialized && isMobile"
+      :active-tab="activeTab"
+      @switch-tab="switchTab"
+    />
+  </div>
 </template>
 
 <style>
@@ -256,14 +241,6 @@ body {
   flex-direction: column;
   overflow: hidden;
 }
-
-/* Ensure NConfigProvider wrapper doesn't break flex layout */
-#app > .n-config-provider {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-}
 </style>
 
 <style scoped>
@@ -291,7 +268,7 @@ body {
 
 /* Desktop Tab Navigation */
 .desktop-tabs {
-  padding: 0 16px;
+  padding: 0;
   flex: 1;
   min-width: 0;
 }
@@ -326,13 +303,17 @@ body {
   min-height: 0;
 }
 
-/* Bold tab labels */
-.desktop-tabs :deep(.n-tabs-tab__label) {
-  font-weight: 600;
+/* PrimeVue Tabs customization */
+.desktop-tabs :deep(.p-tablist-tab-list) {
+  border-width: 0;
+  background: transparent;
 }
 
-/* Use a single full-width header divider instead of tab-only divider */
-.desktop-tabs :deep(.n-tabs-nav-scroll-content) {
-  border-bottom: none !important;
+.desktop-tabs :deep(.p-tablist-content) {
+  padding-left: 16px;
+}
+
+.desktop-tabs :deep(.p-tab) {
+  font-weight: 600;
 }
 </style>

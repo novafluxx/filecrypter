@@ -23,26 +23,24 @@ select {
   cursor: default;
 }
 
-/* === NAIVE UI CURSOR OVERRIDES === */
-/* Override Naive UI's web-style pointer cursors for desktop app feel */
-.n-button,
-.n-checkbox,
-.n-checkbox__label,
-.n-input,
-.n-input__input-el,
-.n-tabs,
-.n-tabs-tab,
-.n-tab-pane,
-.n-alert,
-.n-progress,
-.n-radio-button,
-.n-radio-group {
+/* === PRIMEVUE CURSOR OVERRIDES === */
+/* Override PrimeVue's web-style pointer cursors for desktop app feel */
+.p-button,
+.p-checkbox,
+.p-checkbox-label,
+.p-inputtext,
+.p-tab,
+.p-tablist,
+.p-message,
+.p-progressbar,
+.p-radiobutton,
+.p-password {
   cursor: default !important;
 }
 
 /* Keep text cursor for input fields */
-.n-input .n-input__input-el,
-.n-input .n-input__textarea-el {
+.p-inputtext,
+.p-password-input {
   cursor: text !important;
 }
 
@@ -52,7 +50,7 @@ select {
   margin-bottom: 12px;
 }
 
-/* Only style direct label children of form-group, not naive-ui component labels */
+/* Only style direct label children of form-group, not PrimeVue component labels */
 .form-group > label {
   display: block;
   margin-bottom: 8px;
@@ -66,7 +64,21 @@ select {
 .file-input-group {
   display: flex;
   gap: 8px;
-  align-items: stretch;
+  align-items: center;
+}
+
+/* === CHECKBOX & RADIO FIELD LAYOUTS === */
+
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.checkbox-field > label {
+  font-weight: normal;
+  font-size: inherit;
+  margin-bottom: 0;
 }
 
 /* === HINTS === */

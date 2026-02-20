@@ -7,7 +7,9 @@
 -->
 
 <script setup lang="ts">
-import { NButton, NAlert, NProgress } from 'naive-ui';
+import Button from 'primevue/button';
+import Message from 'primevue/message';
+import ProgressBar from 'primevue/progressbar';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useUpdater } from '../composables/useUpdater';
 
@@ -31,7 +33,7 @@ function openReleaseNotes() {
 <template>
   <Transition name="slide-down">
     <div v-if="updateAvailable" class="update-notification">
-      <NAlert type="info" :show-icon="false" class="update-alert">
+      <Message severity="info" :closable="false" class="update-alert">
         <div class="update-content">
           <div class="update-text">
             <strong>Update Available</strong>
@@ -42,32 +44,23 @@ function openReleaseNotes() {
           </div>
           <div v-if="error" class="update-error">
             <span class="update-error-text">{{ error }}</span>
-            <NButton size="small" type="primary" @click="downloadAndInstall">
-              Retry
-            </NButton>
-            <NButton size="small" quaternary @click="dismissUpdate">
-              Dismiss
-            </NButton>
+            <Button size="small" @click="downloadAndInstall" label="Retry" />
+            <Button size="small" text @click="dismissUpdate" label="Dismiss" />
           </div>
           <div v-else-if="isDownloading" class="update-progress">
-            <NProgress
-              type="line"
-              :percentage="downloadProgress"
-              :show-indicator="false"
-              status="info"
+            <ProgressBar
+              :value="downloadProgress"
+              :showValue="false"
+              class="update-progress-bar"
             />
             <span class="progress-text">Downloading...</span>
           </div>
           <div v-else class="update-actions">
-            <NButton size="small" type="primary" @click="downloadAndInstall">
-              Update Now
-            </NButton>
-            <NButton size="small" quaternary @click="dismissUpdate">
-              Later
-            </NButton>
+            <Button size="small" @click="downloadAndInstall" label="Update Now" />
+            <Button size="small" text @click="dismissUpdate" label="Later" />
           </div>
         </div>
-      </NAlert>
+      </Message>
     </div>
   </Transition>
 </template>
@@ -129,6 +122,11 @@ function openReleaseNotes() {
   align-items: center;
   gap: 12px;
   min-width: 150px;
+}
+
+.update-progress-bar {
+  height: 6px;
+  flex: 1;
 }
 
 .progress-text {

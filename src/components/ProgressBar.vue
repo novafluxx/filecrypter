@@ -5,12 +5,10 @@
   Props:
   - percent: Current progress (0-100)
   - message: Status message to display below the bar
-
-  Uses Naive UI's NProgress component for the actual progress bar.
 -->
 
 <script setup lang="ts">
-import { NProgress } from 'naive-ui';
+import ProgressBar from 'primevue/progressbar';
 
 defineProps<{
   percent: number;
@@ -20,13 +18,10 @@ defineProps<{
 
 <template>
   <div class="progress-container">
-    <!-- Naive UI Progress bar -->
-    <NProgress
-      type="line"
-      :percentage="percent"
-      :show-indicator="false"
-      :height="6"
-      :border-radius="3"
+    <ProgressBar
+      :value="percent"
+      :showValue="false"
+      class="progress-bar"
     />
 
     <!-- Progress info -->
@@ -44,6 +39,10 @@ defineProps<{
   background: var(--panel-alt);
   border-radius: 6px;
   border: 1px solid var(--border);
+}
+
+.progress-bar {
+  height: 6px;
 }
 
 .progress-info {

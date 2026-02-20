@@ -2,9 +2,10 @@
 
 ## Project Structure & Module Organization
 - `src/` holds the Vue 3 frontend (entry: `src/main.ts`, root UI: `src/App.vue`).
-- `src/components/` contains tab UI components (`EncryptTab.vue`, `DecryptTab.vue`, `BatchTab.vue`, `SettingsTab.vue`, `HelpTab.vue`) plus shared widgets (`ProgressBar.vue`, `PasswordStrengthMeter.vue`, `StatusMessage.vue`, etc.).
+- `src/main.ts` configures PrimeVue 4 (Aura preset + app theme overrides) and registers `ConfirmationService`.
+- `src/components/` contains tab UI components (`EncryptTab.vue`, `DecryptTab.vue`, `BatchTab.vue`, `SettingsTab.vue`, `HelpTab.vue`) plus navigation and shared UI (`BottomNav.vue`, `UpdateNotification.vue`, `ChangelogAction.vue`, `CryptoOperationForm.vue`, `KeyFileSection.vue`, `PasswordSection.vue`, `OverwriteCheckbox.vue`, `ProgressBar.vue`, `PasswordStrengthMeter.vue`, `StatusMessage.vue`).
 - `src/composables/` has shared frontend logic (`useCryptoOperation`, `useFileOps`, `useProgress`, `useTheme`, `useDragDrop`, `usePasswordStrength`, `useTauri`, `usePlatform`, `useSettings`, `useUpdater`, `useVersion`, `useSettingsSync`).
-- `src/utils/` keeps shared helpers; `src/constants.ts` and `src/shared.css` define global constants and styles.
+- `src/utils/` keeps shared helpers; `src/constants.ts` and `src/shared.css` define shared frontend constants and global/shared styles.
 - `src/types/` stores TypeScript type definitions.
 - `src-tauri/` is the Rust/Tauri backend (`src/main.rs` delegates to `src/lib.rs`, which registers plugins and IPC commands).
 - `src-tauri/src/commands/` defines IPC handlers and helpers (`encrypt.rs`, `decrypt.rs`, `batch.rs`, `archive.rs`, `keyfile.rs`, `file_utils.rs`, `command_utils.rs`), and `src-tauri/src/crypto/` holds AES/Argon2 + streaming implementations.
@@ -35,6 +36,7 @@
 ## Coding Style & Naming Conventions
 - TypeScript: use 2-space indentation; prefer Composition API patterns in `src/`.
 - Vue files: PascalCase component filenames (e.g., `EncryptTab.vue`).
+- Frontend UI stack is PrimeVue 4; prefer PrimeVue components/services over adding alternate UI frameworks.
 - Rust: follow standard `rustfmt` defaults; modules are `snake_case`.
 - IPC command names are `snake_case` (e.g., `encrypt_file`, `decrypt_file`).
 
@@ -52,3 +54,4 @@
 ## Security & Configuration Notes
 - Encryption uses AES-256-GCM with Argon2id; keep salts and nonces unique per file.
 - Tauri file I/O stays in Rust; avoid moving sensitive operations to the frontend.
+- Desktop window config is currently resizable with `minWidth: 500` and `minHeight: 500`; keep default window sizing compatible with 1366×768 displays.

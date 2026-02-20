@@ -5,6 +5,35 @@ All notable changes to FileCrypter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.8] - 2026-02-20
+
+
+
+### Features
+
+- **ui:** Migrate from naive-ui to PrimeVue 4 ([df1285d](https://github.com/novafluxx/filecrypter/commit/df1285ded903503fccffe2e05ab3ca3b5e66c312))
+
+
+### Bug Fixes
+
+- **ui:** Fix batch mode switch regression and duplicate checkbox IDs ([91522a0](https://github.com/novafluxx/filecrypter/commit/91522a04d0648626e8cea2f70f27c306b67d8a74))
+- **ui:** Make window resizable and restore 768p-safe default height ([22d6d61](https://github.com/novafluxx/filecrypter/commit/22d6d61791f7cfc88c98a4054ff881e3ec4ba306))
+
+
+### Dependencies
+
+- **deps:** Update typescript-eslint to 8.56.0 and marked to 17.0.3 ([9adf0f1](https://github.com/novafluxx/filecrypter/commit/9adf0f1c023584a74ff19f4e98095a4730dbb7d3))
+- **deps:** Update Rust dependencies ([6f52e82](https://github.com/novafluxx/filecrypter/commit/6f52e820df703bc4b193a9b10881b3e828f920f4))
+
+
+### Miscellaneous
+
+- Fix bun.lock workspace section out of sync after bun update ([1995c4e](https://github.com/novafluxx/filecrypter/commit/1995c4ee56051bae6ac6a85d99a3ed7690bf1b24))
+
+
+### Documentation
+
+- Update AGENTS.md for PrimeVue migration and window config ([edb3ddc](https://github.com/novafluxx/filecrypter/commit/edb3ddc20b518b026872d28a7bf1b542ce3983b4))
 ## [1.0.7] - 2026-02-15
 
 

@@ -133,6 +133,7 @@ defineExpose({
       <OverwriteCheckbox
         v-model="fileOps.neverOverwrite.value"
         :disabled="fileOps.isProcessing.value"
+        :input-id="`${mode}-overwrite`"
       />
 
       <!-- Slot for mode-specific content after overwrite checkbox -->

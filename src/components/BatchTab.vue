@@ -449,7 +449,7 @@ function getPhaseLabel(phase: string): string {
           <div class="batch-mode-option">
             <div class="radio-field">
               <RadioButton
-                v-model="batchMode"
+                :modelValue="batchMode"
                 inputId="batch-individual"
                 value="individual"
                 :disabled="isProcessing"
@@ -462,7 +462,7 @@ function getPhaseLabel(phase: string): string {
           <div class="batch-mode-option">
             <div class="radio-field">
               <RadioButton
-                v-model="batchMode"
+                :modelValue="batchMode"
                 inputId="batch-archive"
                 value="archive"
                 :disabled="isProcessing"

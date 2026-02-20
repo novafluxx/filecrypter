@@ -6,6 +6,8 @@
   Props:
   - modelValue: Whether never-overwrite mode is enabled
   - disabled: Whether the checkbox is disabled (during processing)
+  - inputId: Unique ID for the checkbox (required to avoid duplicate IDs when
+    multiple instances are mounted via v-show)
 -->
 
 <script setup lang="ts">
@@ -14,6 +16,7 @@ import Checkbox from 'primevue/checkbox';
 defineProps<{
   modelValue: boolean;
   disabled: boolean;
+  inputId: string;
 }>();
 
 defineEmits<{
@@ -29,9 +32,9 @@ defineEmits<{
         @update:modelValue="$emit('update:modelValue', $event)"
         :disabled="disabled"
         :binary="true"
-        inputId="overwrite-checkbox"
+        :inputId="inputId"
       />
-      <label for="overwrite-checkbox">
+      <label :for="inputId">
         Never overwrite existing files (auto-rename on conflicts)
       </label>
     </div>

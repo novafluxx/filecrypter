@@ -223,6 +223,10 @@ function switchTab(tab: string | number) {
   box-sizing: border-box;
 }
 
+html {
+  font-size: 14px;
+}
+
 body {
   font-family: system-ui, -apple-system, 'Segoe UI', 'Roboto', 'Ubuntu',
     'Cantarell', 'Noto Sans', sans-serif;
@@ -230,7 +234,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background-color: var(--bg);
   color: var(--text);
-  font-size: 19px;
+  font-size: 14px;
   line-height: 1.5;
   transition: background-color 0.3s, color 0.3s;
 }

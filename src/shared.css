@@ -58,7 +58,7 @@ select {
   margin-bottom: 8px;
   font-weight: 500;
   color: var(--text);
-  font-size: 16px;
+  font-size: 13px;
 }
 
 /* === INPUT GROUPS === */
@@ -87,7 +87,7 @@ select {
 
 .hint-text {
   margin-top: 4px;
-  font-size: 15px;
+  font-size: 12px;
   color: var(--muted);
   font-style: italic;
   line-height: 1.4;
@@ -95,7 +95,7 @@ select {
 
 .error-text {
   margin-top: 4px;
-  font-size: 15px;
+  font-size: 12px;
   color: var(--error, #d03050);
   line-height: 1.4;
 }
@@ -116,7 +116,7 @@ select {
   align-items: center;
   justify-content: center;
   background: rgba(0, 102, 204, 0.1);
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--accent);
   z-index: 10;

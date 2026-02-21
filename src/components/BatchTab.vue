@@ -745,7 +745,7 @@ function getPhaseLabel(phase: string): string {
   padding: 8px 12px;
   border: 1px solid var(--border);
   border-radius: 4px;
-  font-size: 19px;
+  font-size: 14px;
   background-color: var(--field);
   color: var(--muted);
 }
@@ -766,7 +766,7 @@ function getPhaseLabel(phase: string): string {
   gap: 8px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
-  font-size: 16px;
+  font-size: 13px;
   transition: background-color 0.15s;
 }
 
@@ -874,7 +874,7 @@ function getPhaseLabel(phase: string): string {
 }
 
 .progress-message {
-  font-size: 16px;
+  font-size: 13px;
   color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -883,7 +883,7 @@ function getPhaseLabel(phase: string): string {
 }
 
 .progress-percent {
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--accent);
 }

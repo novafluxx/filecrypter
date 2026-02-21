@@ -5,6 +5,14 @@ All notable changes to FileCrypter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.10] - 2026-02-21
+
+
+
+### Bug Fixes
+
+- **build:** Update Vite config to use Tauri v2 env variables ([a5245f1](https://github.com/novafluxx/filecrypter/commit/a5245f13447049dc03d64a71e7e6324bfdf2cb49))
+- **ui:** Reduce oversized font sizes to standard desktop scale ([3ead577](https://github.com/novafluxx/filecrypter/commit/3ead57741f9d5ae82e0483564d7252c56bfb29f5))
 ## [1.0.9] - 2026-02-20
 
 

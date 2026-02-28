@@ -5,6 +5,20 @@ All notable changes to FileCrypter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.11] - 2026-02-28
+
+
+
+### Dependencies
+
+- **deps:** Update dev dependencies to latest patch versions ([12fdc6f](https://github.com/novafluxx/filecrypter/commit/12fdc6f9af34e9ac70fdbd1776bb3f2285b61bd4))
+- **deps:** Update vue to 3.5.29 ([d3117de](https://github.com/novafluxx/filecrypter/commit/d3117de60c362a4b1903d46ee9c16abe236aaea6))
+- **deps:** Update cargo dependencies to latest compatible versions ([0481c12](https://github.com/novafluxx/filecrypter/commit/0481c12b3f3555c514e179fd42eef0b9a5ccbab9))
+
+
+### Refactoring
+
+- **backend:** Remove dead code, optimize decryption buffer, fix minor issues ([43d0f96](https://github.com/novafluxx/filecrypter/commit/43d0f9644d8e844c3117be92ae540e16e6a5bf3e))
 ## [1.0.10] - 2026-02-21
 
 

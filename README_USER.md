@@ -73,8 +73,8 @@ You'll get an output file like `archive_YYYYMMDD_HHMMSS.tar.zst.encrypted`.
 ## Compression
 FileCrypter supports optional ZSTD compression to reduce file sizes before encryption.
 
-- **Single file mode**: Compression is optional (checkbox in Encrypt tab). Off by default (unless enabled in **Settings**).
-- **Batch mode**: Individual-file batches compress each file with ZSTD before encryption; archive mode creates a compressed TAR archive (ZSTD) and encrypts that archive.
+- **Single file mode**: Compression is optional (checkbox in Encrypt tab). Off by default (unless enabled in **Settings**). The compression setting in **Settings** only affects single-file mode.
+- **Batch mode**: Always compressed, regardless of Settings. Individual-file batches compress each file with ZSTD before encryption; archive mode creates a compressed TAR archive (ZSTD) and encrypts that archive.
 
 **Compression effectiveness:**
 - Text files, documents, spreadsheets: ~70% size reduction
@@ -116,7 +116,7 @@ FileCrypter includes a **Never overwrite existing files** option.
 - Enabling compression adds a small performance overhead but can significantly reduce output file size.
 
 ## Updates
-- Some builds can notify you when an update is available.
+- The app automatically checks for updates on startup (desktop only).
 - Click **Update Now** to download, install, and relaunch the app, or **Later** to dismiss.
 
 ## Password & Key File Tips (Important)

@@ -11,7 +11,7 @@
 
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-/// Secure wrapper for byte arrays (encryption keys, salts, nonces)
+/// Secure wrapper for byte arrays (derived keys and other sensitive cryptographic material)
 ///
 /// This wrapper automatically zeros the contained bytes when dropped,
 /// preventing sensitive cryptographic material from lingering in memory.
@@ -32,7 +32,7 @@ impl SecureBytes {
     }
 
     /// Create SecureBytes from a slice (copies the data)
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn from_slice(data: &[u8]) -> Self {
         Self(data.to_vec())
     }
@@ -50,7 +50,6 @@ impl SecureBytes {
     }
 
     /// Check if the byte array is empty
-    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
@@ -109,19 +108,18 @@ impl Password {
     /// Get the password as a string slice
     ///
     /// Use sparingly - prefer `as_bytes()` for crypto operations
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
     /// Get the length of the password in bytes
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
     /// Check if the password is empty
-    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }

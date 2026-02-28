@@ -573,6 +573,7 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
         },
     )?;
     let mut plaintext_written: u64 = 0;
+    let mut ciphertext_buf = vec![0u8; max_ciphertext_chunk_len];
 
     for chunk_index in 0..total_chunks {
         // Read chunk length
@@ -588,9 +589,8 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
             )));
         }
 
-        // Read encrypted chunk
-        let mut ciphertext = vec![0u8; chunk_len];
-        reader.read_exact(&mut ciphertext)?;
+        // Read encrypted chunk into pre-allocated buffer
+        reader.read_exact(&mut ciphertext_buf[..chunk_len])?;
 
         // Derive chunk nonce
         let chunk_nonce = derive_chunk_nonce(&base_nonce, chunk_index);
@@ -601,7 +601,7 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
             .decrypt(
                 nonce,
                 Payload {
-                    msg: ciphertext.as_ref(),
+                    msg: &ciphertext_buf[..chunk_len],
                     aad: header_aad,
                 },
             )
@@ -631,7 +631,8 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
         writer.write_all(&plaintext)?;
         plaintext_written = plaintext_written.saturating_add(plaintext.len() as u64);
 
-        // Track encrypted bytes processed (excludes header and per-chunk length fields).
+        // Track ciphertext bytes processed (includes auth tag, excludes
+        // 4-byte chunk length prefix and file header).
         bytes_processed += chunk_len as u64;
 
         // Call progress callback
@@ -743,28 +744,6 @@ fn max_ciphertext_len(
         CryptoError::FormatError("Chunk size too large to compute ciphertext bound".to_string())
     })
 }
-
-/// Check if a file should use streaming encryption based on size
-///
-/// Returns true if the file is larger than the threshold (default: 10MB)
-///
-/// # Deprecated
-/// This function is a legacy utility. As of the current implementation,
-/// all files use streaming encryption regardless of size for consistent
-/// behavior and optimal memory usage. This function is retained for
-/// potential future use cases where size-based decisions may be needed.
-#[allow(dead_code)]
-pub fn should_use_streaming(file_size: u64, threshold: u64) -> bool {
-    file_size > threshold
-}
-
-/// Default threshold for automatic streaming (10 MB)
-///
-/// # Note
-/// This constant is retained for potential future use. Currently, all files
-/// use streaming encryption regardless of size.
-#[allow(dead_code)]
-pub const STREAMING_THRESHOLD: u64 = 10 * 1024 * 1024;
 
 #[cfg(test)]
 mod tests {
@@ -1201,16 +1180,6 @@ mod tests {
         assert_eq!(content, decrypted_content);
     }
 
-    #[test]
-    fn test_should_use_streaming() {
-        assert!(!should_use_streaming(1024, STREAMING_THRESHOLD)); // 1KB - no
-        assert!(!should_use_streaming(10 * 1024 * 1024, STREAMING_THRESHOLD)); // 10MB exactly - no
-        assert!(should_use_streaming(
-            10 * 1024 * 1024 + 1,
-            STREAMING_THRESHOLD
-        )); // 10MB + 1 - yes
-        assert!(should_use_streaming(100 * 1024 * 1024, STREAMING_THRESHOLD)); // 100MB - yes
-    }
 
     #[test]
     fn test_streaming_v6_keyfile_roundtrip() {

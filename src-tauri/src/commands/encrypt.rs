@@ -12,7 +12,8 @@
 // 5. Write encrypted chunks to temporary file
 // 6. Atomically rename temporary file to final output
 //
-// File Format: Version 4 (streaming format with chunk-level authentication)
+// File Format: Version depends on options (V4 without compression, V5 with compression,
+// V6/V7 with key file) - all use streaming format with chunk-level authentication
 // - Header contains KDF parameters, salt, base nonce, chunk size, and total chunks
 // - Each chunk has a unique nonce derived from (base_nonce, chunk_index)
 // - Each chunk is authenticated with AES-GCM tag
@@ -61,7 +62,7 @@ use crate::events::{ProgressEvent, CRYPTO_PROGRESS_EVENT};
 /// # Security Notes
 /// - Password is wrapped in `Password` type and zeroized after key derivation
 /// - Unique salt is generated for each encryption
-/// - Nonce is randomly generated per chunk (never reused)
+/// - Unique per-chunk nonces derived via BLAKE3 from a random base nonce
 /// - Files are processed in 1MB chunks, regardless of size
 ///
 /// # Frontend Usage
@@ -106,7 +107,7 @@ pub async fn encrypt_file(
     let progress_callback =
         create_progress_callback(app.clone(), "encrypting", "Encrypting file...");
 
-    // Validate key file path if provided
+    // Convert key file path if provided
     let kf_path = key_file_path.as_deref().map(std::path::Path::new);
 
     // Use streaming for all files

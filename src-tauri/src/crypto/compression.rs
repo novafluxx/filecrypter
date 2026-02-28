@@ -14,7 +14,7 @@
 // **Compress-Then-Encrypt (CTE)**
 // - Encrypted data is indistinguishable from random and cannot be compressed
 // - Compression must happen before encryption to be effective
-// - Industry standard approach (used by SSH, TLS, etc.)
+// - Safe here because FileCrypter has no adaptive chosen-plaintext oracle
 //
 // ## Security Considerations
 //
@@ -22,7 +22,7 @@
 // - This is acceptable for file encryption (no compression oracle attacks)
 // - AES-GCM authentication prevents tampering with compressed data
 
-use std::io::{BufReader, Cursor, Read, Write};
+use std::io::{BufReader, Cursor, Read};
 
 use crate::error::{CryptoError, CryptoResult};
 
@@ -216,36 +216,22 @@ pub fn decompress_with_limit(
     }
 }
 
-/// Create a streaming ZSTD encoder that compresses data as it's written
-///
-/// # Arguments
-/// * `writer` - The underlying writer to write compressed data to
-/// * `level` - Compression level (1-22)
-///
-/// # Returns
-/// A writer that compresses data before writing
-pub fn create_encoder<W: Write>(writer: W, level: i32) -> CryptoResult<zstd::Encoder<'static, W>> {
-    zstd::Encoder::new(writer, level)
-        .map_err(|e| CryptoError::FormatError(format!("Failed to create compressor: {}", e)))
-}
-
-/// Create a streaming ZSTD decoder that decompresses data as it's read
-///
-/// # Arguments
-/// * `reader` - The underlying reader to read compressed data from
-///
-/// # Returns
-/// A reader that decompresses data as it's read
-pub fn create_decoder<R: Read>(
-    reader: R,
-) -> CryptoResult<zstd::Decoder<'static, std::io::BufReader<R>>> {
-    zstd::Decoder::new(reader)
-        .map_err(|e| CryptoError::FormatError(format!("Failed to create decompressor: {}", e)))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::{Read, Write};
+
+    fn create_encoder<W: Write>(writer: W, level: i32) -> CryptoResult<zstd::Encoder<'static, W>> {
+        zstd::Encoder::new(writer, level)
+            .map_err(|e| CryptoError::FormatError(format!("Failed to create compressor: {}", e)))
+    }
+
+    fn create_decoder<R: Read>(
+        reader: R,
+    ) -> CryptoResult<zstd::Decoder<'static, std::io::BufReader<R>>> {
+        zstd::Decoder::new(reader)
+            .map_err(|e| CryptoError::FormatError(format!("Failed to create decompressor: {}", e)))
+    }
 
     #[test]
     fn test_compression_algorithm_roundtrip() {

@@ -31,7 +31,7 @@ pub use windows_acl::{create_secure_file, set_owner_only_dacl, DaclError};
 /// On Windows this function applies a restrictive DACL to an existing file. On Unix-like
 /// systems we rely on mode bits at file creation time (e.g. `OpenOptionsExt::mode(0o600)`),
 /// so there's nothing additional to do here.
-pub fn set_owner_only_dacl<P: AsRef<std::path::Path>>(_path: P) -> Result<(), u32> {
+pub fn set_owner_only_dacl<P: AsRef<std::path::Path>>(_path: P) -> Result<(), std::io::Error> {
     Ok(())
 }
 

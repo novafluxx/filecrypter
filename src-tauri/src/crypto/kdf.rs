@@ -60,7 +60,7 @@ const MEMORY_COST: u32 = 65536;
 const TIME_COST: u32 = 3;
 
 /// Degree of parallelism (number of threads)
-/// Should match typical CPU core count for optimal performance
+/// Value of 4 follows OWASP 2025 recommendations for Argon2id
 const PARALLELISM: u32 = 4;
 
 /// Output key length in bytes (32 bytes = 256 bits for AES-256)

@@ -25,17 +25,9 @@ pub enum CryptoError {
     #[error("Decryption failed")]
     DecryptionFailed,
 
-    /// File version is not supported
-    #[error("Unsupported file version")]
-    InvalidVersion,
-
     /// I/O error (file not found, permission denied, etc.)
     #[error("File error: {0}")]
     Io(#[from] std::io::Error),
-
-    /// File too large for processing (exceeds maximum chunk count)
-    #[error("FileTooLarge: {0}")]
-    FileTooLarge(String),
 
     /// Too many files in batch operation
     #[error("TooManyFiles: {0}")]

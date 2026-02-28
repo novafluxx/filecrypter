@@ -8,7 +8,7 @@
 // - Frontend listens using listen() from @tauri-apps/api/event
 // - Payloads must implement Serialize to be converted to JSON
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 /// Progress event sent during encryption/decryption operations
 ///
@@ -16,7 +16,6 @@ use serde::{Deserialize, Serialize};
 /// - reading: Loading file from disk
 /// - deriving_key: Argon2id key derivation (CPU-intensive, ~100-300ms)
 /// - encrypting/decrypting: AES-256-GCM crypto operation
-/// - writing: Saving result to disk
 /// - complete: Operation finished successfully
 ///
 /// # Frontend Usage
@@ -27,10 +26,10 @@ use serde::{Deserialize, Serialize};
 ///   console.log(`${event.payload.stage}: ${event.payload.percent}%`);
 /// });
 /// ```
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Debug)]
 pub struct ProgressEvent {
     /// Current processing stage
-    /// Values: "reading", "deriving_key", "encrypting", "decrypting", "writing", "complete"
+    /// Values: "reading", "deriving_key", "encrypting", "decrypting", "complete"
     pub stage: String,
 
     /// Progress percentage (0-100)

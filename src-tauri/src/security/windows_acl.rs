@@ -34,8 +34,6 @@ use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken}
 pub enum DaclError {
     /// Windows API returned an error code
     WindowsError(u32),
-    /// Could not determine the current user
-    NoCurrentUser,
     /// I/O error during file operations
     IoError(String),
 }
@@ -44,7 +42,6 @@ impl std::fmt::Display for DaclError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             DaclError::WindowsError(code) => write!(f, "Windows error code: {}", code),
-            DaclError::NoCurrentUser => write!(f, "Could not determine current user"),
             DaclError::IoError(msg) => write!(f, "I/O error: {}", msg),
         }
     }
@@ -204,15 +201,8 @@ pub fn set_owner_only_dacl<P: AsRef<Path>>(path: P) -> Result<(), DaclError> {
         .chain(std::iter::once(0))
         .collect();
 
-    // Windows file access rights for read/write (equivalent to Unix 0o600)
-    // These values match the Windows SDK definitions:
-    // FILE_GENERIC_READ  = FILE_READ_ATTRIBUTES | FILE_READ_DATA | FILE_READ_EA | STANDARD_RIGHTS_READ | SYNCHRONIZE
-    // FILE_GENERIC_WRITE = FILE_APPEND_DATA | FILE_WRITE_ATTRIBUTES | FILE_WRITE_DATA | FILE_WRITE_EA | STANDARD_RIGHTS_WRITE | SYNCHRONIZE
-    const FILE_GENERIC_READ_MASK: u32 = 0x120089;
-    const FILE_GENERIC_WRITE_MASK: u32 = 0x120116;
-
-    // Add allow entry for current user: read + write
-    let access_mask = FILE_GENERIC_READ_MASK | FILE_GENERIC_WRITE_MASK;
+    // Add allow entry for current user: read + write (equivalent to Unix 0o600)
+    let access_mask = FILE_GENERIC_READ | FILE_GENERIC_WRITE;
     unsafe {
         use windows_sys::Win32::Security::Authorization::SE_FILE_OBJECT;
 
@@ -389,9 +379,6 @@ mod tests {
     fn test_dacl_error_display() {
         let err = DaclError::WindowsError(5);
         assert_eq!(format!("{}", err), "Windows error code: 5");
-
-        let err = DaclError::NoCurrentUser;
-        assert_eq!(format!("{}", err), "Could not determine current user");
 
         let err = DaclError::IoError("test error".to_string());
         assert_eq!(format!("{}", err), "I/O error: test error");

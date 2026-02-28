@@ -436,7 +436,7 @@ pub fn compute_common_prefix(paths: &[PathBuf]) -> PathBuf {
         return paths[0].parent().unwrap_or(&PathBuf::new()).to_path_buf();
     }
 
-    // Get canonicalized parents
+    // Get parent directories
     let parents: Vec<PathBuf> = paths
         .iter()
         .filter_map(|p| p.parent().map(|parent| parent.to_path_buf()))

@@ -12,10 +12,7 @@
 // though current operations use streaming's built-in atomic writes.
 
 use std::fs;
-use std::io::Write;
 use std::path::{Component, Path, PathBuf};
-
-use tempfile::NamedTempFile;
 
 use crate::error::{CryptoError, CryptoResult};
 
@@ -78,16 +75,9 @@ fn build_collision_path(path: &Path, index: u32) -> CryptoResult<PathBuf> {
     Ok(parent.join(candidate_name))
 }
 
-/// Write data to a file with secure permissions (owner read/write only)
-///
-/// On Unix systems, sets file permissions to 0o600.
-/// On Windows, uses default permissions (ACLs inherited from parent).
-///
-/// Note: Prefer `atomic_write()` for better safety (prevents partial writes).
-/// This function is kept for cases where atomic writes aren't feasible.
-#[allow(dead_code)]
-#[cfg(unix)]
+#[cfg(all(test, unix))]
 pub fn secure_write<P: AsRef<Path>>(path: P, data: &[u8]) -> Result<(), std::io::Error> {
+    use std::io::Write;
     use std::os::unix::fs::OpenOptionsExt;
 
     let mut file = fs::OpenOptions::new()
@@ -101,10 +91,10 @@ pub fn secure_write<P: AsRef<Path>>(path: P, data: &[u8]) -> Result<(), std::io:
     Ok(())
 }
 
-#[allow(dead_code)]
-#[cfg(windows)]
+#[cfg(all(test, windows))]
 pub fn secure_write<P: AsRef<Path>>(path: P, data: &[u8]) -> Result<(), std::io::Error> {
     use crate::security::create_secure_file;
+    use std::io::Write;
 
     // Create file with restrictive permissions atomically (no TOCTOU vulnerability)
     let mut file = create_secure_file(&path)?;
@@ -113,42 +103,15 @@ pub fn secure_write<P: AsRef<Path>>(path: P, data: &[u8]) -> Result<(), std::io:
     Ok(())
 }
 
-/// Write data atomically: write to temp file, then rename
-///
-/// This function provides atomic file writes for in-memory data. It ensures
-/// that the output file is never partially written - either the full file is
-/// written successfully, or nothing is written.
-///
-/// # Current Usage
-/// This function is currently used only in tests. Production code uses streaming
-/// encryption which has its own built-in atomic write mechanism (via NamedTempFile
-/// in crypto/streaming.rs). This function is kept as a utility for:
-/// - Testing file operations
-/// - Future utilities that need to write data atomically
-/// - Reference implementation of secure atomic writes
-///
-/// # How It Works
-/// 1. Creates a secure temporary file in the output directory
-/// 2. Writes data to the temporary file with restrictive permissions (0o600)
-/// 3. Atomically renames the temp file to the final output path
-/// 4. If rename fails, cleans up temp file and returns error
-///
-/// # Arguments
-/// * `path` - Target output path
-/// * `data` - Data to write (entire content in memory)
-/// * `allow_overwrite` - If false, auto-renames on collision
-///
-/// # Platform-Specific Security
-/// - Unix: Sets file permissions to 0o600 (owner read/write only)
-/// - Windows: Uses DACL to restrict access to file owner
-///
-/// When `allow_overwrite` is false, collisions are resolved by auto-renaming.
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn atomic_write<P: AsRef<Path>>(
     path: P,
     data: &[u8],
     allow_overwrite: bool,
 ) -> CryptoResult<PathBuf> {
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
     let requested_path = path.as_ref();
     let resolved_path = resolve_output_path(requested_path, allow_overwrite)?;
     let parent = resolved_path.parent().unwrap_or_else(|| Path::new("."));

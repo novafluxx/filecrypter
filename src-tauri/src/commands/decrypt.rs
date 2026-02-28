@@ -22,7 +22,7 @@
 // Security:
 // - Wrong password fails at first chunk (tag verification failure)
 // - Tampered data detected immediately (authentication failure)
-// - Timing-safe comparison prevents timing attacks
+// - AES-GCM authenticated decryption inherently prevents tampering
 // - Header tampering detected (used as AAD in each chunk)
 
 use tauri::{command, AppHandle, Emitter};
@@ -60,7 +60,6 @@ use crate::events::{ProgressEvent, CRYPTO_PROGRESS_EVENT};
 /// # Security Notes
 /// - Password is wrapped in `Password` type and zeroized after use
 /// - Authentication tag is automatically verified by AES-GCM for each chunk
-/// - Timing-safe comparison prevents timing attacks
 /// - Salt is read from the encrypted file (not secret)
 ///
 /// # Frontend Usage
@@ -93,7 +92,7 @@ pub async fn decrypt_file(
     let progress_callback =
         create_progress_callback(app.clone(), "decrypting", "Decrypting file...");
 
-    // Validate key file path if provided
+    // Convert key file path if provided
     let kf_path = key_file_path.as_deref().map(std::path::Path::new);
 
     // Use streaming for all files

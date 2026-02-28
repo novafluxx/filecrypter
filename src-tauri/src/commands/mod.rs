@@ -1,7 +1,7 @@
 // commands/mod.rs - Tauri Command Handlers Module
 //
 // This module exports all Tauri commands that can be invoked from the frontend.
-// These commands are registered in main.rs and called via the Tauri IPC system.
+// These commands are registered in lib.rs and called via the Tauri IPC system.
 
 use serde::Serialize;
 
@@ -30,7 +30,7 @@ pub struct CryptoResponse {
     pub output_path: String,
 }
 
-// Re-export commands for registration in main.rs
+// Re-export commands for registration in lib.rs
 pub use batch::{batch_decrypt, batch_decrypt_archive, batch_encrypt, batch_encrypt_archive};
 pub use decrypt::decrypt_file;
 pub use encrypt::encrypt_file;

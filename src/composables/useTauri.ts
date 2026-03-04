@@ -65,7 +65,7 @@ export function useTauri() {
       return result;
     } catch (error) {
       // Tauri errors are serialized from Rust CryptoError enum
-      throw new Error(`Encryption failed: ${error}`);
+      throw new Error(`Encryption failed: ${error}`, { cause: error });
     }
   }
 
@@ -104,7 +104,7 @@ export function useTauri() {
       return result;
     } catch (error) {
       // Error will include descriptive message from Rust
-      throw new Error(`Decryption failed: ${error}`);
+      throw new Error(`Decryption failed: ${error}`, { cause: error });
     }
   }
 
@@ -243,7 +243,7 @@ export function useTauri() {
       });
       return result;
     } catch (error) {
-      throw new Error(`Batch encryption failed: ${error}`);
+      throw new Error(`Batch encryption failed: ${error}`, { cause: error });
     }
   }
 
@@ -273,7 +273,7 @@ export function useTauri() {
       });
       return result;
     } catch (error) {
-      throw new Error(`Batch decryption failed: ${error}`);
+      throw new Error(`Batch decryption failed: ${error}`, { cause: error });
     }
   }
 
@@ -308,7 +308,7 @@ export function useTauri() {
       });
       return result;
     } catch (error) {
-      throw new Error(`Archive encryption failed: ${error}`);
+      throw new Error(`Archive encryption failed: ${error}`, { cause: error });
     }
   }
 
@@ -340,7 +340,7 @@ export function useTauri() {
       });
       return result;
     } catch (error) {
-      throw new Error(`Archive decryption failed: ${error}`);
+      throw new Error(`Archive decryption failed: ${error}`, { cause: error });
     }
   }
 
@@ -357,7 +357,7 @@ export function useTauri() {
       });
       return result;
     } catch (error) {
-      throw new Error(`Key file generation failed: ${error}`);
+      throw new Error(`Key file generation failed: ${error}`, { cause: error });
     }
   }
 

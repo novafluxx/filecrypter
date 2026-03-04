@@ -16,10 +16,11 @@ import Button from 'primevue/button';
 import ButtonGroup from 'primevue/buttongroup';
 import Checkbox from 'primevue/checkbox';
 import InputText from 'primevue/inputtext';
-import { open } from '@tauri-apps/plugin-dialog';
+import { useTauri } from '../composables/useTauri';
 import { useSettings, type ThemeMode } from '../composables/useSettings';
 
-// Initialize settings composable
+// Initialize composables
+const { selectDirectory } = useTauri();
 const settings = useSettings();
 
 // Computed for cleaner template bindings
@@ -48,14 +49,10 @@ async function handleThemeChange(newTheme: ThemeMode) {
  * Select output directory
  */
 async function handleSelectOutputDir() {
-  const dir = await open({
-    title: 'Select Default Output Directory',
-    directory: true,
-    multiple: false,
-  });
+  const dir = await selectDirectory('Select Default Output Directory');
 
   if (dir) {
-    await settings.setDefaultOutputDirectory(dir as string);
+    await settings.setDefaultOutputDirectory(dir);
   }
 }
 

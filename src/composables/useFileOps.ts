@@ -22,6 +22,30 @@ import {
 import { sanitizeErrorMessage } from '../utils/errorSanitizer';
 
 /**
+ * Suggest an output filename based on the input filename and operation mode.
+ *
+ * Works on filenames only (not full paths). Callers are responsible for
+ * combining the result with a directory to form a full output path.
+ *
+ * For encryption: appends ENCRYPTED_EXTENSION to the filename.
+ * For decryption: strips ENCRYPTED_EXTENSION if present, otherwise appends
+ *   DECRYPTED_EXTENSION.
+ *
+ * @param filename - The bare filename (no directory component)
+ * @param isEncrypt - True for encryption, false for decryption
+ * @returns The suggested output filename
+ */
+export function suggestOutputFilename(filename: string, isEncrypt: boolean): string {
+  if (isEncrypt) {
+    return filename + ENCRYPTED_EXTENSION;
+  }
+  if (filename.endsWith(ENCRYPTED_EXTENSION)) {
+    return filename.slice(0, -ENCRYPTED_EXTENSION.length);
+  }
+  return filename + DECRYPTED_EXTENSION;
+}
+
+/**
  * Composable for file encryption/decryption operations
  *
  * Provides reactive state management and validation logic
@@ -125,18 +149,12 @@ export function useFileOps() {
   function setInputPath(path: string, isEncrypt: boolean) {
     inputPath.value = path;
 
-    // Auto-suggest output filename
-    if (isEncrypt) {
-      // For encryption: add .encrypted extension
-      outputPath.value = path + ENCRYPTED_EXTENSION;
-    } else {
-      // For decryption: remove .encrypted extension if present
-      if (path.endsWith(ENCRYPTED_EXTENSION)) {
-        outputPath.value = path.slice(0, -ENCRYPTED_EXTENSION.length);
-      } else {
-        outputPath.value = path + DECRYPTED_EXTENSION;
-      }
-    }
+    // Extract directory and filename so suggestOutputFilename operates on the
+    // bare filename (as its contract requires), then reconstruct the full path.
+    const lastSep = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+    const dir = lastSep >= 0 ? path.slice(0, lastSep + 1) : '';
+    const filename = lastSep >= 0 ? path.slice(lastSep + 1) : path;
+    outputPath.value = dir + suggestOutputFilename(filename, isEncrypt);
   }
 
   /**

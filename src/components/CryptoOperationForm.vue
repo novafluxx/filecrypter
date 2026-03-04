@@ -17,10 +17,11 @@
 -->
 
 <script setup lang="ts">
+import { reactive, computed } from 'vue';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
 import { useCryptoOperation } from '../composables/useCryptoOperation';
-import type { PasswordStrength } from '../composables/usePasswordStrength';
+import { usePasswordStrength, type PasswordStrength } from '../composables/usePasswordStrength';
 import KeyFileSection from './KeyFileSection.vue';
 import OverwriteCheckbox from './OverwriteCheckbox.vue';
 import PasswordSection from './PasswordSection.vue';
@@ -41,20 +42,16 @@ interface Props {
   processingButtonText: string;
   dropOverlayText: string;
   // Password section props
-  showStrengthMeter?: boolean;
-  passwordStrength?: PasswordStrength;
   passwordHintText?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  showStrengthMeter: false,
-  passwordStrength: undefined,
   passwordHintText: undefined,
 });
 
 // Initialize the unified composable
 const {
-  fileOps,
+  fileOps: rawFileOps,
   progress,
   showProgress,
   isDragging,
@@ -68,10 +65,18 @@ const {
   handleDrop,
 } = useCryptoOperation({ mode: props.mode });
 
-// Expose fileOps for parent components that need access (e.g., for password strength)
-defineExpose({
-  fileOps,
-});
+// Wrap in reactive() so Vue auto-unwraps nested refs in templates,
+// allowing fileOps.inputPath instead of fileOps.inputPath.value
+const fileOps = reactive(rawFileOps);
+
+const isEncrypt = computed(() => props.mode === 'encrypt');
+
+// Always call composable unconditionally (Vue composable rules), but guard the
+// expensive computation so it only runs in encrypt mode.
+const { strength: rawStrength } = usePasswordStrength(rawFileOps.password);
+const passwordStrength = computed<PasswordStrength>(() =>
+  isEncrypt.value ? rawStrength.value : { score: 0, level: 'weak', feedback: [] },
+);
 </script>
 
 <template>
@@ -95,14 +100,14 @@ defineExpose({
         <div class="file-input-group">
           <InputText
             :id="inputId"
-            :modelValue="fileOps.inputPath.value"
+            :modelValue="fileOps.inputPath"
             readonly
             :placeholder="inputPlaceholder"
             fluid
           />
           <Button
             @click="handleSelectFile"
-            :disabled="fileOps.isProcessing.value"
+            :disabled="fileOps.isProcessing"
             :title="`Choose a file to ${mode}`"
             label="Browse"
           />
@@ -115,14 +120,14 @@ defineExpose({
         <div class="file-input-group">
           <InputText
             :id="outputId"
-            :modelValue="fileOps.outputPath.value"
+            :modelValue="fileOps.outputPath"
             readonly
             :placeholder="outputPlaceholder"
             fluid
           />
           <Button
             @click="handleSelectOutput"
-            :disabled="fileOps.isProcessing.value"
+            :disabled="fileOps.isProcessing"
             :title="`Choose where to save the ${mode}ed file`"
             label="Change"
           />
@@ -131,8 +136,8 @@ defineExpose({
 
       <!-- Output Safety Options -->
       <OverwriteCheckbox
-        v-model="fileOps.neverOverwrite.value"
-        :disabled="fileOps.isProcessing.value"
+        v-model="fileOps.neverOverwrite"
+        :disabled="fileOps.isProcessing"
         :input-id="`${mode}-overwrite`"
       />
 
@@ -142,20 +147,20 @@ defineExpose({
       <!-- Password Input Section -->
       <PasswordSection
         :input-id="passwordId"
-        v-model="fileOps.password.value"
+        v-model="fileOps.password"
         :placeholder="passwordPlaceholder"
-        :disabled="fileOps.isProcessing.value"
-        :autocomplete="mode === 'encrypt' ? 'new-password' : 'current-password'"
-        :show-strength-meter="showStrengthMeter"
+        :disabled="fileOps.isProcessing"
+        :autocomplete="isEncrypt ? 'new-password' : 'current-password'"
+        :show-strength-meter="isEncrypt"
         :strength="passwordStrength"
-        :is-password-valid="fileOps.isPasswordValid.value"
+        :is-password-valid="fileOps.isPasswordValid"
         :hint-text="passwordHintText"
       />
 
       <!-- Key File Section -->
       <KeyFileSection
-        v-model="fileOps.keyFilePath.value"
-        :disabled="fileOps.isProcessing.value"
+        v-model="fileOps.keyFilePath"
+        :disabled="fileOps.isProcessing"
         :show-generate="mode !== 'decrypt'"
       />
 
@@ -167,7 +172,7 @@ defineExpose({
         :title="`Start ${mode}ing with the selected file and password`"
         fluid
       >
-        <span v-if="fileOps.isProcessing.value">{{ processingButtonText }}</span>
+        <span v-if="fileOps.isProcessing">{{ processingButtonText }}</span>
         <span v-else>{{ actionButtonText }}</span>
       </Button>
 
@@ -180,9 +185,9 @@ defineExpose({
 
       <!-- Status Message -->
       <StatusMessage
-        v-if="fileOps.statusMessage.value"
-        :message="fileOps.statusMessage.value"
-        :type="fileOps.statusType.value"
+        v-if="fileOps.statusMessage"
+        :message="fileOps.statusMessage"
+        :type="fileOps.statusType"
       />
     </div>
   </div>

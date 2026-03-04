@@ -5,22 +5,12 @@
 -->
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
 import Checkbox from 'primevue/checkbox';
 import CryptoOperationForm from './CryptoOperationForm.vue';
-import { usePasswordStrength } from '../composables/usePasswordStrength';
-
-// Reference to the form component to access fileOps
-const formRef = ref<InstanceType<typeof CryptoOperationForm>>();
-
-// Password strength analysis (needs access to password from form)
-const password = computed(() => formRef.value?.fileOps?.password.value ?? '');
-const { strength: passwordStrength } = usePasswordStrength(password);
 </script>
 
 <template>
   <CryptoOperationForm
-    ref="formRef"
     mode="encrypt"
     input-label="File to Encrypt:"
     input-placeholder="Select or drag a file..."
@@ -33,16 +23,14 @@ const { strength: passwordStrength } = usePasswordStrength(password);
     action-button-text="Encrypt File"
     processing-button-text="Encrypting..."
     drop-overlay-text="Drop file here to encrypt"
-    :show-strength-meter="true"
-    :password-strength="passwordStrength"
   >
     <template #after-overwrite="{ fileOps }">
       <!-- Compression Option -->
       <div class="form-group">
         <div class="checkbox-field">
           <Checkbox
-            v-model="fileOps.compressionEnabled.value"
-            :disabled="fileOps.isProcessing.value"
+            v-model="fileOps.compressionEnabled"
+            :disabled="fileOps.isProcessing"
             :binary="true"
             inputId="compression-checkbox"
           />

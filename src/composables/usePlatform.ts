@@ -11,7 +11,7 @@
 //   - Desktop: 'macos', 'windows', 'linux'
 //   - Mobile: 'ios', 'android'
 
-import { ref, onMounted } from 'vue';
+import { ref } from 'vue';
 import { platform } from '@tauri-apps/plugin-os';
 
 // Global state (shared across all component instances using this composable)
@@ -20,36 +20,23 @@ import { platform } from '@tauri-apps/plugin-os';
 const isMobile = ref(false);
 const isInitialized = ref(false);
 
+// Run detection eagerly at module load time (once, not per-component-mount)
+try {
+  const currentPlatform = platform();
+  isMobile.value = ['ios', 'android'].includes(currentPlatform);
+} catch (error) {
+  console.error('Failed to detect platform:', error);
+  isMobile.value = false;
+}
+isInitialized.value = true;
+
 /**
  * Composable for detecting the current platform (mobile vs desktop).
  *
- * State is cached globally - the Tauri API is only called once on first use.
- * All subsequent calls return the cached reactive refs.
- *
- * @returns {Object} Platform detection state
- * @returns {Ref<boolean>} isMobile - True if running on iOS or Android
- * @returns {Ref<boolean>} isInitialized - True once platform detection has completed
+ * State is initialized eagerly when the module is first imported.
+ * All calls return the same shared reactive refs — no hook registration.
  */
 export function usePlatform() {
-  onMounted(async () => {
-    // Skip if already initialized (cached from previous component mount)
-    if (isInitialized.value) return;
-
-    try {
-      // Call Tauri OS plugin to get the native platform
-      const currentPlatform = await platform();
-
-      // Determine if this is a mobile platform
-      isMobile.value = ['ios', 'android'].includes(currentPlatform);
-      isInitialized.value = true;
-    } catch (error) {
-      // Log error but don't crash - default to desktop behavior
-      console.error('Failed to detect platform:', error);
-      isMobile.value = false;
-      isInitialized.value = true;
-    }
-  });
-
   return {
     /** True if running on iOS or Android */
     isMobile,

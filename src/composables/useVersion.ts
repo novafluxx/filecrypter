@@ -11,7 +11,8 @@ export function useVersion() {
   onMounted(async () => {
     try {
       version.value = await getVersion();
-    } catch {
+    } catch (err) {
+      console.warn('Failed to get app version:', err);
       version.value = '';
     }
   });

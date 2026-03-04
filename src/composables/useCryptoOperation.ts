@@ -6,7 +6,7 @@
 
 import { ref, computed, onMounted, type Ref, type ComputedRef } from 'vue';
 import { join, dirname } from '@tauri-apps/api/path';
-import { useFileOps } from './useFileOps';
+import { useFileOps, suggestOutputFilename } from './useFileOps';
 import { useTauri } from './useTauri';
 import { useProgress, type ProgressEvent } from './useProgress';
 import { useDragDrop } from './useDragDrop';
@@ -85,16 +85,9 @@ export function useCryptoOperation(options: UseCryptoOperationOptions): UseCrypt
   async function getSuggestedDecryptOutputPath(inputPath: string): Promise<string> {
     const defaultDir = settings.defaultOutputDirectory.value;
 
-    // Extract filename from input path
+    // Extract filename from input path and determine the suggested output filename
     const filename = inputPath.split(/[/\\]/).pop() ?? '';
-
-    // Determine output filename (remove .encrypted or add .decrypted)
-    let outputFilename: string;
-    if (filename.endsWith('.encrypted')) {
-      outputFilename = filename.slice(0, -'.encrypted'.length);
-    } else {
-      outputFilename = filename + '.decrypted';
-    }
+    const outputFilename = suggestOutputFilename(filename, false);
 
     if (defaultDir) {
       return await join(defaultDir, outputFilename);
@@ -117,7 +110,7 @@ export function useCryptoOperation(options: UseCryptoOperationOptions): UseCrypt
         if (defaultDir) {
           if (isEncrypt) {
             const filename = path.split(/[/\\]/).pop() ?? '';
-            const outputPath = await join(defaultDir, `${filename}.encrypted`);
+            const outputPath = await join(defaultDir, suggestOutputFilename(filename, true));
             fileOps.setOutputPath(outputPath);
           } else {
             const outputPath = await getSuggestedDecryptOutputPath(path);
@@ -161,7 +154,7 @@ export function useCryptoOperation(options: UseCryptoOperationOptions): UseCrypt
       if (defaultDir) {
         if (isEncrypt) {
           const filename = path.split(/[/\\]/).pop() ?? '';
-          const outputPath = await join(defaultDir, `${filename}.encrypted`);
+          const outputPath = await join(defaultDir, suggestOutputFilename(filename, true));
           fileOps.setOutputPath(outputPath);
         } else {
           const outputPath = await getSuggestedDecryptOutputPath(path);

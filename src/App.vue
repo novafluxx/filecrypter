@@ -68,13 +68,8 @@ onMounted(async () => {
   watch(isInitialized, (initialized) => {
     if (initialized && !isMobile.value) {
       // Delay slightly to not block initial render
-      window.setTimeout(async () => {
-        try {
-          await checkForUpdates();
-        } catch (err) {
-          // Silently fail - update check is non-critical
-          console.warn('Update check failed:', err);
-        }
+      window.setTimeout(() => {
+        checkForUpdates();
       }, 2000);
     }
   }, { immediate: true });

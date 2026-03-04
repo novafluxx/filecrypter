@@ -108,8 +108,8 @@ export function useFileOps() {
   /**
    * Check if password meets minimum security requirements
    *
-   * Note: This is a basic check. In production, you might want
-   * to add a password strength meter (e.g., using zxcvbn library).
+   * Note: This is a basic length check. For richer feedback,
+   * the UI uses the usePasswordStrength composable.
    */
   const isPasswordValid = computed(() => {
     return password.value.length >= MIN_PASSWORD_LENGTH;

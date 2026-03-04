@@ -3,7 +3,7 @@
   This is the root component of the FileCrypter application.
 
   Features:
-  - Tab-based navigation (Encrypt / Decrypt / Batch / Help)
+  - Tab-based navigation (Encrypt / Decrypt / Batch / Settings / Help)
   - Responsive layout
   - Clean, modern design
 
@@ -92,7 +92,7 @@ function switchTab(tab: string | number) {
 </script>
 
 <template>
-  <!-- Global ConfirmDialog (replaces NDialogProvider) -->
+  <!-- Global ConfirmDialog for confirm/reject prompts -->
   <ConfirmDialog />
 
   <!-- Update notification banner (desktop only) -->

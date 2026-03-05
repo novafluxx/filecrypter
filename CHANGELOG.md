@@ -5,6 +5,35 @@ All notable changes to FileCrypter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.12] - 2026-03-05
+
+
+
+### Bug Fixes
+
+- Disable no-useless-assignment ESLint rule for Vue SFC false positives ([5c07004](https://github.com/novafluxx/filecrypter/commit/5c07004123188f6d7e4ce1df4c1356814e440bf2))
+
+
+### Dependencies
+
+- **deps:** Update @types/bun to 1.3.10 ([7c1230d](https://github.com/novafluxx/filecrypter/commit/7c1230d6ea114d16ead7f777850498d0da96900c))
+- **deps:** Update eslint to v10, tauri CLI, and other dependencies ([a2100f3](https://github.com/novafluxx/filecrypter/commit/a2100f3ed47b7ea968f832842acd3d9be00b8cf0))
+
+
+### Refactoring
+
+- **ui:** Improve code reuse, patterns, and correctness across frontend ([2b4df4c](https://github.com/novafluxx/filecrypter/commit/2b4df4c72d991b030f610599dccc1c9c9c6aced3))
+
+
+### Documentation
+
+- Clarify compression behavior in single and batch modes ([f62b19f](https://github.com/novafluxx/filecrypter/commit/f62b19fbb54e5955fc4257f735757ac1aaebf5ff))
+- Fix inaccurate comments in App.vue and useFileOps.ts ([6d79840](https://github.com/novafluxx/filecrypter/commit/6d79840df84bd9cc96813a0b5581bd4440ec5340))
+
+
+### CI
+
+- Remove pre-release workflow ([c1884df](https://github.com/novafluxx/filecrypter/commit/c1884df0d866d839318e4b0b9ff68b6b9e993e5a))
 ## [1.0.11] - 2026-02-28
 
 

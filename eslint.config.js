@@ -31,6 +31,7 @@ export default tseslint.config(
   {
     rules: {
       // Relax some rules for practicality
+      'no-useless-assignment': 'off', // False positives in Vue SFCs (variables used in templates)
       'vue/multi-word-component-names': 'off',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/no-empty-object-type': 'off', // Allow {} in type definitions

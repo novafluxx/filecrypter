@@ -1180,7 +1180,6 @@ mod tests {
         assert_eq!(content, decrypted_content);
     }
 
-
     #[test]
     fn test_streaming_v6_keyfile_roundtrip() {
         // Test V6: no compression + key file

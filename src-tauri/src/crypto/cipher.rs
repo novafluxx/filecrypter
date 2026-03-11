@@ -33,8 +33,8 @@ mod tests {
             .map_err(|_| CryptoError::EncryptionFailed)?;
         let nonce = Nonce::from_slice(&nonce_bytes);
 
-        let cipher = Aes256Gcm::new_from_slice(key.as_slice())
-            .map_err(|_| CryptoError::EncryptionFailed)?;
+        let cipher =
+            Aes256Gcm::new_from_slice(key.as_slice()).map_err(|_| CryptoError::EncryptionFailed)?;
 
         let ciphertext = cipher
             .encrypt(nonce, plaintext)
@@ -55,8 +55,8 @@ mod tests {
 
         let nonce = Nonce::from_slice(nonce);
 
-        let cipher = Aes256Gcm::new_from_slice(key.as_slice())
-            .map_err(|_| CryptoError::DecryptionFailed)?;
+        let cipher =
+            Aes256Gcm::new_from_slice(key.as_slice()).map_err(|_| CryptoError::DecryptionFailed)?;
 
         let plaintext = cipher
             .decrypt(nonce, ciphertext)

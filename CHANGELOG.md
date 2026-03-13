@@ -5,6 +5,29 @@ All notable changes to FileCrypter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.13] - 2026-03-13
+
+
+
+### Bug Fixes
+
+- **crypto:** Address crypto review findings ([f4f6589](https://github.com/novafluxx/filecrypter/commit/f4f6589f719c9bff8e5f1044915baedd8127164b))
+- **crypto:** Address tier-2 defense-in-depth review findings ([ce30ce6](https://github.com/novafluxx/filecrypter/commit/ce30ce6639cab2a2c4160242020ed237aa6287f4))
+
+
+### Dependencies
+
+- **deps:** Update dompurify to 3.3.2 (fix XSS vulnerability) ([470e5d5](https://github.com/novafluxx/filecrypter/commit/470e5d566fc1aed997ae50f406880ae9cbeee643))
+- **deps:** Bump eslint to 10.0.3 ([99ed8a2](https://github.com/novafluxx/filecrypter/commit/99ed8a2e39d85155a5144f14c321f91c94104415))
+- **deps:** Update typescript-eslint to 8.57.0 and vue to 3.5.30 ([b23d72b](https://github.com/novafluxx/filecrypter/commit/b23d72b8db07d89a62407edcea85024ef0894986))
+- **deps:** Update Rust dependencies and apply formatting fixes ([3bba9f4](https://github.com/novafluxx/filecrypter/commit/3bba9f46f24632593fbfbc4d483178891c128a32))
+- **deps:** Update dompurify to 3.3.3 ([96993d5](https://github.com/novafluxx/filecrypter/commit/96993d50d725b0b77b5fe742383f9f56c6ef7ba1))
+- **deps:** Update vite to 8.0.0 and fix PrimeVue plugin type casts ([713e4b3](https://github.com/novafluxx/filecrypter/commit/713e4b3ed8477d857a85022354e9863dd4da6f82))
+
+
+### Refactoring
+
+- **crypto:** Restrict unbounded decompression to test scope and document compression side-channel ([8bbd340](https://github.com/novafluxx/filecrypter/commit/8bbd34065c11edebb76471deda5ce57dd2483dba))
 ## [1.0.12] - 2026-03-05
 
 

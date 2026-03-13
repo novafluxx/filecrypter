@@ -24,8 +24,8 @@ jobs:
       rust: ${{ steps.filter.outputs.rust }}
       actions: ${{ steps.filter.outputs.actions }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@v5
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: filter
         with:
           filters: |
@@ -49,7 +49,7 @@ jobs:
     if: needs.changes.outputs.javascript == 'true' || github.event_name == 'schedule'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
@@ -65,7 +65,7 @@ jobs:
     if: needs.changes.outputs.rust == 'true' || github.event_name == 'schedule'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
@@ -81,7 +81,7 @@ jobs:
     if: needs.changes.outputs.actions == 'true' || github.event_name == 'schedule'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:

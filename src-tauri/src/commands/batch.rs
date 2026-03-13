@@ -36,6 +36,7 @@ use crate::crypto::{
     decrypt_file_streaming, encrypt_file_streaming, CompressionConfig, Password, DEFAULT_CHUNK_SIZE,
 };
 use crate::error::{CryptoError, CryptoResult};
+use crate::security::create_secure_tempfile;
 
 /// Progress event for batch operations.
 ///
@@ -563,8 +564,14 @@ pub async fn batch_encrypt_archive(
 
     // Generate archive filename
     let archive_filename = generate_archive_name(archive_name.as_deref());
-    let archive_path = Path::new(&output_dir).join(&archive_filename);
-    let encrypted_path = Path::new(&output_dir).join(format!("{}.encrypted", archive_filename));
+    // Use a secure temp file with random name for the intermediate (unencrypted) archive.
+    // This prevents plaintext from persisting at a guessable path if the process crashes.
+    // TempPath auto-deletes on drop, ensuring cleanup even on panic/crash.
+    let output_dir_path = Path::new(&output_dir);
+    let temp_archive = create_secure_tempfile(output_dir_path)?;
+    let temp_archive_path = temp_archive.into_temp_path();
+    let archive_path = temp_archive_path.to_path_buf();
+    let encrypted_path = output_dir_path.join(format!("{}.encrypted", archive_filename));
     let resolved_encrypted_path = resolve_output_path(&encrypted_path, allow_overwrite)?;
 
     // Phase 1: Create compressed TAR archive
@@ -659,14 +666,9 @@ pub async fn batch_encrypt_archive(
         kf_path,
     );
 
-    // Clean up temporary archive file.
-    // This is a best-effort cleanup - we log failures rather than returning an error
-    // because the encryption itself succeeded. The temp file will eventually be
-    // cleaned up by the OS or user, but we want visibility into cleanup failures
-    // for debugging purposes.
-    if let Err(e) = std::fs::remove_file(&archive_path) {
-        log::warn!("Failed to clean up temporary archive file: {}", e);
-    }
+    // Clean up temporary archive file via TempPath drop (auto-deletes on drop).
+    // Explicit drop ensures cleanup happens before we report success.
+    drop(temp_archive_path);
 
     match result {
         Ok(()) => {
@@ -760,11 +762,12 @@ pub async fn batch_decrypt_archive(
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_default();
 
-    // Generate temp path for decrypted archive
-    let decrypted_archive_name = input_file_name
-        .strip_suffix(".encrypted")
-        .unwrap_or(&input_file_name);
-    let temp_archive_path = Path::new(&output_dir).join(format!(".tmp_{}", decrypted_archive_name));
+    // Use a secure temp file with random name for the intermediate (decrypted) archive.
+    // This prevents plaintext from persisting at a guessable path if the process crashes.
+    // TempPath auto-deletes on drop, ensuring cleanup even on panic/crash.
+    let temp_archive = create_secure_tempfile(Path::new(&output_dir))?;
+    let temp_archive_temppath = temp_archive.into_temp_path();
+    let temp_archive_path = temp_archive_temppath.to_path_buf();
 
     // Decrypt progress callback (0-50%)
     let decrypt_progress_callback = {
@@ -798,14 +801,8 @@ pub async fn batch_decrypt_archive(
         true, // Always overwrite temp file
         kf_path,
     ) {
-        // Attempt cleanup of the temp file after a decryption error.
-        // Best-effort: we don't fail the operation if cleanup fails, just log it.
-        if let Err(cleanup_err) = std::fs::remove_file(&temp_archive_path) {
-            log::warn!(
-                "Failed to clean up temporary file after decryption error: {}",
-                cleanup_err
-            );
-        }
+        // TempPath auto-deletes on drop, ensuring cleanup of the decrypted archive.
+        drop(temp_archive_temppath);
         return Ok(ArchiveResult {
             output_path: output_dir.clone(),
             file_count: 0,
@@ -849,12 +846,8 @@ pub async fn batch_decrypt_archive(
         Some(extract_progress_callback),
     );
 
-    // Clean up temporary decrypted archive file.
-    // Best-effort cleanup - the extraction succeeded so we don't fail on cleanup errors.
-    // Logging helps diagnose permission or filesystem issues during development.
-    if let Err(e) = std::fs::remove_file(&temp_archive_path) {
-        log::warn!("Failed to clean up temporary decrypted archive: {}", e);
-    }
+    // Clean up temporary decrypted archive file via TempPath drop (auto-deletes on drop).
+    drop(temp_archive_temppath);
 
     match result {
         Ok(extracted_paths) => {

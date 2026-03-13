@@ -645,6 +645,14 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
         }
     }
 
+    // Detect unexpected trailing data after the last chunk
+    let mut trailing = [0u8; 1];
+    if reader.read(&mut trailing)? > 0 {
+        return Err(CryptoError::FormatError(
+            "Unexpected trailing data after last chunk".to_string(),
+        ));
+    }
+
     if has_compression && plaintext_written != original_size {
         return Err(CryptoError::FormatError(format!(
             "Decrypted size mismatch: {} bytes (expected {})",

@@ -1,3 +1,4 @@
+import type { Plugin } from 'vue';
 import { createApp } from 'vue';
 import PrimeVue from 'primevue/config';
 import ConfirmationService from 'primevue/confirmationservice';
@@ -26,7 +27,7 @@ const AppPreset = definePreset(Aura, {
 
 const app = createApp(App);
 
-app.use(PrimeVue, {
+app.use(PrimeVue as unknown as Plugin, {
   theme: {
     preset: AppPreset,
     options: {
@@ -36,6 +37,6 @@ app.use(PrimeVue, {
   },
 });
 
-app.use(ConfirmationService);
+app.use(ConfirmationService as unknown as Plugin);
 
 app.mount('#app');

@@ -215,6 +215,7 @@ where
     // Second pass: extract files
     let mut extracted_paths = Vec::with_capacity(total_files);
     let canonical_output = fs::canonicalize(output_dir)?;
+    let mut total_bytes_written: u64 = 0;
 
     for (index, entry) in archive.entries()?.enumerate() {
         let mut entry = entry?;
@@ -244,19 +245,31 @@ where
         let safe_output_path = compute_safe_output_path(&entry_path, &canonical_output)?;
 
         // Check overwrite
-        if safe_output_path.exists() && !allow_overwrite {
+        let bytes_written = if safe_output_path.exists() && !allow_overwrite {
             // Use collision avoidance
             let resolved_path =
                 crate::commands::file_utils::resolve_output_path(&safe_output_path, false)?;
-            extract_entry_to_path(&mut entry, &resolved_path)?;
+            let bytes = extract_entry_to_path(&mut entry, &resolved_path)?;
             extracted_paths.push(resolved_path);
+            bytes
         } else {
             // Create parent directories if needed
             if let Some(parent) = safe_output_path.parent() {
                 fs::create_dir_all(parent)?;
             }
-            extract_entry_to_path(&mut entry, &safe_output_path)?;
+            let bytes = extract_entry_to_path(&mut entry, &safe_output_path)?;
             extracted_paths.push(safe_output_path);
+            bytes
+        };
+
+        // Runtime decompression bomb check: track actual bytes written,
+        // not header-claimed sizes (which could be underreported).
+        total_bytes_written = total_bytes_written.saturating_add(bytes_written);
+        if total_bytes_written > max_extracted_size {
+            return Err(CryptoError::ArchiveError(format!(
+                "Archive extraction exceeded safe size limit ({} bytes extracted, limit {} bytes)",
+                total_bytes_written, max_extracted_size
+            )));
         }
     }
 
@@ -376,8 +389,9 @@ fn normalize_path(path: &Path) -> PathBuf {
     result
 }
 
-/// Extract a tar entry to a specific path with secure permissions
-fn extract_entry_to_path<R: Read>(entry: &mut tar::Entry<R>, path: &Path) -> CryptoResult<()> {
+/// Extract a tar entry to a specific path with secure permissions.
+/// Returns the number of bytes written.
+fn extract_entry_to_path<R: Read>(entry: &mut tar::Entry<R>, path: &Path) -> CryptoResult<u64> {
     // Create parent directories if needed
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
@@ -387,10 +401,10 @@ fn extract_entry_to_path<R: Read>(entry: &mut tar::Entry<R>, path: &Path) -> Cry
     let mut file = create_output_file(path)?;
 
     // Copy data
-    std::io::copy(entry, &mut file)?;
+    let bytes_written = std::io::copy(entry, &mut file)?;
     file.flush()?;
 
-    Ok(())
+    Ok(bytes_written)
 }
 
 /// Create an output file with secure permissions
@@ -527,7 +541,11 @@ fn sanitize_archive_name(name: &str) -> String {
     let trimmed = sanitized.trim().trim_start_matches('.');
 
     if trimmed.len() > MAX_ARCHIVE_NAME_LENGTH {
-        trimmed[..MAX_ARCHIVE_NAME_LENGTH].to_string()
+        let mut end = MAX_ARCHIVE_NAME_LENGTH;
+        while end > 0 && !trimmed.is_char_boundary(end) {
+            end -= 1;
+        }
+        trimmed[..end].to_string()
     } else {
         trimmed.to_string()
     }

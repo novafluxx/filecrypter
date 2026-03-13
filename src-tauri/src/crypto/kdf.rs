@@ -15,10 +15,7 @@
 // - Modern CPU: ~100-300ms per derivation
 // - This is intentionally slow to prevent brute-force attacks
 
-use argon2::{
-    password_hash::{PasswordHasher, SaltString},
-    Algorithm, Argon2, Params, Version,
-};
+use argon2::{Algorithm, Argon2, Params, Version};
 use rand::{rngs::OsRng, TryRngCore};
 
 use crate::crypto::secure::{Password, SecureBytes};
@@ -235,15 +232,11 @@ pub fn derive_key_with_material(
         KdfAlgorithm::Argon2id => Argon2::new(Algorithm::Argon2id, Version::V0x13, argon2_params),
     };
 
-    let salt_string = SaltString::encode_b64(salt)
-        .map_err(|_| CryptoError::FormatError("Invalid salt".to_string()))?;
+    let mut key_bytes = vec![0u8; params.key_length as usize];
 
-    let password_hash = argon2
-        .hash_password(key_material, &salt_string)
+    argon2
+        .hash_password_into(key_material, salt, &mut key_bytes)
         .map_err(|_| CryptoError::EncryptionFailed)?;
-
-    let hash = password_hash.hash.ok_or(CryptoError::EncryptionFailed)?;
-    let key_bytes = hash.as_bytes()[..params.key_length as usize].to_vec();
 
     Ok(SecureBytes::new(key_bytes))
 }

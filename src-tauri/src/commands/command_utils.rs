@@ -37,6 +37,13 @@ pub fn validate_crypto_inputs(
     let _ = app.emit(CRYPTO_PROGRESS_EVENT, ProgressEvent::reading());
     let _ = app.emit(CRYPTO_PROGRESS_EVENT, ProgressEvent::deriving_key());
 
+    // Reject empty passwords
+    if password.is_empty() {
+        return Err(CryptoError::FormatError(
+            "Password cannot be empty".to_string(),
+        ));
+    }
+
     // Validate input path (check for symlinks, canonicalize)
     let validated_input = validate_input_path(input_path)?;
     let validated_output = resolve_output_path(output_path, allow_overwrite)?;

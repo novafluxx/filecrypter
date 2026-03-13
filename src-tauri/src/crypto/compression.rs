@@ -24,6 +24,8 @@
 
 use std::io::{BufReader, Cursor, Read};
 
+use zeroize::Zeroizing;
+
 use crate::error::{CryptoError, CryptoResult};
 
 /// Compression algorithms supported by FileCrypter
@@ -107,8 +109,9 @@ impl CompressionConfig {
 ///
 /// # Returns
 /// Compressed data as Vec<u8>
-pub fn compress_zstd(data: &[u8], level: i32) -> CryptoResult<Vec<u8>> {
+pub fn compress_zstd(data: &[u8], level: i32) -> CryptoResult<Zeroizing<Vec<u8>>> {
     zstd::encode_all(data, level)
+        .map(Zeroizing::new)
         .map_err(|e| CryptoError::FormatError(format!("Compression failed: {}", e)))
 }
 
@@ -119,8 +122,9 @@ pub fn compress_zstd(data: &[u8], level: i32) -> CryptoResult<Vec<u8>> {
 ///
 /// # Returns
 /// Decompressed data as Vec<u8>
-pub fn decompress_zstd(data: &[u8]) -> CryptoResult<Vec<u8>> {
+pub fn decompress_zstd(data: &[u8]) -> CryptoResult<Zeroizing<Vec<u8>>> {
     zstd::decode_all(data)
+        .map(Zeroizing::new)
         .map_err(|e| CryptoError::FormatError(format!("Decompression failed: {}", e)))
 }
 
@@ -132,11 +136,14 @@ pub fn decompress_zstd(data: &[u8]) -> CryptoResult<Vec<u8>> {
 ///
 /// # Returns
 /// Decompressed data as Vec<u8>
-pub fn decompress_zstd_with_limit(data: &[u8], max_size: usize) -> CryptoResult<Vec<u8>> {
+pub fn decompress_zstd_with_limit(
+    data: &[u8],
+    max_size: usize,
+) -> CryptoResult<Zeroizing<Vec<u8>>> {
     let cursor = Cursor::new(data);
     let mut decoder = zstd::Decoder::new(BufReader::new(cursor))
         .map_err(|e| CryptoError::FormatError(format!("Failed to create decompressor: {}", e)))?;
-    let mut output = Vec::with_capacity(std::cmp::min(max_size, 64 * 1024));
+    let mut output = Zeroizing::new(Vec::with_capacity(std::cmp::min(max_size, 64 * 1024)));
     let mut buffer = [0u8; 8192];
 
     loop {
@@ -166,9 +173,9 @@ pub fn decompress_zstd_with_limit(data: &[u8], max_size: usize) -> CryptoResult<
 ///
 /// # Returns
 /// Compressed data (or original data if compression disabled)
-pub fn compress(data: &[u8], config: &CompressionConfig) -> CryptoResult<Vec<u8>> {
+pub fn compress(data: &[u8], config: &CompressionConfig) -> CryptoResult<Zeroizing<Vec<u8>>> {
     match config.algorithm {
-        CompressionAlgorithm::None => Ok(data.to_vec()),
+        CompressionAlgorithm::None => Ok(Zeroizing::new(data.to_vec())),
         CompressionAlgorithm::Zstd => compress_zstd(data, config.level),
     }
 }
@@ -181,9 +188,12 @@ pub fn compress(data: &[u8], config: &CompressionConfig) -> CryptoResult<Vec<u8>
 ///
 /// # Returns
 /// Decompressed data
-pub fn decompress(data: &[u8], algorithm: CompressionAlgorithm) -> CryptoResult<Vec<u8>> {
+pub fn decompress(
+    data: &[u8],
+    algorithm: CompressionAlgorithm,
+) -> CryptoResult<Zeroizing<Vec<u8>>> {
     match algorithm {
-        CompressionAlgorithm::None => Ok(data.to_vec()),
+        CompressionAlgorithm::None => Ok(Zeroizing::new(data.to_vec())),
         CompressionAlgorithm::Zstd => decompress_zstd(data),
     }
 }
@@ -201,7 +211,7 @@ pub fn decompress_with_limit(
     data: &[u8],
     algorithm: CompressionAlgorithm,
     max_size: usize,
-) -> CryptoResult<Vec<u8>> {
+) -> CryptoResult<Zeroizing<Vec<u8>>> {
     match algorithm {
         CompressionAlgorithm::None => {
             if data.len() > max_size {
@@ -210,7 +220,7 @@ pub fn decompress_with_limit(
                     max_size
                 )));
             }
-            Ok(data.to_vec())
+            Ok(Zeroizing::new(data.to_vec()))
         }
         CompressionAlgorithm::Zstd => decompress_zstd_with_limit(data, max_size),
     }
@@ -254,7 +264,7 @@ mod tests {
         let compressed = compress(&original, &config).unwrap();
         let decompressed = decompress(&compressed, config.algorithm).unwrap();
 
-        assert_eq!(original.to_vec(), decompressed);
+        assert_eq!(original.to_vec(), *decompressed);
         // Compressed should be smaller
         assert!(compressed.len() < original.len());
     }
@@ -265,10 +275,10 @@ mod tests {
         let config = CompressionConfig::none();
 
         let result = compress(original, &config).unwrap();
-        assert_eq!(original.to_vec(), result);
+        assert_eq!(original.to_vec(), *result);
 
         let decompressed = decompress(&result, CompressionAlgorithm::None).unwrap();
-        assert_eq!(original.to_vec(), decompressed);
+        assert_eq!(original.to_vec(), *decompressed);
     }
 
     #[test]
@@ -305,7 +315,7 @@ mod tests {
 
         // Verify it can be decompressed
         let decompressed = decompress_zstd(&output).unwrap();
-        assert_eq!(data.to_vec(), decompressed);
+        assert_eq!(data.to_vec(), *decompressed);
     }
 
     #[test]
@@ -318,7 +328,7 @@ mod tests {
         let mut decompressed = Vec::new();
         decoder.read_to_end(&mut decompressed).unwrap();
 
-        assert_eq!(original.to_vec(), decompressed);
+        assert_eq!(original.to_vec(), *decompressed);
     }
 
     #[test]

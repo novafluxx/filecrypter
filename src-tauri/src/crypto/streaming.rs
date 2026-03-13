@@ -75,6 +75,8 @@ use aes_gcm::{
 };
 use rand::{rngs::OsRng, TryRngCore};
 
+use zeroize::Zeroizing;
+
 use crate::crypto::compression::{
     compress, decompress_with_limit, CompressionAlgorithm, CompressionConfig,
 };
@@ -298,7 +300,7 @@ pub fn encrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
     writer.write_all(&header)?;
 
     // Process chunks
-    let mut buffer = vec![0u8; chunk_size];
+    let mut buffer = Zeroizing::new(vec![0u8; chunk_size]);
     let mut bytes_processed: u64 = 0;
 
     for chunk_index in 0..total_chunks_u64 {
@@ -317,7 +319,7 @@ pub fn encrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
         let data_to_encrypt = if use_compression {
             compress(&buffer[..bytes_to_read], &compression_config)?
         } else {
-            buffer[..bytes_to_read].to_vec()
+            Zeroizing::new(buffer[..bytes_to_read].to_vec())
         };
 
         // Encrypt chunk
@@ -597,15 +599,17 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
         let nonce = Nonce::from_slice(&chunk_nonce);
 
         // Decrypt chunk
-        let decrypted = cipher
-            .decrypt(
-                nonce,
-                Payload {
-                    msg: &ciphertext_buf[..chunk_len],
-                    aad: header_aad,
-                },
-            )
-            .map_err(|_| CryptoError::InvalidPassword)?;
+        let decrypted = Zeroizing::new(
+            cipher
+                .decrypt(
+                    nonce,
+                    Payload {
+                        msg: &ciphertext_buf[..chunk_len],
+                        aad: header_aad,
+                    },
+                )
+                .map_err(|_| CryptoError::InvalidPassword)?,
+        );
 
         let expected_plaintext_len = if has_compression {
             let remaining = original_size.saturating_sub(plaintext_written);
@@ -615,7 +619,7 @@ pub fn decrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
         };
 
         // Decompress (or validate) with a hard output size cap.
-        let plaintext = if let Some(alg) = compression_algorithm {
+        let plaintext: Zeroizing<Vec<u8>> = if let Some(alg) = compression_algorithm {
             decompress_with_limit(&decrypted, alg, expected_plaintext_len)?
         } else {
             if decrypted.len() > expected_plaintext_len {

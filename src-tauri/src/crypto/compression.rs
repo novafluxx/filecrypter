@@ -18,8 +18,10 @@
 //
 // ## Security Considerations
 //
-// - Compressed size may leak information about plaintext patterns
-// - This is acceptable for file encryption (no compression oracle attacks)
+// - Compressed chunk sizes may reveal information about plaintext content
+//   (compression side-channel). This is an accepted tradeoff shared by
+//   VeraCrypt, 7-Zip, and similar tools.
+// - No compression oracle risk: FileCrypter has no adaptive chosen-plaintext path
 // - AES-GCM authentication prevents tampering with compressed data
 
 use std::io::{BufReader, Cursor, Read};
@@ -115,14 +117,9 @@ pub fn compress_zstd(data: &[u8], level: i32) -> CryptoResult<Zeroizing<Vec<u8>>
         .map_err(|e| CryptoError::FormatError(format!("Compression failed: {}", e)))
 }
 
-/// Decompress ZSTD-compressed data
-///
-/// # Arguments
-/// * `data` - Compressed data
-///
-/// # Returns
-/// Decompressed data as Vec<u8>
-pub fn decompress_zstd(data: &[u8]) -> CryptoResult<Zeroizing<Vec<u8>>> {
+/// Decompress ZSTD-compressed data (unbounded — test use only)
+#[cfg(test)]
+fn decompress_zstd(data: &[u8]) -> CryptoResult<Zeroizing<Vec<u8>>> {
     zstd::decode_all(data)
         .map(Zeroizing::new)
         .map_err(|e| CryptoError::FormatError(format!("Decompression failed: {}", e)))
@@ -180,18 +177,9 @@ pub fn compress(data: &[u8], config: &CompressionConfig) -> CryptoResult<Zeroizi
     }
 }
 
-/// Decompress data using the specified algorithm
-///
-/// # Arguments
-/// * `data` - Compressed data
-/// * `algorithm` - Algorithm used for compression
-///
-/// # Returns
-/// Decompressed data
-pub fn decompress(
-    data: &[u8],
-    algorithm: CompressionAlgorithm,
-) -> CryptoResult<Zeroizing<Vec<u8>>> {
+/// Decompress data (unbounded — test use only)
+#[cfg(test)]
+fn decompress(data: &[u8], algorithm: CompressionAlgorithm) -> CryptoResult<Zeroizing<Vec<u8>>> {
     match algorithm {
         CompressionAlgorithm::None => Ok(Zeroizing::new(data.to_vec())),
         CompressionAlgorithm::Zstd => decompress_zstd(data),

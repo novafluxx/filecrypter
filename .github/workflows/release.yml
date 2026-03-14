@@ -12,70 +12,54 @@ permissions:
   contents: write
 
 jobs:
-  # Stage 1: Prepare the release (version bump, changelog, tagging)
-  prepare-release:
+  # Stage 1: Calculate version (no commits, no side effects)
+  calculate-version:
     runs-on: ubuntu-latest
     outputs:
-      tag: ${{ steps.create-tag.outputs.tag }}
-      version: ${{ steps.calculate-version.outputs.version }}
-      changelog: ${{ steps.generate-release-changelog.outputs.changelog }}
+      version: ${{ steps.version.outputs.version }}
 
     steps:
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 0  # Full history needed for changelog generation
-          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
-      - name: Install dependencies
+      - name: Install git-cliff
         run: |
-          sudo apt-get update && sudo apt-get install -y jq
-
-          # Install git-cliff
           wget -q https://github.com/orhun/git-cliff/releases/download/v2.11.0/git-cliff-2.11.0-x86_64-unknown-linux-gnu.tar.gz
           tar -xzf git-cliff-2.11.0-x86_64-unknown-linux-gnu.tar.gz
           sudo mv git-cliff-2.11.0/git-cliff /usr/local/bin/
-          git-cliff --version
 
       - name: Calculate version
-        id: calculate-version
+        id: version
         run: |
-          # Ensure tags are fetched
           git fetch --tags --force
 
-          # Debug: show available tags
           echo "Available tags:"
           git tag -l | tail -5
 
           # Use manual override if provided, otherwise auto-calculate
           if [ -n "${{ inputs.version }}" ]; then
             VERSION="${{ inputs.version }}"
-            VERSION="${VERSION#v}"  # Strip leading 'v' prefix if provided
+            VERSION="${VERSION#v}"
             echo "Using manual version override: $VERSION"
           else
-            # Get the latest stable tag (exclude pre-release tags like v0.1.4-rc.1)
             LATEST_TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || echo "")
             echo "Latest stable tag found: $LATEST_TAG"
 
             if [ -z "$LATEST_TAG" ]; then
-              # No previous tags, start at 0.1.0
               VERSION="0.1.0"
               echo "No previous tags found, starting at $VERSION"
             else
-              # Use git-cliff to determine bump type based on commits
               echo "Running git-cliff --bumped-version..."
               BUMP_VERSION=$(GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}" git-cliff --config cliff.toml --github-repo novafluxx/filecrypter --bumped-version 2>&1) || true
               echo "git-cliff output: $BUMP_VERSION"
 
-              # Clean the version (remove 'v' prefix if present)
               BUMP_VERSION="${BUMP_VERSION#v}"
-
-              # Check if git-cliff returned a valid, different version
               CURRENT="${LATEST_TAG#v}"
               if [ -n "$BUMP_VERSION" ] && echo "$BUMP_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$' && [ "$BUMP_VERSION" != "$CURRENT" ]; then
                 VERSION="$BUMP_VERSION"
                 echo "Auto-calculated version from commits: $VERSION"
               else
-                # Fallback: patch bump from current version
                 echo "git-cliff didn't return a new version, using patch bump fallback"
                 IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
                 VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
@@ -90,7 +74,7 @@ jobs:
             exit 1
           fi
 
-          # Final check: make sure this version doesn't already exist
+          # Ensure this version doesn't already exist
           if git rev-parse "v$VERSION" >/dev/null 2>&1; then
             echo "⚠️ Calculated version v$VERSION already exists, incrementing patch..."
             IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
@@ -101,9 +85,9 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "✅ Final version: $VERSION"
 
-      - name: Check if tag already exists
+      - name: Verify tag does not exist
         run: |
-          VERSION="${{ steps.calculate-version.outputs.version }}"
+          VERSION="${{ steps.version.outputs.version }}"
           if git rev-parse "v$VERSION" >/dev/null 2>&1; then
             echo "❌ Error: Tag v$VERSION already exists"
             echo "Please use a different version number or delete the existing tag"
@@ -111,162 +95,31 @@ jobs:
           fi
           echo "✅ Tag v$VERSION does not exist"
 
-      - name: Bump version in all config files
-        run: |
-          VERSION="${{ steps.calculate-version.outputs.version }}"
-
-          echo "Updating version to $VERSION in all config files..."
-
-          # Update package.json
-          jq --arg v "$VERSION" '.version = $v' package.json > package.json.tmp
-          mv package.json.tmp package.json
-          echo "✅ Updated package.json"
-
-          # Update Cargo.toml (first occurrence of version = "...")
-          sed -i "0,/^version = .*/{s/^version = .*/version = \"$VERSION\"/}" src-tauri/Cargo.toml
-          echo "✅ Updated src-tauri/Cargo.toml"
-
-          # Update tauri.conf.json
-          jq --arg v "$VERSION" '.version = $v' src-tauri/tauri.conf.json > src-tauri/tauri.conf.json.tmp
-          mv src-tauri/tauri.conf.json.tmp src-tauri/tauri.conf.json
-          echo "✅ Updated src-tauri/tauri.conf.json"
-
-      - name: Verify version updates
-        run: |
-          echo "Verifying all files updated correctly..."
-          echo ""
-          echo "package.json:"
-          grep '"version":' package.json
-          echo ""
-          echo "Cargo.toml:"
-          grep '^version =' src-tauri/Cargo.toml | head -1
-          echo ""
-          echo "tauri.conf.json:"
-          grep '"version":' src-tauri/tauri.conf.json
-          echo ""
-
-          # Verify all show the correct version
-          VERSION="${{ steps.calculate-version.outputs.version }}"
-          if ! grep -q "\"version\": \"$VERSION\"" package.json; then
-            echo "❌ package.json version mismatch"
-            exit 1
-          fi
-          if ! grep -q "^version = \"$VERSION\"" src-tauri/Cargo.toml; then
-            echo "❌ Cargo.toml version mismatch"
-            exit 1
-          fi
-          if ! grep -q "\"version\": \"$VERSION\"" src-tauri/tauri.conf.json; then
-            echo "❌ tauri.conf.json version mismatch"
-            exit 1
-          fi
-
-          echo "✅ All version files updated successfully"
-
-      - name: Generate changelog
-        run: |
-          VERSION="${{ steps.calculate-version.outputs.version }}"
-          GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}" git-cliff --config cliff.toml --github-repo novafluxx/filecrypter --tag "v$VERSION" --output CHANGELOG.md
-          echo "✅ Changelog generated"
-
-      - name: Generate release notes
-        id: generate-release-changelog
-        run: |
-          VERSION="${{ steps.calculate-version.outputs.version }}"
-
-          # Generate changelog for just this release (unreleased changes)
-          CHANGELOG=$(GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}" git-cliff --config cliff.toml --github-repo novafluxx/filecrypter --tag "v$VERSION" --unreleased --strip header)
-
-          # Handle multiline output for GitHub Actions
-          echo "changelog<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$CHANGELOG" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
-
-          echo "✅ Release notes generated"
-
-      - name: Setup Rust for Cargo.lock update
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Update Cargo.lock
-        working-directory: src-tauri
-        run: |
-          echo "Updating Cargo.lock to reflect new version..."
-          cargo update --workspace
-          echo "✅ Cargo.lock updated"
-
-      - name: Commit version bump and changelog
-        run: |
-          VERSION="${{ steps.calculate-version.outputs.version }}"
-
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          git add package.json src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json CHANGELOG.md
-
-          # Only commit if there are staged changes
-          # (handles retry scenarios where version was already bumped)
-          if git diff --cached --quiet; then
-            echo "Version already at $VERSION, no changes to commit"
-          else
-            git commit -m "chore(release): bump version to $VERSION"
-            echo "✅ Changes committed"
-          fi
-
-      - name: Create and push tag
-        id: create-tag
-        run: |
-          TAG="v${{ steps.calculate-version.outputs.version }}"
-
-          git tag "$TAG"
-          echo "✅ Created tag $TAG"
-
-          git push origin main
-          echo "✅ Pushed commit to main"
-
-          git push origin "$TAG"
-          echo "✅ Pushed tag $TAG"
-
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-
-      - name: Create draft release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_NOTES: ${{ steps.generate-release-changelog.outputs.changelog }}
-        run: |
-          TAG="${{ steps.create-tag.outputs.tag }}"
-
-          # Create the release as a draft so builds can upload assets
-          # With immutable releases enabled, we must create the draft first,
-          # upload all assets, then publish it after all builds complete
-          gh release create "$TAG" \
-            --draft \
-            --title "FileCrypter $TAG" \
-            --notes "$RELEASE_NOTES"
-
-          echo "✅ Created draft release for $TAG"
-
-  # Stage 2: Build binaries and create GitHub Release
-  build-and-release:
-    needs: prepare-release
+  # Stage 2: Build binaries (version applied locally, never committed)
+  build:
+    needs: calculate-version
     environment: release
     permissions:
-      contents: write
+      contents: read
     strategy:
       fail-fast: false
       matrix:
         include:
-          - platform: 'macos-latest'
+          - platform: macos-latest
             args: '--target aarch64-apple-darwin'
             rust_targets: 'aarch64-apple-darwin'
-          - platform: 'windows-latest'
+            bundle_path: 'src-tauri/target/aarch64-apple-darwin/release/bundle'
+            artifact_name: 'build-macos-aarch64'
+          - platform: windows-latest
             args: ''
             rust_targets: ''
+            bundle_path: 'src-tauri/target/release/bundle'
+            artifact_name: 'build-windows-x64'
 
     runs-on: ${{ matrix.platform }}
 
     steps:
       - uses: actions/checkout@v5
-        with:
-          ref: ${{ needs.prepare-release.outputs.tag }}
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -286,27 +139,235 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lockb') }}
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
           restore-keys: |
             ${{ runner.os }}-bun-
 
       - name: Install frontend dependencies
         run: bun install --frozen-lockfile
 
-      - name: Build and upload to GitHub Release
-        uses: tauri-apps/tauri-action@v0
+      - name: Apply version bump (local only)
+        shell: bash
+        run: |
+          VERSION="${{ needs.calculate-version.outputs.version }}"
+          echo "Applying version $VERSION to config files (local only, not committed)..."
+
+          # Update package.json
+          jq --arg v "$VERSION" '.version = $v' package.json > package.json.tmp && mv package.json.tmp package.json
+
+          # Update Cargo.toml (first occurrence of version = "...")
+          sed -i.bak "0,/^version = .*/{s/^version = .*/version = \"$VERSION\"/;}" src-tauri/Cargo.toml && rm -f src-tauri/Cargo.toml.bak
+
+          # Update tauri.conf.json
+          jq --arg v "$VERSION" '.version = $v' src-tauri/tauri.conf.json > src-tauri/tauri.conf.json.tmp && mv src-tauri/tauri.conf.json.tmp src-tauri/tauri.conf.json
+
+          echo "✅ Version $VERSION applied locally"
+
+      - name: Build Tauri app
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: bun tauri build ${{ matrix.args }}
+
+      - name: Collect and rename artifacts
+        shell: bash
+        run: |
+          VERSION="${{ needs.calculate-version.outputs.version }}"
+          BUNDLE_PATH="${{ matrix.bundle_path }}"
+          mkdir -p artifacts
+
+          if [ "${{ matrix.platform }}" = "macos-latest" ]; then
+            cp "$BUNDLE_PATH"/dmg/*.dmg "artifacts/FileCrypter-v${VERSION}-macos-aarch64.dmg"
+            cp "$BUNDLE_PATH"/macos/*.app.tar.gz "artifacts/FileCrypter-v${VERSION}-macos-aarch64.app.tar.gz"
+            cp "$BUNDLE_PATH"/macos/*.app.tar.gz.sig "artifacts/FileCrypter-v${VERSION}-macos-aarch64.app.tar.gz.sig"
+          fi
+
+          if [ "${{ matrix.platform }}" = "windows-latest" ]; then
+            cp "$BUNDLE_PATH"/nsis/*-setup.exe "artifacts/FileCrypter-v${VERSION}-windows-x64-setup.exe"
+            cp "$BUNDLE_PATH"/nsis/*.nsis.zip "artifacts/FileCrypter-v${VERSION}-windows-x64-setup.nsis.zip"
+            cp "$BUNDLE_PATH"/nsis/*.nsis.zip.sig "artifacts/FileCrypter-v${VERSION}-windows-x64-setup.nsis.zip.sig"
+          fi
+
+          echo "Collected artifacts:"
+          ls -la artifacts/
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
         with:
-          tagName: ${{ needs.prepare-release.outputs.tag }}
-          releaseName: "FileCrypter ${{ needs.prepare-release.outputs.tag }}"
-          releaseBody: ${{ needs.prepare-release.outputs.changelog }}
-          # Keep as draft so other matrix builds can upload assets
-          # (with immutable releases, published releases cannot be modified)
-          releaseDraft: true
-          prerelease: false
-          includeUpdaterJson: true
-          args: ${{ matrix.args }}
-          assetNamePattern: "FileCrypter-v[version]-[platform]-[arch][setup][ext]"
+          name: ${{ matrix.artifact_name }}
+          path: artifacts/*
+          retention-days: 1
+
+  # Stage 3: Commit version bump, create tag, publish release
+  # Only runs after ALL builds succeed — failed builds leave main untouched
+  release:
+    needs: [calculate-version, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y jq
+          wget -q https://github.com/orhun/git-cliff/releases/download/v2.11.0/git-cliff-2.11.0-x86_64-unknown-linux-gnu.tar.gz
+          tar -xzf git-cliff-2.11.0-x86_64-unknown-linux-gnu.tar.gz
+          sudo mv git-cliff-2.11.0/git-cliff /usr/local/bin/
+
+      - name: Bump version in all config files
+        run: |
+          VERSION="${{ needs.calculate-version.outputs.version }}"
+          echo "Updating version to $VERSION..."
+
+          jq --arg v "$VERSION" '.version = $v' package.json > package.json.tmp && mv package.json.tmp package.json
+          echo "✅ Updated package.json"
+
+          sed -i "0,/^version = .*/{s/^version = .*/version = \"$VERSION\"/}" src-tauri/Cargo.toml
+          echo "✅ Updated src-tauri/Cargo.toml"
+
+          jq --arg v "$VERSION" '.version = $v' src-tauri/tauri.conf.json > src-tauri/tauri.conf.json.tmp && mv src-tauri/tauri.conf.json.tmp src-tauri/tauri.conf.json
+          echo "✅ Updated src-tauri/tauri.conf.json"
+
+      - name: Verify version updates
+        run: |
+          VERSION="${{ needs.calculate-version.outputs.version }}"
+          echo "Verifying all files updated correctly..."
+
+          grep '"version":' package.json
+          grep '^version =' src-tauri/Cargo.toml | head -1
+          grep '"version":' src-tauri/tauri.conf.json
+
+          if ! grep -q "\"version\": \"$VERSION\"" package.json; then
+            echo "❌ package.json version mismatch"; exit 1
+          fi
+          if ! grep -q "^version = \"$VERSION\"" src-tauri/Cargo.toml; then
+            echo "❌ Cargo.toml version mismatch"; exit 1
+          fi
+          if ! grep -q "\"version\": \"$VERSION\"" src-tauri/tauri.conf.json; then
+            echo "❌ tauri.conf.json version mismatch"; exit 1
+          fi
+          echo "✅ All version files correct"
+
+      - name: Generate changelog
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ needs.calculate-version.outputs.version }}"
+          git-cliff --config cliff.toml --github-repo novafluxx/filecrypter --tag "v$VERSION" --output CHANGELOG.md
+          echo "✅ Full changelog generated"
+
+      - name: Generate release notes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ needs.calculate-version.outputs.version }}"
+          git-cliff --config cliff.toml --github-repo novafluxx/filecrypter --tag "v$VERSION" --unreleased --strip header > release-notes.md
+          echo "✅ Release notes generated"
+
+      - name: Setup Rust for Cargo.lock update
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Update Cargo.lock
+        working-directory: src-tauri
+        run: |
+          cargo update --workspace
+          echo "✅ Cargo.lock updated"
+
+      - name: Commit version bump and changelog
+        run: |
+          VERSION="${{ needs.calculate-version.outputs.version }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add package.json src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json CHANGELOG.md
+
+          if git diff --cached --quiet; then
+            echo "Version already at $VERSION, no changes to commit"
+          else
+            git commit -m "chore(release): bump version to $VERSION"
+            echo "✅ Changes committed"
+          fi
+
+      - name: Create and push tag
+        run: |
+          TAG="v${{ needs.calculate-version.outputs.version }}"
+
+          git tag "$TAG"
+          echo "✅ Created tag $TAG"
+
+          git push origin main
+          echo "✅ Pushed commit to main"
+
+          git push origin "$TAG"
+          echo "✅ Pushed tag $TAG"
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: List release artifacts
+        run: |
+          echo "Release artifacts:"
+          ls -la release-artifacts/
+
+      - name: Generate updater JSON (latest.json)
+        run: |
+          VERSION="${{ needs.calculate-version.outputs.version }}"
+          TAG="v$VERSION"
+          PUB_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          BASE_URL="https://github.com/novafluxx/filecrypter/releases/download/$TAG"
+
+          # Read updater signatures
+          DARWIN_SIG=""
+          WINDOWS_SIG=""
+          if [ -f "release-artifacts/FileCrypter-v${VERSION}-macos-aarch64.app.tar.gz.sig" ]; then
+            DARWIN_SIG=$(cat "release-artifacts/FileCrypter-v${VERSION}-macos-aarch64.app.tar.gz.sig")
+          fi
+          if [ -f "release-artifacts/FileCrypter-v${VERSION}-windows-x64-setup.nsis.zip.sig" ]; then
+            WINDOWS_SIG=$(cat "release-artifacts/FileCrypter-v${VERSION}-windows-x64-setup.nsis.zip.sig")
+          fi
+
+          NOTES=$(cat release-notes.md)
+
+          jq -n \
+            --arg version "$TAG" \
+            --arg notes "$NOTES" \
+            --arg pub_date "$PUB_DATE" \
+            --arg darwin_sig "$DARWIN_SIG" \
+            --arg darwin_url "$BASE_URL/FileCrypter-v${VERSION}-macos-aarch64.app.tar.gz" \
+            --arg windows_sig "$WINDOWS_SIG" \
+            --arg windows_url "$BASE_URL/FileCrypter-v${VERSION}-windows-x64-setup.nsis.zip" \
+            '{
+              version: $version,
+              notes: $notes,
+              pub_date: $pub_date,
+              platforms: {
+                "darwin-aarch64": { signature: $darwin_sig, url: $darwin_url },
+                "windows-x86_64": { signature: $windows_sig, url: $windows_url }
+              }
+            }' > release-artifacts/latest.json
+
+          echo "Generated latest.json:"
+          cat release-artifacts/latest.json
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="v${{ needs.calculate-version.outputs.version }}"
+
+          gh release create "$TAG" \
+            --draft \
+            --title "FileCrypter $TAG" \
+            --notes-file release-notes.md \
+            release-artifacts/*
+
+          echo "✅ Created draft release $TAG"

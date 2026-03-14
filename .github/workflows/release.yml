@@ -184,8 +184,7 @@ jobs:
 
           if [ "${{ matrix.platform }}" = "windows-latest" ]; then
             cp "$BUNDLE_PATH"/nsis/*-setup.exe "artifacts/FileCrypter-v${VERSION}-windows-x64-setup.exe"
-            cp "$BUNDLE_PATH"/nsis/*.nsis.zip "artifacts/FileCrypter-v${VERSION}-windows-x64-setup.nsis.zip"
-            cp "$BUNDLE_PATH"/nsis/*.nsis.zip.sig "artifacts/FileCrypter-v${VERSION}-windows-x64-setup.nsis.zip.sig"
+            cp "$BUNDLE_PATH"/nsis/*-setup.exe.sig "artifacts/FileCrypter-v${VERSION}-windows-x64-setup.exe.sig"
           fi
 
           echo "Collected artifacts:"
@@ -331,8 +330,8 @@ jobs:
           if [ -f "release-artifacts/FileCrypter-v${VERSION}-macos-aarch64.app.tar.gz.sig" ]; then
             DARWIN_SIG=$(cat "release-artifacts/FileCrypter-v${VERSION}-macos-aarch64.app.tar.gz.sig")
           fi
-          if [ -f "release-artifacts/FileCrypter-v${VERSION}-windows-x64-setup.nsis.zip.sig" ]; then
-            WINDOWS_SIG=$(cat "release-artifacts/FileCrypter-v${VERSION}-windows-x64-setup.nsis.zip.sig")
+          if [ -f "release-artifacts/FileCrypter-v${VERSION}-windows-x64-setup.exe.sig" ]; then
+            WINDOWS_SIG=$(cat "release-artifacts/FileCrypter-v${VERSION}-windows-x64-setup.exe.sig")
           fi
 
           NOTES=$(cat release-notes.md)
@@ -344,7 +343,7 @@ jobs:
             --arg darwin_sig "$DARWIN_SIG" \
             --arg darwin_url "$BASE_URL/FileCrypter-v${VERSION}-macos-aarch64.app.tar.gz" \
             --arg windows_sig "$WINDOWS_SIG" \
-            --arg windows_url "$BASE_URL/FileCrypter-v${VERSION}-windows-x64-setup.nsis.zip" \
+            --arg windows_url "$BASE_URL/FileCrypter-v${VERSION}-windows-x64-setup.exe" \
             '{
               version: $version,
               notes: $notes,

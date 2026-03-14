@@ -17,6 +17,7 @@
 
 use argon2::{Algorithm, Argon2, Params, Version};
 use rand::{rngs::OsRng, TryRngCore};
+use zeroize::Zeroizing;
 
 use crate::crypto::secure::{Password, SecureBytes};
 use crate::error::{CryptoError, CryptoResult};
@@ -232,13 +233,16 @@ pub fn derive_key_with_material(
         KdfAlgorithm::Argon2id => Argon2::new(Algorithm::Argon2id, Version::V0x13, argon2_params),
     };
 
-    let mut key_bytes = vec![0u8; params.key_length as usize];
+    let mut key_bytes = Zeroizing::new(vec![0u8; params.key_length as usize]);
 
     argon2
         .hash_password_into(key_material, salt, &mut key_bytes)
         .map_err(|_| CryptoError::EncryptionFailed)?;
 
-    Ok(SecureBytes::new(key_bytes))
+    // Transfer ownership to SecureBytes (which also zeroizes on drop).
+    // std::mem::take replaces the Zeroizing contents with an empty Vec,
+    // so when the now-empty Zeroizing drops, there's nothing sensitive left.
+    Ok(SecureBytes::new(std::mem::take(&mut *key_bytes)))
 }
 
 /// Generate a cryptographically secure random salt

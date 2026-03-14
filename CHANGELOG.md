@@ -5,6 +5,24 @@ All notable changes to FileCrypter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.13] - 2026-03-14
+
+
+
+### Bug Fixes
+
+- **crypto:** Address crypto review findings ([f4f6589](https://github.com/novafluxx/filecrypter/commit/f4f6589f719c9bff8e5f1044915baedd8127164b))
+- **crypto:** Address tier-2 defense-in-depth review findings ([ce30ce6](https://github.com/novafluxx/filecrypter/commit/ce30ce6639cab2a2c4160242020ed237aa6287f4))
+- **deps:** Add esbuild as explicit dependency for Vite 8 ([035772c](https://github.com/novafluxx/filecrypter/commit/035772cabd0555b850dac5762de63415a097930a))
+- **crypto:** Zeroize KDF output buffer on error path ([3dfe0bf](https://github.com/novafluxx/filecrypter/commit/3dfe0bf474ecdabd1742ac6ffb5c93157b22eb00))
+- **ci:** Use correct Windows NSIS artifact names in release workflow ([6863495](https://github.com/novafluxx/filecrypter/commit/6863495a0b1f06f545997887fc0a646aa41f661e))
+- **ci:** Verify main hasn't moved before committing release ([594b566](https://github.com/novafluxx/filecrypter/commit/594b5666e176274fda958e6a8a8593681d47fb61))
+
+
+### Refactoring
+
+- **crypto:** Restrict unbounded decompression to test scope and document compression side-channel ([8bbd340](https://github.com/novafluxx/filecrypter/commit/8bbd34065c11edebb76471deda5ce57dd2483dba))
+- **ci:** Restructure release workflow to build before committing ([c0f69c2](https://github.com/novafluxx/filecrypter/commit/c0f69c248779d547793cbbdf9ac9715d985d4def))
 ## [1.0.12] - 2026-03-05
 
 
@@ -12,12 +30,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Bug Fixes
 
 - Disable no-useless-assignment ESLint rule for Vue SFC false positives ([5c07004](https://github.com/novafluxx/filecrypter/commit/5c07004123188f6d7e4ce1df4c1356814e440bf2))
-
-
-### Dependencies
-
-- **deps:** Update @types/bun to 1.3.10 ([7c1230d](https://github.com/novafluxx/filecrypter/commit/7c1230d6ea114d16ead7f777850498d0da96900c))
-- **deps:** Update eslint to v10, tauri CLI, and other dependencies ([a2100f3](https://github.com/novafluxx/filecrypter/commit/a2100f3ed47b7ea968f832842acd3d9be00b8cf0))
 
 
 ### Refactoring
@@ -29,20 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Clarify compression behavior in single and batch modes ([f62b19f](https://github.com/novafluxx/filecrypter/commit/f62b19fbb54e5955fc4257f735757ac1aaebf5ff))
 - Fix inaccurate comments in App.vue and useFileOps.ts ([6d79840](https://github.com/novafluxx/filecrypter/commit/6d79840df84bd9cc96813a0b5581bd4440ec5340))
-
-
-### CI
-
-- Remove pre-release workflow ([c1884df](https://github.com/novafluxx/filecrypter/commit/c1884df0d866d839318e4b0b9ff68b6b9e993e5a))
 ## [1.0.11] - 2026-02-28
 
-
-
-### Dependencies
-
-- **deps:** Update dev dependencies to latest patch versions ([12fdc6f](https://github.com/novafluxx/filecrypter/commit/12fdc6f9af34e9ac70fdbd1776bb3f2285b61bd4))
-- **deps:** Update vue to 3.5.29 ([d3117de](https://github.com/novafluxx/filecrypter/commit/d3117de60c362a4b1903d46ee9c16abe236aaea6))
-- **deps:** Update cargo dependencies to latest compatible versions ([0481c12](https://github.com/novafluxx/filecrypter/commit/0481c12b3f3555c514e179fd42eef0b9a5ccbab9))
 
 
 ### Refactoring
@@ -78,60 +78,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ui:** Make window resizable and restore 768p-safe default height ([22d6d61](https://github.com/novafluxx/filecrypter/commit/22d6d61791f7cfc88c98a4054ff881e3ec4ba306))
 
 
-### Dependencies
-
-- **deps:** Update typescript-eslint to 8.56.0 and marked to 17.0.3 ([9adf0f1](https://github.com/novafluxx/filecrypter/commit/9adf0f1c023584a74ff19f4e98095a4730dbb7d3))
-- **deps:** Update Rust dependencies ([6f52e82](https://github.com/novafluxx/filecrypter/commit/6f52e820df703bc4b193a9b10881b3e828f920f4))
-
-
-### Miscellaneous
-
-- Fix bun.lock workspace section out of sync after bun update ([1995c4e](https://github.com/novafluxx/filecrypter/commit/1995c4ee56051bae6ac6a85d99a3ed7690bf1b24))
-
-
 ### Documentation
 
 - Update AGENTS.md for PrimeVue migration and window config ([edb3ddc](https://github.com/novafluxx/filecrypter/commit/edb3ddc20b518b026872d28a7bf1b542ce3983b4))
-## [1.0.7] - 2026-02-15
-
-
-
-### Dependencies
-
-- Update typescript-eslint and vue dependencies ([daf5e6e](https://github.com/novafluxx/filecrypter/commit/daf5e6e4c8a2c585ecd6913f5ca1e61ddee23812))
-- **deps:** Update frontend types and rust dependencies ([1881fb9](https://github.com/novafluxx/filecrypter/commit/1881fb938c8bcbb9b7bb75e4dec701fa2a1d8b10))
-- **deps:** Update @types/bun to 1.3.9 ([69cb7ee](https://github.com/novafluxx/filecrypter/commit/69cb7ee3dcd3eb64e1d83866367cc714e6b9350e))
-- Update dependencies ([0649acd](https://github.com/novafluxx/filecrypter/commit/0649acd6164067170a962b24b7e47e90d237c207))
-- **deps:** Update Rust dependencies ([2ef2381](https://github.com/novafluxx/filecrypter/commit/2ef2381ac954ec09752cb9e0b543e96bb86e8031))
-
-
-### Miscellaneous
-
-- Update marked to 17.0.2 ([3c4fa35](https://github.com/novafluxx/filecrypter/commit/3c4fa35f23b27948d3c100c499059aa9b1e9ac7a))
 ## [1.0.6] - 2026-02-09
 
-
-
-### Miscellaneous
-
-- Remove unused composable and progress helpers ([7dbdd62](https://github.com/novafluxx/filecrypter/commit/7dbdd628eba82be225d93f51f2b79c55d8ee9dbb))
-- Add Codex local metadata to .gitignore ([b6f71c8](https://github.com/novafluxx/filecrypter/commit/b6f71c86ec1612a4cfa190ccd4e1a4f17ec078f0))
 
 
 ### Documentation
 
 - Align desktop-first platform documentation ([dc2f515](https://github.com/novafluxx/filecrypter/commit/dc2f515b9aab34819ff3f112a32cff1d1937e1a9))
 - Add tauri v2 mobile workflow reference ([422b8f3](https://github.com/novafluxx/filecrypter/commit/422b8f35f33bf30cc6f4eed9605553d1d5215183))
-
-
-### Testing
-
-- Replace hardcoded test passwords with generated values ([4108cf9](https://github.com/novafluxx/filecrypter/commit/4108cf9ead004d8487acd71912fbe1c80ff104b0))
-
-
-### CI
-
-- Speed up rust backend checks in github actions ([6ad43b0](https://github.com/novafluxx/filecrypter/commit/6ad43b09e40539750b321dd6467d38040d82d9b9))
 ## [1.0.5] - 2026-02-08
 
 
@@ -145,11 +102,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Make encrypt file picker button-only ([6b0d460](https://github.com/novafluxx/filecrypter/commit/6b0d4608f4d879e5df7ffe530b152dcf3619dfd9))
 - Make desktop header divider full width ([206fe00](https://github.com/novafluxx/filecrypter/commit/206fe00525d5131d6f2063d9dde56601bae2b96c))
-
-
-### Miscellaneous
-
-- Remove unused clickable input flow ([ca17861](https://github.com/novafluxx/filecrypter/commit/ca178617b3a082e7aaa0cf27fa3c520a014b5186))
 ## [1.0.4] - 2026-02-07
 
 
@@ -167,20 +119,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **deps:** Sync bun.lock with package.json ([902b0d0](https://github.com/novafluxx/filecrypter/commit/902b0d0288592d15ccbd817926dd097e52379e73))
 - **deps:** Update time crate to 0.3.47 to fix CVE-2026-25727 ([499ce18](https://github.com/novafluxx/filecrypter/commit/499ce18a3a769e5055a3b70b7015287841f36a04))
 - Address code review findings across frontend and backend ([967e8ad](https://github.com/novafluxx/filecrypter/commit/967e8adbf8634652b355f5dcb273084c7c387691)) in [#25](https://github.com/novafluxx/filecrypter/pull/25)
-## [1.0.2] - 2026-02-05
-
-
-
-### Dependencies
-
-- **deps:** Update @tauri-apps/plugin-updater to 2.10.0 ([8dbaec1](https://github.com/novafluxx/filecrypter/commit/8dbaec17e87a958ed9b5f217f2a8cc7d8e567d50))
-## [1.0.1] - 2026-02-03
-
-
-
-### Dependencies
-
-- **deps:** Update Tauri to 2.10 and increase window height ([d3934ee](https://github.com/novafluxx/filecrypter/commit/d3934eec8bc9f8a054800c6b6a0b70396d7a7ca0))
 ## [1.0.0] - 2026-01-31
 
 
@@ -188,11 +126,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Features
 
 - **crypto:** Add optional key file support for two-factor encryption ([7405b5e](https://github.com/novafluxx/filecrypter/commit/7405b5ed420c76aa38bcaff5b552b7fdf0d49673)) in [#24](https://github.com/novafluxx/filecrypter/pull/24)
-
-
-### Dependencies
-
-- **deps:** Bun.lock update ([a1e6f26](https://github.com/novafluxx/filecrypter/commit/a1e6f26ac77a97dc2ab5afa83c4d95d4a9ba5e1e))
 ## [0.2.0] - 2026-01-29
 
 
@@ -215,11 +148,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sync bun.lock with package.json ([50d1d67](https://github.com/novafluxx/filecrypter/commit/50d1d674fe0f7bee848b100faae6eb10ff12a5ec))
 - **ui:** Prevent white flash on app startup ([997f587](https://github.com/novafluxx/filecrypter/commit/997f587782d4970aea30c36d7d4a1b4d84c52ec3))
 - **ui:** Prevent white flash on app startup ([185f6de](https://github.com/novafluxx/filecrypter/commit/185f6de257548f22c8cc77369aeb0bf2faace6be))
-
-
-### Dependencies
-
-- **deps:** Update @types/bun to 1.3.7 ([97de752](https://github.com/novafluxx/filecrypter/commit/97de75283d74a3743217e9cd6c5617cec284c15b))
 ## [0.1.17] - 2026-01-27
 
 
@@ -229,26 +157,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **security:** Update windows-sys 0.61 API compatibility ([d474210](https://github.com/novafluxx/filecrypter/commit/d474210465c8446f99ebd7928b56c77979ede5a4))
 
 
-### Dependencies
-
-- **deps:** Update typescript-eslint and vue-tsc ([7ed5a68](https://github.com/novafluxx/filecrypter/commit/7ed5a68d799f41c39d90310cb18aa10a2916ce02))
-
-
 ### Refactoring
 
 - **security:** Replace windows-acl crate with direct windows-sys calls ([bf641de](https://github.com/novafluxx/filecrypter/commit/bf641de04952051324bcf3e493d3ea2dd81aa714))
 ## [0.1.16] - 2026-01-25
 
-
-
-### Dependencies
-
-- **deps:** Update vue-tsc to 3.2.3 ([0cec1e9](https://github.com/novafluxx/filecrypter/commit/0cec1e982da017fa7128bcee0982e3016acb68d4))
-
-
-### Miscellaneous
-
-- **docs:** Minor updates ([0e2d679](https://github.com/novafluxx/filecrypter/commit/0e2d679165798443d286c87539afb3fb5dd94df7))
 
 
 ### Refactoring
@@ -293,18 +206,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ci:** Fix version handling between pre-release and release workflows ([1567a17](https://github.com/novafluxx/filecrypter/commit/1567a173aaba4705c8c4df13555a0e05feb97f6c))
 - **ci:** Handle retry scenarios where version is already bumped ([5eb47d0](https://github.com/novafluxx/filecrypter/commit/5eb47d0e6799613a3d52a94fb3115dc2fe9091eb))
 - **ci:** Handle retry scenarios in release workflow ([cc9c5db](https://github.com/novafluxx/filecrypter/commit/cc9c5db6416ee4d89819e9297da22b3103f7a6d0))
-
-
-### Miscellaneous
-
-- **ci:** Improving ci workflow ([0cc29e5](https://github.com/novafluxx/filecrypter/commit/0cc29e5c8d5304dec56e6431df922452c4e1c283))
-- Improvded formatting for Rust code ([64572ad](https://github.com/novafluxx/filecrypter/commit/64572ad159b1895bbafdac6cf99cd53bd233fdb7))
-- **ci:** Move improvements to optimize CI flow ([dd1399c](https://github.com/novafluxx/filecrypter/commit/dd1399ce2043922f4838065a95762bb9758d40d3))
-
-
-### CI
-
-- Add pre-release workflow for feature branch testing ([faa8b06](https://github.com/novafluxx/filecrypter/commit/faa8b0668622f93957b57396d0a76f3c865e508c))
 ## [0.1.13] - 2026-01-21
 
 
@@ -351,11 +252,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **settings:** Sync default settings changes to Encrypt/Decrypt tabs in real-time ([accab0f](https://github.com/novafluxx/filecrypter/commit/accab0f5c29b174a67223250b0b5f004fdfd1124))
 - **mobile:** Disable pinch-to-zoom and configure touch actions ([93dbd8f](https://github.com/novafluxx/filecrypter/commit/93dbd8f85bd503a8966f5f0c9886bb8897891b28))
-
-
-### Dependencies
-
-- Update dev dependencies ([6d6828c](https://github.com/novafluxx/filecrypter/commit/6d6828c94d9a150b72b4730ce7e0380b3a4da911))
 ## [0.1.7] - 2026-01-18
 
 
@@ -363,11 +259,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Bug Fixes
 
 - **ui:** Clicking the "File to Encrypt:" label no longer opens the file picker dialog. Whoops. ([77c66fc](https://github.com/novafluxx/filecrypter/commit/77c66fcf3f999f5a9689a7fd613ab45e947a8b54))
-
-
-### Dependencies
-
-- Updated dependencies ([66bd135](https://github.com/novafluxx/filecrypter/commit/66bd1352bc22b3f5fc795b07f67c01543341e67d))
 ## [0.1.6] - 2026-01-17
 
 
@@ -375,12 +266,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Bug Fixes
 
 - No more flashing in the UI when you change tabs ([346cc51](https://github.com/novafluxx/filecrypter/commit/346cc5159bc950a619902b30abe4c9c0a6fe2a9b))
-
-
-### Miscellaneous
-
-- Minor window vertical size change ([7a0397a](https://github.com/novafluxx/filecrypter/commit/7a0397a561a1ee42944ff54559d51d749f69280d))
-- More minor sizing changes ([939e01b](https://github.com/novafluxx/filecrypter/commit/939e01b59886aa9434b2bb2519905844b938f772))
 
 
 ### ui
@@ -407,13 +292,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Minor change to user documentation ([39c99b6](https://github.com/novafluxx/filecrypter/commit/39c99b69080bd0e897b1659a0325478cc37e6454))
 - Add lint command and naive-ui to CLAUDE.md, unify commit guidelines ([83a5d59](https://github.com/novafluxx/filecrypter/commit/83a5d5954effd4d44c02ff347d03a76a68ecb99e))
-
-
-### CI
-
-- **release:** Customize release asset names for clarity ([a1db861](https://github.com/novafluxx/filecrypter/commit/a1db861657110966732bf1b4c163f976db98743e))
-- **changelog:** Remove emojis and add commit/PR links ([2ff89bb](https://github.com/novafluxx/filecrypter/commit/2ff89bb922111767141ba572a389ec3304292b5a))
-- Split CI into rust/frontend jobs and add ESLint ([af6e45d](https://github.com/novafluxx/filecrypter/commit/af6e45d5c9f722566d4438e0ad79cd941b3abad3))
 ## [0.1.3] - 2026-01-16
 
 
@@ -421,16 +299,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Features
 
 - **ui:** Migrate UI components to Naive UI ([2709da4](https://github.com/novafluxx/filecrypter/commit/2709da49c1728f75f53d960d10b50f13fb1bd453)) in [#18](https://github.com/novafluxx/filecrypter/pull/18)
-
-
-### Dependencies
-
-- Updating dependencies ([2640099](https://github.com/novafluxx/filecrypter/commit/2640099b347d235a771b975621d28062ebc7325d))
-
-
-### CI
-
-- **codeql:** Fix Rust analysis build mode ([8feb8d5](https://github.com/novafluxx/filecrypter/commit/8feb8d56ba3bd724f00a0f727c38b262c6e434a8))
 ## [0.1.2] - 2026-01-14
 
 
@@ -442,20 +310,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ui:** Native desktop-like UI behavior ([5317ff5](https://github.com/novafluxx/filecrypter/commit/5317ff5b94270e6c0319b8604d60be9dc915f6ad)) in [#17](https://github.com/novafluxx/filecrypter/pull/17)
 
 
-### Dependencies
-
-- Dependency updates ([592daad](https://github.com/novafluxx/filecrypter/commit/592daad2e2d8d81cec04a1a1fe5fbc208d4b1dd0))
-
-
-### Miscellaneous
-
-- Added permissions to ci workflow ([bd81890](https://github.com/novafluxx/filecrypter/commit/bd818903a18cad37117f545d58ef075027c2cc08))
-- Updating CLAUDE.md for accuracy ([8141c53](https://github.com/novafluxx/filecrypter/commit/8141c533625ad855c0099f499626290f0df1e837))
-- Updated with the new icon ([a5b028e](https://github.com/novafluxx/filecrypter/commit/a5b028e3e7a025233913232e3880b78002dce24c))
-- Attempts at fixing icon transparency ([bc76876](https://github.com/novafluxx/filecrypter/commit/bc76876fb2599deee08089271fa41b5f4b675d3c))
-- Removed claude settings.json ([29fc17a](https://github.com/novafluxx/filecrypter/commit/29fc17a7584499490a806c6895cc3ba109d6ba14))
-
-
 ### Refactoring
 
 - **frontend:** Extract shared utilities and improve code quality ([b1368a8](https://github.com/novafluxx/filecrypter/commit/b1368a81be0cb990e2f195ee8ad1d4bba9d29a40))
@@ -464,13 +318,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Documentation
 
 - Updating user help ([8d45e5c](https://github.com/novafluxx/filecrypter/commit/8d45e5cf2970227a73a01b91cf1fc42f3f7b6736))
-
-
-### CI
-
-- Add path filters and concurrency control ([c7566d4](https://github.com/novafluxx/filecrypter/commit/c7566d4a56c1c38158e2fe32320f7475020e8b00))
-- Add optimized CodeQL workflow with path filtering ([1f15685](https://github.com/novafluxx/filecrypter/commit/1f156857faac4a807f6cf2a8a141dcb48a2d8ff5))
-- **release:** Add macOS Apple Silicon builds to release workflow ([2168ea1](https://github.com/novafluxx/filecrypter/commit/2168ea18e18783557612fd5c082f6000c0d85b25))
 ## [0.1.1] - 2026-01-11
 
 
@@ -497,20 +344,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ci:** Replace git-cliff-action with direct CLI installation ([6816334](https://github.com/novafluxx/filecrypter/commit/6816334787b0ce455ca2b1183511601def39669e))
 - **ci:** Add Linux system dependencies for cargo check ([8853b5b](https://github.com/novafluxx/filecrypter/commit/8853b5b89b0f31b2523d50751dde1f036c937b0d))
 - Memory leak in frontend and optimizing code comments ([7b70695](https://github.com/novafluxx/filecrypter/commit/7b7069505090eba1ce5d6863c35a8ad53cce69bd))
-
-
-### Dependencies
-
-- **ci:** Optimize workflows with caching and remove macOS builds ([eda4d2b](https://github.com/novafluxx/filecrypter/commit/eda4d2b957f0e902a0cd859f2de855b393b4cc7a))
-- Update Rust dependencies ([85e90c2](https://github.com/novafluxx/filecrypter/commit/85e90c2d6e66720009d9c9a882945622cd510fc7))
-
-
-### Miscellaneous
-
-- **ci:** Update git-cliff to v2.11.0 ([3b3af7e](https://github.com/novafluxx/filecrypter/commit/3b3af7efae67ad032b7a02a7fa1e4c855d41ffef))
-- **release:** Build only AppImage for Linux releases ([ae521ef](https://github.com/novafluxx/filecrypter/commit/ae521efdac376feb63af92e04354dfc570bfddf5))
-- **release:** Build only NSIS installer for Windows ([f0380a3](https://github.com/novafluxx/filecrypter/commit/f0380a3e25bbd965786d3298462c31ddc5c8858e))
-- Simplify bundle config and remove DMG background ([0a6b6de](https://github.com/novafluxx/filecrypter/commit/0a6b6de2386f15ceb679c8c96d89b4a05d26e44f))
 
 
 ### Refactoring

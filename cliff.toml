@@ -50,7 +50,9 @@ skip_merge_commits = true
 # Sort commits by oldest first
 sort_commits = "oldest"
 
-# Commit parsers to categorize commits (ordered by priority via HTML comments)
+# Commit parsers to categorize commits
+# Only user-facing changes appear in the changelog.
+# Internal changes (CI, deps, tests, chores, etc.) are skipped.
 commit_parsers = [
   { message = "^Merge pull request", skip = true },
   { message = "^Merge branch", skip = true },
@@ -59,16 +61,12 @@ commit_parsers = [
   { message = "^perf", group = "<!-- 2 -->Performance" },
   { message = "^refactor", group = "<!-- 3 -->Refactoring" },
   { message = "^docs?", group = "<!-- 4 -->Documentation" },
-  { message = "^test", group = "<!-- 5 -->Testing" },
-  { message = "^build", group = "<!-- 6 -->Build" },
-  { message = "^ci", group = "<!-- 7 -->CI" },
-  { message = "^style", group = "<!-- 8 -->Style" },
-  { message = "^revert", group = "<!-- 9 -->Reverts" },
-  { message = "^chore\\(release\\): prepare for", skip = true },
-  { message = "^chore\\(release\\): bump version", skip = true },
-  { message = "^chore\\(deps\\):", group = "<!-- 10 -->Dependencies" },
-  { message = "(dependenc|Dependenc|deps|Deps)", group = "<!-- 10 -->Dependencies" },
-  { message = "^chore", group = "<!-- 11 -->Miscellaneous" },
+  { message = "^revert", group = "<!-- 5 -->Reverts" },
+  { message = "^test", skip = true },
+  { message = "^build", skip = true },
+  { message = "^ci", skip = true },
+  { message = "^style", skip = true },
+  { message = "^chore", skip = true },
 ]
 
 # Protect breaking changes by looking for BREAKING CHANGE: in commit body

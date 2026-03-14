@@ -211,6 +211,20 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Verify main has not moved since workflow started
+        run: |
+          git fetch origin main
+          LOCAL=$(git rev-parse HEAD)
+          REMOTE=$(git rev-parse origin/main)
+          if [ "$LOCAL" != "$REMOTE" ]; then
+            echo "❌ main has moved since this workflow started."
+            echo "   Expected: $LOCAL"
+            echo "   Remote:   $REMOTE"
+            echo "   Re-run the release workflow to pick up the latest changes."
+            exit 1
+          fi
+          echo "✅ main is up to date"
+
       - name: Install dependencies
         run: |
           sudo apt-get update && sudo apt-get install -y jq

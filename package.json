@@ -25,7 +25,7 @@
     "esbuild": "^0.27.4",
     "vite": "^8.0.0",
     "vue": "^3.5.30",
-    "vue-tsc": "^3.2.5"
+    "vue-tsc": "^3.2.6"
   },
   "dependencies": {
     "@primeuix/themes": "^2.0.3",

@@ -4,7 +4,7 @@
 
 FileCrypter is a cross-platform file encryption app for encrypting and decrypting files. The UI is built with Vue 3 and the cryptographic operations live in a Rust/Tauri backend.
 
-Current development and release workflows are desktop-first (macOS, Windows, Linux). Mobile support (iOS/Android) is a future goal.
+Current development and release workflows are desktop-first (macOS, Windows). Mobile support (iOS/Android) is a future goal.
 
 ## End-User Guide
 See `README_USER.md` for end-user instructions (how to encrypt/decrypt, batch mode, troubleshooting).
@@ -63,7 +63,7 @@ bun run preview
 ```
 
 Platform note:
-- `bun run tauri:build` builds bundles for the host OS only (Linux builds on Linux, Windows builds on Windows, macOS builds on macOS).
+- `bun run tauri:build` builds bundles for the host OS only (Windows builds on Windows, macOS builds on macOS).
 - Cross-building for other OSes typically requires building on that OS with its toolchain/SDK.
 - Mobile targets are not currently part of the active development/release workflow.
 

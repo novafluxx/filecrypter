@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-FileCrypter is a cross-platform file encryption application built with Tauri v2. It uses Vue 3 for the frontend and Rust for the cryptographic backend, providing secure password-based file encryption using industry-standard algorithms. The project is currently desktop-first (macOS, Windows, Linux). Mobile (iOS/Android) is a future goal and not part of the actively maintained workflow yet.
+FileCrypter is a cross-platform file encryption application built with Tauri v2. It uses Vue 3 for the frontend and Rust for the cryptographic backend, providing secure password-based file encryption using industry-standard algorithms. The project is currently desktop-first (macOS, Windows). Mobile (iOS/Android) is a future goal and not part of the actively maintained workflow yet.
 
 ## Tech Stack
 

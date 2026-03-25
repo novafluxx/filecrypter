@@ -16,7 +16,7 @@
 // - This is intentionally slow to prevent brute-force attacks
 
 use argon2::{Algorithm, Argon2, Params, Version};
-use rand::{rngs::OsRng, TryRngCore};
+use rand::{rngs::SysRng, TryRng};
 use zeroize::Zeroizing;
 
 use crate::crypto::secure::{Password, SecureBytes};
@@ -276,7 +276,7 @@ pub fn generate_salt_with_len(len: usize) -> CryptoResult<Vec<u8>> {
     let mut salt = vec![0u8; len];
 
     // Fill with cryptographically secure random bytes from the OS
-    let mut rng = OsRng;
+    let mut rng = SysRng;
     rng.try_fill_bytes(&mut salt)
         .map_err(|_| CryptoError::EncryptionFailed)?;
 

@@ -18,7 +18,7 @@ use std::fs::File;
 use std::io::{BufReader, Read, Write};
 use std::path::Path;
 
-use rand::{rngs::OsRng, TryRngCore};
+use rand::{rngs::SysRng, TryRng};
 use zeroize::Zeroizing;
 
 use crate::crypto::secure::SecureBytes;
@@ -97,7 +97,7 @@ pub fn hash_key_file(path: &Path) -> CryptoResult<SecureBytes> {
 /// - RNG failure
 pub fn generate_key_file(path: &Path) -> CryptoResult<()> {
     let mut key_data = Zeroizing::new([0u8; GENERATED_KEY_FILE_SIZE]);
-    let mut rng = OsRng;
+    let mut rng = SysRng;
     rng.try_fill_bytes(key_data.as_mut())
         .map_err(|_| CryptoError::EncryptionFailed)?;
 

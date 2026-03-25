@@ -29,7 +29,7 @@ serde_json = "1"
 # Cryptography - AES-256-GCM encryption with Argon2id key derivation
 aes-gcm = "0.10"
 argon2 = "0.5"
-rand = "0.9.2"
+rand = "0.10"
 zeroize = { version = "1", features = ["derive"] }
 blake3 = "1"
 tempfile = "3"

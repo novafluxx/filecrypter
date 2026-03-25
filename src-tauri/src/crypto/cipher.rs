@@ -13,7 +13,7 @@
 #[cfg(test)]
 mod tests {
     use aes_gcm::{aead::Aead, Aes256Gcm, KeyInit, Nonce};
-    use rand::{rngs::OsRng, TryRngCore};
+    use rand::{rngs::SysRng, TryRng};
 
     use crate::crypto::secure::SecureBytes;
     use crate::error::{CryptoError, CryptoResult};
@@ -28,7 +28,7 @@ mod tests {
         }
 
         let mut nonce_bytes = [0u8; NONCE_SIZE];
-        let mut rng = OsRng;
+        let mut rng = SysRng;
         rng.try_fill_bytes(&mut nonce_bytes)
             .map_err(|_| CryptoError::EncryptionFailed)?;
         let nonce = Nonce::from_slice(&nonce_bytes);

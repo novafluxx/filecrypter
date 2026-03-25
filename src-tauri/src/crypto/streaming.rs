@@ -73,7 +73,7 @@ use aes_gcm::{
     aead::{Aead, KeyInit, Payload},
     Aes256Gcm, Nonce,
 };
-use rand::{rngs::OsRng, TryRngCore};
+use rand::{rngs::SysRng, TryRng};
 
 use zeroize::Zeroizing;
 
@@ -218,7 +218,7 @@ pub fn encrypt_file_streaming<P: AsRef<Path>, Q: AsRef<Path>>(
 
     // Generate base nonce using cryptographically secure RNG
     let mut base_nonce = [0u8; NONCE_SIZE];
-    let mut rng = OsRng;
+    let mut rng = SysRng;
     rng.try_fill_bytes(&mut base_nonce)
         .map_err(|_| CryptoError::EncryptionFailed)?;
 

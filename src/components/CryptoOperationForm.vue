@@ -189,6 +189,8 @@ const passwordStrength = computed<PasswordStrength>(() =>
         :message="fileOps.statusMessage"
         :type="fileOps.statusType"
       />
+
+      <slot name="after-status" :fileOps="fileOps" />
     </div>
   </div>
 </template>

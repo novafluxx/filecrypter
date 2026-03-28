@@ -79,6 +79,8 @@ export function useFileOps() {
   const isProcessing = ref(false);
   const statusMessage = ref('');
   const statusType = ref<StatusType>('info');
+  const lastSuccessfulOutputPath = ref('');
+  const lastSuccessfulUsedKeyFile = ref(false);
 
   // Track status timeout to prevent race conditions
   let statusTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -148,6 +150,8 @@ export function useFileOps() {
    */
   function setInputPath(path: string, isEncrypt: boolean) {
     inputPath.value = path;
+    lastSuccessfulOutputPath.value = '';
+    lastSuccessfulUsedKeyFile.value = false;
 
     // Extract directory and filename so suggestOutputFilename operates on the
     // bare filename (as its contract requires), then reconstruct the full path.
@@ -166,6 +170,8 @@ export function useFileOps() {
    */
   function setOutputPath(path: string) {
     outputPath.value = path;
+    lastSuccessfulOutputPath.value = '';
+    lastSuccessfulUsedKeyFile.value = false;
   }
 
   /**
@@ -229,6 +235,8 @@ export function useFileOps() {
 
     try {
       isProcessing.value = true;
+      lastSuccessfulOutputPath.value = '';
+      lastSuccessfulUsedKeyFile.value = false;
       showStatus('Encrypting file... This may take a moment.', 'info', 0);
 
       // Call Rust backend (uses streaming for all files)
@@ -246,12 +254,16 @@ export function useFileOps() {
       // Success!
       showStatus(result.message, 'success');
       outputPath.value = result.output_path;
+      lastSuccessfulOutputPath.value = result.output_path;
+      lastSuccessfulUsedKeyFile.value = keyFilePath.value.length > 0;
 
       return true;
     } catch (error) {
       // Handle errors from Rust backend with sanitized messages
       const errorMessage = sanitizeErrorMessage(error);
       showStatus(errorMessage, 'error', 0);
+      lastSuccessfulOutputPath.value = '';
+      lastSuccessfulUsedKeyFile.value = false;
       return false;
     } finally {
       // Always clear password, even when the operation fails
@@ -283,6 +295,8 @@ export function useFileOps() {
 
     try {
       isProcessing.value = true;
+      lastSuccessfulOutputPath.value = '';
+      lastSuccessfulUsedKeyFile.value = false;
       showStatus('Decrypting file... This may take a moment.', 'info', 0);
 
       const allowOverwrite = !neverOverwrite.value;
@@ -303,6 +317,8 @@ export function useFileOps() {
       // Handle errors (most commonly: wrong password) with sanitized messages
       const errorMessage = sanitizeErrorMessage(error);
       showStatus(errorMessage, 'error', 0);
+      lastSuccessfulOutputPath.value = '';
+      lastSuccessfulUsedKeyFile.value = false;
       return false;
     } finally {
       // Always clear password, even when the operation fails
@@ -325,6 +341,8 @@ export function useFileOps() {
     isProcessing,
     statusMessage,
     statusType,
+    lastSuccessfulOutputPath,
+    lastSuccessfulUsedKeyFile,
 
     // Computed
     isEncryptFormValid,

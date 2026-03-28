@@ -7,6 +7,7 @@
 <script setup lang="ts">
 import Checkbox from 'primevue/checkbox';
 import CryptoOperationForm from './CryptoOperationForm.vue';
+import RecipientShareKit from './RecipientShareKit.vue';
 </script>
 
 <template>
@@ -41,6 +42,14 @@ import CryptoOperationForm from './CryptoOperationForm.vue';
           less for images/videos. Slightly slower encryption.
         </p>
       </div>
+    </template>
+
+    <template #after-status="{ fileOps }">
+      <RecipientShareKit
+        v-if="fileOps.lastSuccessfulOutputPath"
+        :encrypted-file-path="fileOps.lastSuccessfulOutputPath"
+        :uses-key-file="fileOps.lastSuccessfulUsedKeyFile"
+      />
     </template>
   </CryptoOperationForm>
 </template>

@@ -37,6 +37,15 @@ const neverOverwrite = computed({
 });
 
 const outputDirectory = computed(() => settings.defaultOutputDirectory.value);
+const shareKitCopiedCount = computed(() => settings.shareKitCopiedCount.value);
+const shareKitDownloadOpenedCount = computed(() => settings.shareKitDownloadOpenedCount.value);
+const shareKitOpenRate = computed(() => {
+  if (shareKitCopiedCount.value === 0) {
+    return null;
+  }
+
+  return Math.round((shareKitDownloadOpenedCount.value / shareKitCopiedCount.value) * 100);
+});
 
 /**
  * Handle theme selection
@@ -163,6 +172,33 @@ async function handleResetToDefaults() {
         </div>
       </section>
 
+      <section class="settings-section">
+        <h2 class="section-title">Sharing</h2>
+
+        <div class="share-metrics">
+          <div class="metric-card">
+            <span class="metric-label">Share kit copied</span>
+            <strong class="metric-value">{{ shareKitCopiedCount }}</strong>
+            <p class="hint-text">Event: `share_kit_copied`</p>
+          </div>
+
+          <div class="metric-card">
+            <span class="metric-label">Download page opened</span>
+            <strong class="metric-value">{{ shareKitDownloadOpenedCount }}</strong>
+            <p class="hint-text">Event: `share_kit_download_opened`</p>
+          </div>
+        </div>
+
+        <p class="hint-text">
+          <template v-if="shareKitOpenRate !== null">
+            Approximate recipient download intent rate: {{ shareKitOpenRate }}% of copied share kits.
+          </template>
+          <template v-else>
+            Metrics start counting when someone uses the new post-encryption share actions.
+          </template>
+        </p>
+      </section>
+
       <!-- Reset Section -->
       <section class="settings-section reset-section">
         <Button
@@ -242,5 +278,32 @@ async function handleResetToDefaults() {
 /* Reset Section */
 .reset-section {
   text-align: center;
+}
+
+.share-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.metric-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-alt);
+  padding: 12px;
+}
+
+.metric-label {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.metric-value {
+  display: block;
+  color: var(--text);
+  font-size: 24px;
+  line-height: 1.1;
 }
 </style>

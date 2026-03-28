@@ -18,3 +18,6 @@ export const STATUS_SUCCESS_TIMEOUT_MS = 5000;
 /** Default ZSTD compression level (balanced speed/ratio) */
 export const DEFAULT_COMPRESSION_LEVEL = 3;
 
+/** Public download page for recipients who need FileCrypter to decrypt a shared file */
+export const FILECRYPTER_DOWNLOAD_URL = 'https://github.com/novafluxx/filecrypter/releases/latest';
+

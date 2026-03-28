@@ -19,6 +19,8 @@ interface AppSettings {
   defaultCompression: boolean;
   defaultNeverOverwrite: boolean;
   defaultOutputDirectory: string | null;
+  shareKitCopiedCount: number;
+  shareKitDownloadOpenedCount: number;
 }
 
 /** Default settings values */
@@ -27,6 +29,8 @@ const DEFAULTS: AppSettings = {
   defaultCompression: false,
   defaultNeverOverwrite: true,
   defaultOutputDirectory: null,
+  shareKitCopiedCount: 0,
+  shareKitDownloadOpenedCount: 0,
 };
 
 /** Legacy localStorage key for theme migration */
@@ -41,6 +45,8 @@ const theme = ref<ThemeMode>(DEFAULTS.theme);
 const defaultCompression = ref<boolean>(DEFAULTS.defaultCompression);
 const defaultNeverOverwrite = ref<boolean>(DEFAULTS.defaultNeverOverwrite);
 const defaultOutputDirectory = ref<string | null>(DEFAULTS.defaultOutputDirectory);
+const shareKitCopiedCount = ref<number>(DEFAULTS.shareKitCopiedCount);
+const shareKitDownloadOpenedCount = ref<number>(DEFAULTS.shareKitDownloadOpenedCount);
 const isInitialized = ref(false);
 
 /**
@@ -77,12 +83,17 @@ async function initializeStore(): Promise<void> {
   const storedCompression = await store.get<boolean>('defaultCompression');
   const storedOverwrite = await store.get<boolean>('defaultNeverOverwrite');
   const storedOutputDir = await store.get<string | null>('defaultOutputDirectory');
+  const storedShareKitCopiedCount = await store.get<number>('shareKitCopiedCount');
+  const storedShareKitDownloadOpenedCount = await store.get<number>('shareKitDownloadOpenedCount');
 
   // Apply settings with migration fallback
   theme.value = legacyTheme ?? storedTheme ?? DEFAULTS.theme;
   defaultCompression.value = storedCompression ?? DEFAULTS.defaultCompression;
   defaultNeverOverwrite.value = storedOverwrite ?? DEFAULTS.defaultNeverOverwrite;
   defaultOutputDirectory.value = storedOutputDir ?? DEFAULTS.defaultOutputDirectory;
+  shareKitCopiedCount.value = storedShareKitCopiedCount ?? DEFAULTS.shareKitCopiedCount;
+  shareKitDownloadOpenedCount.value =
+    storedShareKitDownloadOpenedCount ?? DEFAULTS.shareKitDownloadOpenedCount;
 
   // If we migrated a legacy theme, save it to new store
   if (legacyTheme) {
@@ -165,6 +176,24 @@ export function useSettings() {
   }
 
   /**
+   * Track use of the recipient share kit copy action.
+   */
+  async function trackShareKitCopied(): Promise<void> {
+    await ensureInitialized();
+    shareKitCopiedCount.value += 1;
+    await store?.set('shareKitCopiedCount', shareKitCopiedCount.value);
+  }
+
+  /**
+   * Track when the recipient download page is opened from the share kit.
+   */
+  async function trackShareKitDownloadOpened(): Promise<void> {
+    await ensureInitialized();
+    shareKitDownloadOpenedCount.value += 1;
+    await store?.set('shareKitDownloadOpenedCount', shareKitDownloadOpenedCount.value);
+  }
+
+  /**
    * Reset all settings to defaults
    */
   async function resetToDefaults(): Promise<void> {
@@ -187,6 +216,8 @@ export function useSettings() {
     defaultCompression: readonly(defaultCompression),
     defaultNeverOverwrite: readonly(defaultNeverOverwrite),
     defaultOutputDirectory: readonly(defaultOutputDirectory),
+    shareKitCopiedCount: readonly(shareKitCopiedCount),
+    shareKitDownloadOpenedCount: readonly(shareKitDownloadOpenedCount),
     isInitialized: readonly(isInitialized),
 
     // Methods
@@ -195,6 +226,8 @@ export function useSettings() {
     setDefaultCompression,
     setDefaultNeverOverwrite,
     setDefaultOutputDirectory,
+    trackShareKitCopied,
+    trackShareKitDownloadOpened,
     resetToDefaults,
   };
 }

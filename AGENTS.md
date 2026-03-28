@@ -13,16 +13,21 @@
 
 ## Build, Test, and Development Commands
 - `bun install` installs frontend dependencies.
+- `bun install --frozen-lockfile` matches CI dependency installation.
 - `bun run dev` starts the Vite dev server on port 5173.
 - `bun run build` runs type checking (`vue-tsc`) and builds the frontend.
 - `bun run preview` serves the production build locally.
 - `bun run lint` runs ESLint on the frontend.
+- `bun run vue-tsc --noEmit` runs the frontend type check used in CI.
 - `bun run tauri` runs the Tauri CLI directly (`tauri <subcommand>`).
 - `bun run tauri:dev` launches the full Tauri app with hot reload.
 - `bun run tauri:build` creates a production desktop build.
 - Mobile support is a future goal and not part of the currently maintained build/dev workflow; treat mobile commands as experimental.
 - `cd src-tauri && cargo test` runs Rust unit + integration tests.
 - `cd src-tauri && cargo clippy` runs the Rust linter.
+- `cd src-tauri && cargo fmt --check` matches the PR formatting check in CI.
+- `cd src-tauri && cargo clippy --locked --all-features -- -D warnings` matches the PR lint command in CI.
+- `cd src-tauri && cargo test --locked --all-features --lib --tests` matches the Rust test command in CI.
 
 ## Mobile Workflow Notes (Future Goal / Experimental)
 - Use `bun run tauri -- <args>` for direct Tauri CLI commands (or shorthand `bun tauri <args>`).
@@ -45,11 +50,13 @@
 - Rust integration tests live in `src-tauri/tests/`.
 - Frontend: no test framework is configured yet.
 - Preferred test command: `cd src-tauri && cargo test`.
+- CI also runs `bun run vue-tsc --noEmit`, `bun run lint`, `cargo fmt --check`, `cargo clippy --locked --all-features -- -D warnings`, and `cargo test --locked --all-features --lib --tests`.
 
 ## Commit & Pull Request Guidelines
 - Follow the Conventional Commits format documented in `CLAUDE.md` (e.g., `feat:`, `fix:`, `docs:`).
 - Keep PRs focused; include a clear description and any relevant screenshots for UI changes.
 - If modifying cryptography or file I/O, mention how the change affects security or performance.
+- Releases are published from the manual GitHub Actions workflow in `.github/workflows/release.yml`; it calculates the version, updates version files/changelog, builds signed artifacts, and creates a draft GitHub release.
 
 ## Security & Configuration Notes
 - Encryption uses AES-256-GCM with Argon2id; keep salts and nonces unique per file.

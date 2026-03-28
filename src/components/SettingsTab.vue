@@ -38,7 +38,6 @@ const neverOverwrite = computed({
 
 const outputDirectory = computed(() => settings.defaultOutputDirectory.value);
 const shareKitCopiedCount = computed(() => settings.shareKitCopiedCount.value);
-const shareKitDownloadOpenedCount = computed(() => settings.shareKitDownloadOpenedCount.value);
 
 /**
  * Handle theme selection
@@ -174,16 +173,11 @@ async function handleResetToDefaults() {
             <strong class="metric-value">{{ shareKitCopiedCount }}</strong>
             <p class="hint-text">Counts each time you copy the share message for a recipient.</p>
           </div>
-
-          <div class="metric-card">
-            <span class="metric-label">Download page opened</span>
-            <strong class="metric-value">{{ shareKitDownloadOpenedCount }}</strong>
-            <p class="hint-text">Counts each successful click to open the FileCrypter download page.</p>
-          </div>
         </div>
 
         <p class="hint-text">
-          Compare these counters to see whether people are using the post-encryption share flow.
+          This is the only local growth metric kept for the feature, since it reflects actual
+          sender intent without adding extra UI just for measurement.
         </p>
       </section>
 

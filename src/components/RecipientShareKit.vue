@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue';
 import Button from 'primevue/button';
-import { openUrl } from '@tauri-apps/plugin-opener';
 import { FILECRYPTER_DOWNLOAD_URL } from '../constants';
 import { useSettings } from '../composables/useSettings';
 import { copyTextToClipboard } from '../utils/clipboard';
@@ -60,15 +59,6 @@ async function handleCopyInstructions() {
   }
 }
 
-async function handleOpenDownloadPage() {
-  try {
-    await openUrl(FILECRYPTER_DOWNLOAD_URL);
-    await settings.trackShareKitDownloadOpened();
-  } catch (error) {
-    console.warn('Failed to open FileCrypter download page:', error);
-  }
-}
-
 onBeforeUnmount(() => {
   if (copyStateTimeoutId !== null) {
     window.clearTimeout(copyStateTimeoutId);
@@ -82,13 +72,12 @@ onBeforeUnmount(() => {
       <div>
         <h3 class="share-kit-title">Recipient Share Kit</h3>
         <p class="share-kit-subtitle">
-          Encryption succeeded. Copy a ready-to-send message so the recipient knows how to decrypt
-          <span class="selectable">{{ encryptedFileName }}</span>.
+          Encryption succeeded. Copy a ready-to-send message with decryption steps and the
+          FileCrypter download link for <span class="selectable">{{ encryptedFileName }}</span>.
         </p>
       </div>
       <div class="share-kit-actions">
-        <Button @click="handleCopyInstructions" label="Copy Instructions" />
-        <Button outlined severity="secondary" @click="handleOpenDownloadPage" label="Open Download Page" />
+        <Button @click="handleCopyInstructions" label="Copy Recipient Instructions" />
       </div>
     </div>
 

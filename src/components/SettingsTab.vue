@@ -176,8 +176,7 @@ async function handleResetToDefaults() {
         </div>
 
         <p class="hint-text">
-          This is the only local growth metric kept for the feature, since it reflects actual
-          sender intent without adding extra UI just for measurement.
+          Stored locally on your device. Never shared.
         </p>
       </section>
 

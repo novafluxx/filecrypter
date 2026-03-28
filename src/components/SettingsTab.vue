@@ -39,13 +39,6 @@ const neverOverwrite = computed({
 const outputDirectory = computed(() => settings.defaultOutputDirectory.value);
 const shareKitCopiedCount = computed(() => settings.shareKitCopiedCount.value);
 const shareKitDownloadOpenedCount = computed(() => settings.shareKitDownloadOpenedCount.value);
-const shareKitOpenRate = computed(() => {
-  if (shareKitCopiedCount.value === 0) {
-    return null;
-  }
-
-  return Math.round((shareKitDownloadOpenedCount.value / shareKitCopiedCount.value) * 100);
-});
 
 /**
  * Handle theme selection
@@ -179,23 +172,18 @@ async function handleResetToDefaults() {
           <div class="metric-card">
             <span class="metric-label">Share kit copied</span>
             <strong class="metric-value">{{ shareKitCopiedCount }}</strong>
-            <p class="hint-text">Event: `share_kit_copied`</p>
+            <p class="hint-text">Counts each time you copy the share message for a recipient.</p>
           </div>
 
           <div class="metric-card">
             <span class="metric-label">Download page opened</span>
             <strong class="metric-value">{{ shareKitDownloadOpenedCount }}</strong>
-            <p class="hint-text">Event: `share_kit_download_opened`</p>
+            <p class="hint-text">Counts each successful click to open the FileCrypter download page.</p>
           </div>
         </div>
 
         <p class="hint-text">
-          <template v-if="shareKitOpenRate !== null">
-            Approximate recipient download intent rate: {{ shareKitOpenRate }}% of copied share kits.
-          </template>
-          <template v-else>
-            Metrics start counting when someone uses the new post-encryption share actions.
-          </template>
+          Compare these counters to see whether people are using the post-encryption share flow.
         </p>
       </section>
 

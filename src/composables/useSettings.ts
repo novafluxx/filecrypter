@@ -203,11 +203,15 @@ export function useSettings() {
     defaultCompression.value = DEFAULTS.defaultCompression;
     defaultNeverOverwrite.value = DEFAULTS.defaultNeverOverwrite;
     defaultOutputDirectory.value = DEFAULTS.defaultOutputDirectory;
+    shareKitCopiedCount.value = DEFAULTS.shareKitCopiedCount;
+    shareKitDownloadOpenedCount.value = DEFAULTS.shareKitDownloadOpenedCount;
 
     await store?.set('theme', DEFAULTS.theme);
     await store?.set('defaultCompression', DEFAULTS.defaultCompression);
     await store?.set('defaultNeverOverwrite', DEFAULTS.defaultNeverOverwrite);
     await store?.set('defaultOutputDirectory', DEFAULTS.defaultOutputDirectory);
+    await store?.set('shareKitCopiedCount', DEFAULTS.shareKitCopiedCount);
+    await store?.set('shareKitDownloadOpenedCount', DEFAULTS.shareKitDownloadOpenedCount);
   }
 
   return {

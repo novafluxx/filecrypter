@@ -21,7 +21,6 @@ export async function copyTextToClipboard(text: string): Promise<boolean> {
 
     document.body.appendChild(textArea);
     textArea.select();
-    textArea.setSelectionRange(0, text.length);
 
     const copied = document.execCommand('copy');
     document.body.removeChild(textArea);

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, ref } from 'vue';
 import Button from 'primevue/button';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { FILECRYPTER_DOWNLOAD_URL } from '../constants';
@@ -13,6 +13,7 @@ const props = defineProps<{
 
 const settings = useSettings();
 const copyState = ref<'idle' | 'success' | 'error'>('idle');
+let copyStateTimeoutId: ReturnType<typeof window.setTimeout> | null = null;
 
 const encryptedFileName = computed(() => props.encryptedFilePath.split(/[/\\]/).at(-1) ?? props.encryptedFilePath);
 
@@ -37,9 +38,22 @@ const shareInstructions = computed(() => {
   return steps.join('\n');
 });
 
+function setCopyFeedback(state: 'success' | 'error') {
+  copyState.value = state;
+
+  if (copyStateTimeoutId !== null) {
+    window.clearTimeout(copyStateTimeoutId);
+  }
+
+  copyStateTimeoutId = window.setTimeout(() => {
+    copyState.value = 'idle';
+    copyStateTimeoutId = null;
+  }, 4000);
+}
+
 async function handleCopyInstructions() {
   const copied = await copyTextToClipboard(shareInstructions.value);
-  copyState.value = copied ? 'success' : 'error';
+  setCopyFeedback(copied ? 'success' : 'error');
 
   if (copied) {
     await settings.trackShareKitCopied();
@@ -47,14 +61,19 @@ async function handleCopyInstructions() {
 }
 
 async function handleOpenDownloadPage() {
-  await settings.trackShareKitDownloadOpened();
-
   try {
     await openUrl(FILECRYPTER_DOWNLOAD_URL);
+    await settings.trackShareKitDownloadOpened();
   } catch (error) {
     console.warn('Failed to open FileCrypter download page:', error);
   }
 }
+
+onBeforeUnmount(() => {
+  if (copyStateTimeoutId !== null) {
+    window.clearTimeout(copyStateTimeoutId);
+  }
+});
 </script>
 
 <template>
@@ -136,5 +155,9 @@ async function handleOpenDownloadPage() {
 .share-kit-feedback {
   margin-top: 8px;
   margin-bottom: 0;
+}
+
+.success-text {
+  color: var(--success-text);
 }
 </style>

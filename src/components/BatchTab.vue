@@ -30,7 +30,7 @@ import { sanitizeErrorMessage } from '../utils/errorSanitizer';
 import KeyFileSection from './KeyFileSection.vue';
 import PasswordSection from './PasswordSection.vue';
 import StatusMessage from './StatusMessage.vue';
-import type { BatchProgress, BatchResult, ArchiveProgress, ArchiveResult, BatchMode } from '../types/crypto';
+import type { BatchProgress, BatchResult, ArchiveProgress, ArchivePhase, ArchiveResult, BatchMode } from '../types/crypto';
 import { MIN_PASSWORD_LENGTH } from '../constants';
 
 // Initialize composables
@@ -399,14 +399,13 @@ function switchBatchMode(newBatchMode: BatchMode) {
 }
 
 // Get phase label for progress display
-function getPhaseLabel(phase: string): string {
+function getPhaseLabel(phase: ArchivePhase): string {
   switch (phase) {
     case 'archiving': return 'Creating archive';
     case 'encrypting': return 'Encrypting';
     case 'decrypting': return 'Decrypting';
     case 'extracting': return 'Extracting files';
     case 'complete': return 'Complete';
-    default: return phase;
   }
 }
 </script>

@@ -15,8 +15,8 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
  * Progress event payload from Rust backend
  */
 export interface ProgressEvent {
-  /** Current stage: "reading", "deriving_key", "encrypting", "decrypting", "writing", "complete" */
-  stage: string;
+  /** Current stage of the single-file crypto operation */
+  stage: 'reading' | 'deriving_key' | 'encrypting' | 'decrypting' | 'writing' | 'complete';
   /** Progress percentage (0-100) */
   percent: number;
   /** Human-readable status message */

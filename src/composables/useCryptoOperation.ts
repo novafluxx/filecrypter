@@ -190,6 +190,15 @@ export function useCryptoOperation(options: UseCryptoOperationOptions): UseCrypt
     } finally {
       if (!success) {
         stopListening();
+      } else {
+        // Safety net: if the 'complete' event was missed (e.g., operation
+        // finished before the listener was fully registered), ensure the
+        // progress UI doesn't stay stuck forever.
+        setTimeout(() => {
+          if (showProgress.value) {
+            stopListening();
+          }
+        }, 3000);
       }
     }
   }

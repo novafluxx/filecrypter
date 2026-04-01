@@ -51,21 +51,31 @@ export interface BatchResult {
 }
 
 /**
+ * Batch operation stage
+ */
+export type BatchStage = 'encrypting' | 'decrypting' | 'complete';
+
+/**
  * Progress event for batch operations
  */
 export interface BatchProgress {
   current_file: string;
   file_index: number;
   total_files: number;
-  stage: string;
+  stage: BatchStage;
   percent: number;
 }
+
+/**
+ * Archive operation phase
+ */
+export type ArchivePhase = 'archiving' | 'encrypting' | 'decrypting' | 'extracting' | 'complete';
 
 /**
  * Progress event for archive operations
  */
 export interface ArchiveProgress {
-  phase: string; // "archiving", "encrypting", "decrypting", "extracting", "complete"
+  phase: ArchivePhase;
   current_file: string | null;
   files_processed: number;
   total_files: number;

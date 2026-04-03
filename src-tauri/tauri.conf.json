@@ -29,6 +29,9 @@
   "bundle": {
     "active": true,
     "createUpdaterArtifacts": true,
+    "macOS": {
+      "minimumSystemVersion": "13.0"
+    },
     "targets": [
       "app",
       "dmg",

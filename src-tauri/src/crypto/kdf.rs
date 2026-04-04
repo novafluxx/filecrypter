@@ -254,7 +254,7 @@ pub fn derive_key_with_material(
 /// A vector of 16 random bytes
 ///
 /// # Security Notes
-/// - Uses OS-level CSPRNG (OsRng) for cryptographic quality randomness
+/// - Uses OS-level CSPRNG (`SysRng`) for cryptographic quality randomness
 /// - Each salt should be stored with the encrypted file
 /// - Salts don't need to be secret, only unique
 ///
@@ -275,17 +275,16 @@ pub fn generate_salt() -> CryptoResult<Vec<u8>> {
 pub fn generate_salt_with_len(len: usize) -> CryptoResult<Vec<u8>> {
     let mut rng = SysRng;
     let mut salt = Vec::with_capacity(len);
+    let mut buf = [0u8; 8];
 
     // Build the salt directly from OS RNG output instead of zero-initializing
     // a buffer first. This preserves the same security properties and avoids a
     // CodeQL false positive around "hard-coded cryptographic values."
     while salt.len() < len {
-        let random_word = rng
-            .try_next_u64()
+        rng.try_fill_bytes(&mut buf)
             .map_err(|_| CryptoError::EncryptionFailed)?;
-        let bytes = random_word.to_ne_bytes();
         let remaining = len - salt.len();
-        salt.extend_from_slice(&bytes[..remaining.min(bytes.len())]);
+        salt.extend_from_slice(&buf[..remaining.min(buf.len())]);
     }
 
     Ok(salt)

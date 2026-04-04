@@ -50,7 +50,8 @@
 - Rust integration tests live in `src-tauri/tests/`.
 - Frontend: no test framework is configured yet.
 - Preferred test command: `cd src-tauri && cargo test`.
-- CI also runs `bun run vue-tsc --noEmit`, `bun run lint`, `cargo fmt --check`, `cargo clippy --locked --all-features -- -D warnings`, and `cargo test --locked --all-features --lib --tests`.
+- CI runs `bun install --frozen-lockfile`, `bun run vue-tsc --noEmit`, and `bun run lint` for frontend changes, plus `cargo test --locked --all-features --lib --tests` for Rust changes.
+- On pull requests, CI also runs `cargo fmt --check` and `cargo clippy --locked --all-features -- -D warnings` for Rust changes.
 
 ## Commit & Pull Request Guidelines
 - Follow the Conventional Commits format documented in `CLAUDE.md` (e.g., `feat:`, `fix:`, `docs:`).

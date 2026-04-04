@@ -5,6 +5,33 @@ All notable changes to FileCrypter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.15] - 2026-04-04
+
+
+
+### Features
+
+- Add recipient share kit ([bb7dd8c](https://github.com/novafluxx/filecrypter/commit/bb7dd8c255cf6384668fec55a476f47b47690c8c))
+
+
+### Bug Fixes
+
+- Address share kit review feedback ([e73667f](https://github.com/novafluxx/filecrypter/commit/e73667f4fcb9833930a0471d3b8cee1b025a8327))
+- Avoid codeql salt false positive ([7afa7ee](https://github.com/novafluxx/filecrypter/commit/7afa7ee97a8246f6bbbdef9828c69809a604e980))
+
+
+### Refactoring
+
+- Simplify share kit handoff ([6963cfe](https://github.com/novafluxx/filecrypter/commit/6963cfe45a1498d4ede424c0bddb63c6a3828ade))
+- Improve type safety for progress and batch operations ([555e03b](https://github.com/novafluxx/filecrypter/commit/555e03bf3c0ce4ef664087667d250e5d129b9b63))
+- Simplify salt generation loop ([7b6cc29](https://github.com/novafluxx/filecrypter/commit/7b6cc299d4398d096c60169d0f4a13383a06c9ee))
+
+
+### Documentation
+
+- Remove Linux from supported desktop platforms ([f9f8640](https://github.com/novafluxx/filecrypter/commit/f9f86402e41e04567a92b4e61c4003dba1601e97))
+- Update repository guidelines ([cd5cade](https://github.com/novafluxx/filecrypter/commit/cd5cadee19d3af3abbbd584872063b34268b0651))
+- Clarify share metric privacy copy ([3cf089d](https://github.com/novafluxx/filecrypter/commit/3cf089d4b422c479aa984333a09e7c7dd76c94d7))
 ## [1.0.13] - 2026-03-14
 
 

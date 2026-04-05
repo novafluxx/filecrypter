@@ -11,29 +11,30 @@ FileCrypter is a cross-platform file encryption application built with Tauri v2.
 - **Frontend**: Vue 3 (Composition API) + TypeScript + Vite + PrimeVue 4
 - **Backend**: Rust + Tauri v2
 - **Cryptography**: AES-256-GCM encryption with Argon2id key derivation
-- **Package Manager**: Bun (for frontend), Cargo (for Rust)
+- **Package Manager**: pnpm via Corepack (for frontend), Cargo (for Rust)
 
 ## Development Commands
 
 ### Frontend Development
 ```bash
-bun install                    # Install dependencies
-bun run dev                    # Start Vite dev server (port 5173)
-bun run build                  # Build frontend with TypeScript checking
-bun run preview                # Preview production build
-bun run lint                   # Run ESLint on frontend code
+corepack enable                # Enable the pinned pnpm version
+pnpm install --frozen-lockfile # Install dependencies
+pnpm run dev                   # Start Vite dev server (port 5173)
+pnpm run build                 # Build frontend with TypeScript checking
+pnpm run preview               # Preview production build
+pnpm run lint                  # Run ESLint on frontend code
 ```
 
 ### Tauri Development (Desktop)
 ```bash
-bun run tauri:dev              # Run in development mode (hot reload)
-bun run tauri:build            # Build production executable
+pnpm run tauri:dev             # Run in development mode (hot reload)
+pnpm run tauri:build           # Build production executable
 ```
 
 ### Mobile Development (Future Goal / Experimental)
 Mobile targets are not currently part of the standard development, CI, or release workflow. Keep this as a reference playbook for future work.
 
-Use either `bun run tauri -- <args>` or shorthand `bun tauri <args>`.
+Use `pnpm exec tauri <args>` for direct Tauri CLI commands.
 
 **One-time setup (when mobile work resumes):**
 ```bash
@@ -44,8 +45,8 @@ rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-andro
 rustup target add aarch64-apple-ios aarch64-apple-ios-sim
 
 # Generate native projects
-bun run tauri -- android init
-bun run tauri -- ios init
+pnpm exec tauri android init
+pnpm exec tauri ios init
 ```
 
 **Platform prerequisites:**
@@ -54,26 +55,26 @@ bun run tauri -- ios init
 
 **Common development commands:**
 ```bash
-bun run tauri -- android dev
-bun run tauri -- android dev --open
-bun run tauri -- android dev --host
+pnpm exec tauri android dev
+pnpm exec tauri android dev --open
+pnpm exec tauri android dev --host
 
-bun run tauri -- ios dev
-bun run tauri -- ios dev --open
-bun run tauri -- ios dev --host
-bun run tauri -- ios dev --force-ip-prompt
+pnpm exec tauri ios dev
+pnpm exec tauri ios dev --open
+pnpm exec tauri ios dev --host
+pnpm exec tauri ios dev --force-ip-prompt
 ```
 
 **Common build commands:**
 ```bash
-bun run tauri -- android build --apk
-bun run tauri -- ios build --open
+pnpm exec tauri android build --apk
+pnpm exec tauri ios build --open
 ```
 
 **Networking notes for physical devices:**
 - Use `--host` for LAN device testing and set `TAURI_DEV_HOST=<LAN_IP>`.
 - Ensure `build.devUrl` in `src-tauri/tauri.conf.json` points to a reachable dev server during mobile runs.
-- If a device cannot reach Vite, run the dev server with host binding (`bun run dev -- --host`) or temporarily set `server.host` in `vite.config.ts`.
+- If a device cannot reach Vite, run the dev server with host binding (`pnpm run dev -- --host`) or temporarily set `server.host` in `vite.config.ts`.
 
 ### Rust Testing
 ```bash

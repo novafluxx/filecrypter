@@ -34,7 +34,7 @@ jobs:
               - '*.js'
               - '*.ts'
               - 'package.json'
-              - 'bun.lockb'
+              - 'pnpm-lock.yaml'
               - 'vite.config.ts'
               - 'tsconfig*.json'
             rust:

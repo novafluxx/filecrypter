@@ -12,16 +12,16 @@
 - `src-tauri/src/security/` contains security checks/platform abstractions, while `src-tauri/src/error.rs` and `src-tauri/src/events.rs` centralize error and event types.
 
 ## Build, Test, and Development Commands
-- `bun install` installs frontend dependencies.
-- `bun install --frozen-lockfile` matches CI dependency installation.
-- `bun run dev` starts the Vite dev server on port 5173.
-- `bun run build` runs type checking (`vue-tsc`) and builds the frontend.
-- `bun run preview` serves the production build locally.
-- `bun run lint` runs ESLint on the frontend.
-- `bun run vue-tsc --noEmit` runs the frontend type check used in CI.
-- `bun run tauri` runs the Tauri CLI directly (`tauri <subcommand>`).
-- `bun run tauri:dev` launches the full Tauri app with hot reload.
-- `bun run tauri:build` creates a production desktop build.
+- `corepack enable` enables the pinned pnpm version declared in `package.json`.
+- `pnpm install --frozen-lockfile` installs frontend dependencies and matches CI.
+- `pnpm run dev` starts the Vite dev server on port 5173.
+- `pnpm run build` runs type checking (`vue-tsc`) and builds the frontend.
+- `pnpm run preview` serves the production build locally.
+- `pnpm run lint` runs ESLint on the frontend.
+- `pnpm exec vue-tsc --noEmit` runs the frontend type check used in CI.
+- `pnpm exec tauri <subcommand>` runs the Tauri CLI directly.
+- `pnpm run tauri:dev` launches the full Tauri app with hot reload.
+- `pnpm run tauri:build` creates a production desktop build.
 - Mobile support is a future goal and not part of the currently maintained build/dev workflow; treat mobile commands as experimental.
 - `cd src-tauri && cargo test` runs Rust unit + integration tests.
 - `cd src-tauri && cargo clippy` runs the Rust linter.
@@ -30,13 +30,13 @@
 - `cd src-tauri && cargo test --locked --all-features --lib --tests` matches the Rust test command in CI.
 
 ## Mobile Workflow Notes (Future Goal / Experimental)
-- Use `bun run tauri -- <args>` for direct Tauri CLI commands (or shorthand `bun tauri <args>`).
-- One-time mobile project setup: `bun run tauri -- android init` and `bun run tauri -- ios init`.
+- Use `pnpm exec tauri <args>` for direct Tauri CLI commands.
+- One-time mobile project setup: `pnpm exec tauri android init` and `pnpm exec tauri ios init`.
 - Android prerequisites: Android Studio SDK/NDK and JDK 17+, plus Rust targets (`aarch64-linux-android`, `armv7-linux-androideabi`, `i686-linux-android`, `x86_64-linux-android`).
 - iOS prerequisites (macOS only): Xcode + CocoaPods, plus Rust targets (`aarch64-apple-ios`, `aarch64-apple-ios-sim`).
-- Common dev commands: `bun run tauri -- android dev`, `bun run tauri -- ios dev`, and optional `--open` to launch Android Studio/Xcode.
+- Common dev commands: `pnpm exec tauri android dev`, `pnpm exec tauri ios dev`, and optional `--open` to launch Android Studio/Xcode.
 - Device/LAN workflow: use `--host` and set `TAURI_DEV_HOST=<LAN_IP>` so the mobile target can reach the Vite dev server.
-- Common build commands: `bun run tauri -- android build --apk` and `bun run tauri -- ios build --open`.
+- Common build commands: `pnpm exec tauri android build --apk` and `pnpm exec tauri ios build --open`.
 
 ## Coding Style & Naming Conventions
 - TypeScript: use 2-space indentation; prefer Composition API patterns in `src/`.
@@ -50,7 +50,7 @@
 - Rust integration tests live in `src-tauri/tests/`.
 - Frontend: no test framework is configured yet.
 - Preferred test command: `cd src-tauri && cargo test`.
-- CI runs `bun install --frozen-lockfile`, `bun run vue-tsc --noEmit`, and `bun run lint` for frontend changes, plus `cargo test --locked --all-features --lib --tests` for Rust changes.
+- CI runs `pnpm install --frozen-lockfile`, `pnpm exec vue-tsc --noEmit`, and `pnpm run lint` for frontend changes, plus `cargo test --locked --all-features --lib --tests` for Rust changes.
 - On pull requests, CI also runs `cargo fmt --check` and `cargo clippy --locked --all-features -- -D warnings` for Rust changes.
 
 ## Commit & Pull Request Guidelines

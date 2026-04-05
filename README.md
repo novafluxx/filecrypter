@@ -20,7 +20,7 @@ See `README_USER.md` for end-user instructions (how to encrypt/decrypt, batch mo
 ## Tech Stack
 - Frontend: Vue 3 + TypeScript + Vite
 - Backend: Rust + Tauri v2
-- Package manager: Bun (frontend), Cargo (backend)
+- Package manager: pnpm via Corepack (frontend), Cargo (backend)
 
 ## Project Structure
 - `src/` frontend app (entry: `src/main.ts`, root: `src/App.vue`)
@@ -33,37 +33,38 @@ See `README_USER.md` for end-user instructions (how to encrypt/decrypt, batch mo
 
 ## Getting Started
 Prerequisites:
-- Bun installed for frontend tooling
+- Node.js 24 LTS with Corepack enabled for frontend tooling
 - Rust toolchain for the Tauri backend
 
 Install dependencies:
 ```bash
-bun install
+corepack enable
+pnpm install --frozen-lockfile
 ```
 
 Run the frontend in the browser:
 ```bash
-bun run dev
+pnpm run dev
 ```
 
 Run the full app locally (desktop workflow):
 ```bash
-bun run tauri:dev
+pnpm run tauri:dev
 ```
 
 Build:
 ```bash
-bun run build
-bun run tauri:build
+pnpm run build
+pnpm run tauri:build
 ```
 
 Preview the production frontend build in a browser:
 ```bash
-bun run preview
+pnpm run preview
 ```
 
 Platform note:
-- `bun run tauri:build` builds bundles for the host OS only (Windows builds on Windows, macOS builds on macOS).
+- `pnpm run tauri:build` builds bundles for the host OS only (Windows builds on Windows, macOS builds on macOS).
 - Cross-building for other OSes typically requires building on that OS with its toolchain/SDK.
 - Mobile targets are not currently part of the active development/release workflow.
 
@@ -94,7 +95,7 @@ cargo clippy
 
 Run the frontend linter:
 ```bash
-bun run lint
+pnpm run lint
 ```
 
 ## Security Notes

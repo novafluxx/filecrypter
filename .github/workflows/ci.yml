@@ -11,7 +11,7 @@ on:
       - 'eslint.config.js'
       - 'index.html'
       - 'package.json'
-      - 'bun.lock'
+      - 'pnpm-lock.yaml'
       - '.github/workflows/ci.yml'
   pull_request:
     branches: [main]
@@ -23,7 +23,7 @@ on:
       - 'eslint.config.js'
       - 'index.html'
       - 'package.json'
-      - 'bun.lock'
+      - 'pnpm-lock.yaml'
       - '.github/workflows/ci.yml'
 
 permissions:
@@ -57,7 +57,7 @@ jobs:
               - 'eslint.config.js'
               - 'index.html'
               - 'package.json'
-              - 'bun.lock'
+              - 'pnpm-lock.yaml'
               - '.github/workflows/ci.yml'
 
   # Rust checks/tests - only run when Rust files change
@@ -116,15 +116,21 @@ jobs:
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
-      - name: Setup Bun
-        # Install Bun for frontend deps and scripts
-        uses: oven-sh/setup-bun@3d267786b128fe76c2f16a390aa2448b815359f3 # v2.1.2
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Type check
-        run: bun run vue-tsc --noEmit
+        run: pnpm exec vue-tsc --noEmit
 
       - name: Lint
-        run: bun run lint
+        run: pnpm run lint

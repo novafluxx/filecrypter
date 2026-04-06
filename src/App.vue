@@ -53,14 +53,37 @@ const { checkForUpdates } = useUpdater();
 // App version (desktop only)
 const { version } = useVersion();
 
+// Allow native context menus where users expect text interactions:
+// inputs, editable content, and any explicitly selectable text surface.
+const CONTEXT_MENU_ALLOW_SELECTOR = [
+  'input',
+  'textarea',
+  '[contenteditable=""]',
+  '[contenteditable="true"]',
+  '[contenteditable="plaintext-only"]',
+  '.selectable',
+].join(', ');
+
+function shouldAllowContextMenu(target: globalThis.EventTarget | null): boolean {
+  if (!(target instanceof globalThis.Element)) {
+    return false;
+  }
+
+  return target.closest(CONTEXT_MENU_ALLOW_SELECTOR) !== null;
+}
+
 // Context menu handler (stored for cleanup)
-const preventContextMenu = (event: Event) => event.preventDefault();
+function preventContextMenu(event: globalThis.MouseEvent) {
+  if (!shouldAllowContextMenu(event.target)) {
+    event.preventDefault();
+  }
+}
 
 // Initialize settings store on mount
 onMounted(async () => {
   await initSettings();
 
-  // Disable context menu (right-click) for desktop-like feel
+  // Suppress context menus only in non-text app chrome.
   document.addEventListener('contextmenu', preventContextMenu);
 
   // Check for updates on desktop platforms (not on mobile - app stores handle updates)

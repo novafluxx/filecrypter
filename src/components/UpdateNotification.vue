@@ -105,7 +105,7 @@ function openReleaseNotes() {
 }
 
 .whats-new-link {
-  color: var(--primary);
+  color: var(--accent);
   cursor: pointer;
   text-decoration: underline;
   margin-left: 4px;

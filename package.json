@@ -41,7 +41,7 @@
     "@tauri-apps/plugin-store": "^2.4.2",
     "@tauri-apps/plugin-updater": "^2.10.1",
     "dompurify": "^3.3.3",
-    "marked": "^17.0.5",
+    "marked": "^17.0.6",
     "primevue": "^4.5.4"
   }
 }

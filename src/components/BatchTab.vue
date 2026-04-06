@@ -374,28 +374,80 @@ async function handleArchiveOperation(allowOverwrite: boolean) {
   }
 }
 
-// Switch mode and clear state
-function switchMode(newMode: 'encrypt' | 'decrypt') {
-  if (mode.value !== newMode) {
-    mode.value = newMode;
-    inputPaths.value = [];
-    batchResult.value = null;
-    statusMessage.value = '';
-    password.value = '';
-    keyFilePath.value = '';
-    archiveName.value = '';
-  }
+function hasModeSwitchDiscardRisk(): boolean {
+  return (
+    inputPaths.value.length > 0 ||
+    password.value.length > 0 ||
+    keyFilePath.value.length > 0 ||
+    archiveName.value.length > 0
+  );
 }
 
-// Switch batch mode
-function switchBatchMode(newBatchMode: BatchMode) {
-  if (batchMode.value !== newBatchMode) {
-    batchMode.value = newBatchMode;
-    inputPaths.value = [];
-    batchResult.value = null;
-    statusMessage.value = '';
-    archiveName.value = '';
+function hasBatchModeSwitchDiscardRisk(): boolean {
+  return inputPaths.value.length > 0 || archiveName.value.length > 0;
+}
+
+function confirmDiscardBatchSetup(message: string, accept: () => void) {
+  confirm.require({
+    header: 'Discard Batch Setup?',
+    message,
+    acceptLabel: 'Discard',
+    rejectLabel: 'Keep Editing',
+    accept,
+  });
+}
+
+function applyModeSwitch(newMode: 'encrypt' | 'decrypt') {
+  mode.value = newMode;
+  inputPaths.value = [];
+  batchResult.value = null;
+  statusMessage.value = '';
+  password.value = '';
+  keyFilePath.value = '';
+  archiveName.value = '';
+}
+
+function applyBatchModeSwitch(newBatchMode: BatchMode) {
+  batchMode.value = newBatchMode;
+  inputPaths.value = [];
+  batchResult.value = null;
+  statusMessage.value = '';
+  archiveName.value = '';
+}
+
+// Switch mode and clear state when confirmed
+function switchMode(newMode: 'encrypt' | 'decrypt') {
+  if (mode.value === newMode) {
+    return;
   }
+
+  if (!hasModeSwitchDiscardRisk()) {
+    applyModeSwitch(newMode);
+    return;
+  }
+
+  confirmDiscardBatchSetup(
+    'Switching between encrypt and decrypt will clear the selected files and current batch setup.',
+    () => applyModeSwitch(newMode),
+  );
+}
+
+// Switch batch mode and clear incompatible state when confirmed
+function switchBatchMode(newBatchMode: BatchMode) {
+  if (batchMode.value === newBatchMode) {
+    return;
+  }
+
+  if (!hasBatchModeSwitchDiscardRisk()) {
+    applyBatchModeSwitch(newBatchMode);
+    return;
+  }
+
+  const message = archiveName.value.length > 0
+    ? 'Switching batch mode will clear the selected files and archive name.'
+    : 'Switching batch mode will clear the selected files for this batch.';
+
+  confirmDiscardBatchSetup(message, () => applyBatchModeSwitch(newBatchMode));
 }
 
 // Get phase label for progress display

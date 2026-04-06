@@ -121,15 +121,16 @@ const passwordStrength = computed<PasswordStrength>(() =>
           <InputText
             :id="outputId"
             :modelValue="fileOps.outputPath"
-            readonly
+            @update:modelValue="fileOps.setOutputPath($event ?? '')"
             :placeholder="outputPlaceholder"
+            :disabled="fileOps.isProcessing"
             fluid
           />
           <Button
             @click="handleSelectOutput"
             :disabled="fileOps.isProcessing"
             :title="`Choose where to save the ${mode}ed file`"
-            label="Change"
+            label="Browse"
           />
         </div>
       </div>

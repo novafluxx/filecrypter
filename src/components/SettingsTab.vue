@@ -16,10 +16,12 @@ import Button from 'primevue/button';
 import ButtonGroup from 'primevue/buttongroup';
 import Checkbox from 'primevue/checkbox';
 import InputText from 'primevue/inputtext';
+import { useConfirm } from 'primevue/useconfirm';
 import { useTauri } from '../composables/useTauri';
 import { useSettings, type ThemeMode } from '../composables/useSettings';
 
 // Initialize composables
+const confirm = useConfirm();
 const { selectDirectory } = useTauri();
 const settings = useSettings();
 
@@ -67,8 +69,16 @@ async function handleClearOutputDir() {
 /**
  * Reset all settings to defaults
  */
-async function handleResetToDefaults() {
-  await settings.resetToDefaults();
+function handleResetToDefaults() {
+  confirm.require({
+    header: 'Reset Settings?',
+    message: 'This will restore settings to their defaults and clear the local "Share kit copied" count.',
+    acceptLabel: 'Reset',
+    rejectLabel: 'Cancel',
+    accept: async () => {
+      await settings.resetToDefaults();
+    },
+  });
 }
 </script>
 
@@ -185,6 +195,7 @@ async function handleResetToDefaults() {
         <Button
           @click="handleResetToDefaults"
           title="Restore all settings to their original values"
+          severity="danger"
           outlined
           label="Reset to Defaults"
         />

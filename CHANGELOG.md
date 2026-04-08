@@ -5,6 +5,17 @@ All notable changes to FileCrypter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.16] - 2026-04-08
+
+
+
+### Bug Fixes
+
+- Allow native context menus for text interactions ([bda2701](https://github.com/novafluxx/filecrypter/commit/bda27015971b56362b8c8352aa5abaa7b7fc73c8))
+- Confirm batch mode changes before clearing setup ([272b5b9](https://github.com/novafluxx/filecrypter/commit/272b5b9c197dc684c5274f2756065cf43e0351cd))
+- Align update banner link with theme tokens ([e428e38](https://github.com/novafluxx/filecrypter/commit/e428e384c386abc011517caf41d2b7ecf000ac8f))
+- Confirm before resetting settings ([6e632e4](https://github.com/novafluxx/filecrypter/commit/6e632e42b36f9fb75f418a94f6fd8be080560b63))
+- Make output path field directly editable ([53da7e2](https://github.com/novafluxx/filecrypter/commit/53da7e25d5f6ee71ae861aa9fe9799520f89a7b7))
 ## [1.0.15] - 2026-04-04
 
 

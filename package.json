@@ -21,13 +21,13 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@tauri-apps/cli": "^2.10.1",
-    "@vitejs/plugin-vue": "^6.0.5",
+    "@vitejs/plugin-vue": "^6.0.6",
     "esbuild": "0.27.7",
     "eslint": "^10.2.0",
     "eslint-plugin-vue": "10.8.0",
     "typescript": "^6.0.2",
-    "typescript-eslint": "^8.58.1",
-    "vite": "^8.0.7",
+    "typescript-eslint": "^8.58.2",
+    "vite": "^8.0.8",
     "vue": "^3.5.32",
     "vue-tsc": "^3.2.6"
   },
@@ -40,7 +40,7 @@
     "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-store": "^2.4.2",
     "@tauri-apps/plugin-updater": "^2.10.1",
-    "dompurify": "^3.3.3",
+    "dompurify": "^3.4.0",
     "marked": "^18.0.0",
     "primevue": "^4.5.5"
   }

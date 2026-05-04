@@ -485,6 +485,10 @@ fn compute_archive_entry_name(file_path: &Path, common_prefix: &Path) -> CryptoR
             "Empty common prefix detected, using filename fallback for {}",
             file_path.display()
         );
+        return Ok(file_path
+            .file_name()
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("file")));
     }
 
     // Try to strip the common prefix

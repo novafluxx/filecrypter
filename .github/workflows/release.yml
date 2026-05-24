@@ -31,6 +31,8 @@ jobs:
 
       - name: Calculate version
         id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
           git fetch --tags --force
 
@@ -38,8 +40,8 @@ jobs:
           git tag -l | tail -5
 
           # Use manual override if provided, otherwise auto-calculate
-          if [ -n "${{ inputs.version }}" ]; then
-            VERSION="${{ inputs.version }}"
+          if [ -n "$INPUT_VERSION" ]; then
+            VERSION="$INPUT_VERSION"
             VERSION="${VERSION#v}"
             echo "Using manual version override: $VERSION"
           else

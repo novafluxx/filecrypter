@@ -5,6 +5,18 @@ All notable changes to FileCrypter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.18] - 2026-06-06
+
+
+
+### Bug Fixes
+
+- **security:** Autofix Template Injection in GitHub Workflows Action ([7824191](https://github.com/novafluxx/filecrypter/commit/78241911d7b048d1664bde9b727e891e00bd693e))
+
+
+### Documentation
+
+- Update repository agent guidance ([fd91ef7](https://github.com/novafluxx/filecrypter/commit/fd91ef7d8a4d0bd926f2f799f049f712d7a77eb2))
 ## [1.0.16] - 2026-04-08
 
 

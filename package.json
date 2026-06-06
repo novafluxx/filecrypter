@@ -20,16 +20,16 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@tauri-apps/cli": "^2.11.0",
-    "@vitejs/plugin-vue": "^6.0.6",
+    "@tauri-apps/cli": "^2.11.2",
+    "@vitejs/plugin-vue": "^6.0.7",
     "esbuild": "0.28.0",
-    "eslint": "^10.3.0",
-    "eslint-plugin-vue": "10.9.0",
+    "eslint": "^10.4.1",
+    "eslint-plugin-vue": "10.9.2",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.59.1",
-    "vite": "^8.0.10",
-    "vue": "^3.5.33",
-    "vue-tsc": "^3.2.7"
+    "typescript-eslint": "^8.60.1",
+    "vite": "^8.0.16",
+    "vue": "^3.5.35",
+    "vue-tsc": "^3.3.3"
   },
   "dependencies": {
     "@primeuix/themes": "^2.0.3",
@@ -40,8 +40,8 @@
     "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-store": "^2.4.3",
     "@tauri-apps/plugin-updater": "^2.10.1",
-    "dompurify": "^3.4.2",
-    "marked": "^18.0.3",
+    "dompurify": "^3.4.8",
+    "marked": "^18.0.5",
     "primevue": "^4.5.5"
   }
 }

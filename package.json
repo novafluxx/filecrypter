@@ -18,13 +18,13 @@
     "@tauri-apps/cli": "^2.11.4",
     "@vitejs/plugin-vue": "^6.0.8",
     "esbuild": "0.28.1",
-    "eslint": "^10.8.0",
+    "eslint": "^10.8.1",
     "eslint-plugin-vue": "10.9.2",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.66.0",
-    "vite": "^8.2.0",
+    "typescript-eslint": "^8.67.0",
+    "vite": "^8.2.1",
     "vue": "^3.5.41",
-    "vue-tsc": "^3.3.9"
+    "vue-tsc": "^3.3.10"
   },
   "dependencies": {
     "@primeuix/themes": "^2.0.3",
@@ -36,7 +36,7 @@
     "@tauri-apps/plugin-store": "^2.4.4",
     "@tauri-apps/plugin-updater": "^2.10.1",
     "dompurify": "^3.4.13",
-    "marked": "^18.0.9",
+    "marked": "^18.0.10",
     "primevue": "^4.5.5"
   }
 }

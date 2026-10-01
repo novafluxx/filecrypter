@@ -30,50 +30,7 @@ pnpm run tauri:dev             # Run in development mode (hot reload)
 pnpm run tauri:build           # Build production executable
 ```
 
-### Mobile Development (Future Goal / Experimental)
-Mobile targets are not currently part of the standard development, CI, or release workflow. Keep this as a reference playbook for future work.
-
 Use `pnpm exec tauri <args>` for direct Tauri CLI commands.
-
-**One-time setup (when mobile work resumes):**
-```bash
-# Android Rust targets
-rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
-
-# iOS Rust targets (macOS only)
-rustup target add aarch64-apple-ios aarch64-apple-ios-sim
-
-# Generate native projects
-pnpm exec tauri android init
-pnpm exec tauri ios init
-```
-
-**Platform prerequisites:**
-- Android: Android Studio SDK/NDK, JDK 17+, and environment variables (`JAVA_HOME`, `ANDROID_HOME`, `NDK_HOME`).
-- iOS: Xcode, CocoaPods, and Apple code-signing configuration for physical devices.
-
-**Common development commands:**
-```bash
-pnpm exec tauri android dev
-pnpm exec tauri android dev --open
-pnpm exec tauri android dev --host
-
-pnpm exec tauri ios dev
-pnpm exec tauri ios dev --open
-pnpm exec tauri ios dev --host
-pnpm exec tauri ios dev --force-ip-prompt
-```
-
-**Common build commands:**
-```bash
-pnpm exec tauri android build --apk
-pnpm exec tauri ios build --open
-```
-
-**Networking notes for physical devices:**
-- Use `--host` for LAN device testing and set `TAURI_DEV_HOST=<LAN_IP>`.
-- Ensure `build.devUrl` in `src-tauri/tauri.conf.json` points to a reachable dev server during mobile runs.
-- If a device cannot reach Vite, run the dev server with host binding (`pnpm run dev -- --host`) or temporarily set `server.host` in `vite.config.ts`.
 
 ### Rust Testing
 ```bash
@@ -83,6 +40,18 @@ cargo test --lib               # Run library tests only
 cargo test <test_name>         # Run specific test
 cargo clippy                   # Run linter
 ```
+
+### CI-equivalent checks
+`.github/workflows/ci.yml` is path-filtered (only the Rust and/or frontend jobs affected by a change run). To match it locally:
+```bash
+pnpm exec vue-tsc --noEmit                                   # Frontend type check
+pnpm run lint                                                # Frontend lint
+cd src-tauri && cargo test --locked --all-features --lib --tests
+cd src-tauri && cargo fmt --check                            # PRs only
+cd src-tauri && cargo clippy --locked --all-features -- -D warnings   # PRs only
+```
+
+Releases come from the manually triggered `.github/workflows/release.yml`. It calculates the version from the commit log via git-cliff, builds signed macOS aarch64 and Windows x64 artifacts, commits the version and changelog updates, generates `latest.json`, and creates a draft GitHub release. Don't bump versions or edit `CHANGELOG.md` by hand.
 
 ## Architecture
 
@@ -97,33 +66,11 @@ cargo clippy                   # Run linter
 
 ### Backend Structure (Rust)
 
-```
-src-tauri/src/
-├── lib.rs                  # Main entry point, registers commands
-├── main.rs                 # Desktop binary entry
-├── commands/               # Tauri IPC command handlers
-│   ├── mod.rs             # Exports all commands
-│   ├── encrypt.rs         # Single file streaming encryption
-│   ├── decrypt.rs         # Single file streaming decryption
-│   ├── batch.rs           # Batch encrypt/decrypt operations
-│   ├── archive.rs         # Archive mode batch operations
-│   ├── keyfile.rs         # Key file generation helpers/commands
-│   ├── file_utils.rs      # File system utilities
-│   └── command_utils.rs   # Shared command helpers
-├── crypto/                # Cryptographic implementations
-│   ├── mod.rs             # Module exports
-│   ├── cipher.rs          # AES-256-GCM encryption/decryption
-│   ├── compression.rs     # ZSTD compression for optional file size reduction
-│   ├── kdf.rs             # Argon2id key derivation
-│   ├── keyfile.rs         # Key file derivation/composition logic
-│   ├── secure.rs          # Password and SecureBytes wrappers (zeroization)
-│   └── streaming.rs       # Chunked encryption (Version 4/5 format, all files)
-├── security/              # Platform-specific security
-│   ├── mod.rs             # Security module exports
-│   └── windows_acl.rs     # Windows ACL protection for temp files
-├── events.rs              # Event system for progress updates
-└── error.rs               # Custom error types
-```
+`src-tauri/src/` is layered:
+- `lib.rs` registers plugins and IPC commands (`main.rs` just delegates to it).
+- `commands/` holds thin IPC handlers (one file per operation, plus `archive.rs` for the TAR+ZSTD batch mode). Shared validation lives in `command_utils.rs` and `file_utils.rs`.
+- `crypto/` holds the actual cryptography. `streaming.rs` owns the file format and is used by every encrypt/decrypt path. `keyfile.rs` builds the KDF input as `password || BLAKE3(key_file)`. `secure.rs` provides zeroizing wrappers.
+- `security/` holds the platform temp-file protections. `events.rs` handles progress events and `error.rs` the error types.
 
 ### Cryptographic Design
 
@@ -141,33 +88,30 @@ src-tauri/src/
 
 **File Formats (src-tauri/src/crypto/streaming.rs)**
 
-Two file format versions are supported:
+Four format versions are written and read. The version byte is selected from (compression, key file):
 
-**Version 4 (No Compression):**
+| Version | Compression | Key file | Extra header fields |
+|---------|-------------|----------|---------------------|
+| 4 | no | no | — |
+| 5 | yes | no | compression fields |
+| 6 | no | yes | flags byte |
+| 7 | yes | yes | compression fields + flags byte |
+
 ```
 Header (little-endian):
 [VERSION:1][SALT_LEN:4][KDF_ALG:1][KDF_MEM_COST:4][KDF_TIME_COST:4]
 [KDF_PARALLELISM:4][KDF_KEY_LEN:4][SALT:N][BASE_NONCE:12]
 [CHUNK_SIZE:4][TOTAL_CHUNKS:8]
+[COMPRESSION_ALG:1][COMPRESSION_LEVEL:1][ORIGINAL_SIZE:8]   (V5/V7 only)
+[FLAGS:1]                                                   (V6/V7 only; 0x01 = key file used)
 
 Chunks:
-[CHUNK_1_LEN:4][CHUNK_1_CIPHERTEXT+TAG]
+[CHUNK_1_LEN:4][CHUNK_1_CIPHERTEXT+TAG]   (plaintext compressed before encryption in V5/V7)
 [CHUNK_2_LEN:4][CHUNK_2_CIPHERTEXT+TAG]
 ...
 ```
 
-**Version 5 (With Compression):**
-```
-Header (little-endian):
-[VERSION:1][SALT_LEN:4][KDF_ALG:1][KDF_MEM_COST:4][KDF_TIME_COST:4]
-[KDF_PARALLELISM:4][KDF_KEY_LEN:4][SALT:N][BASE_NONCE:12]
-[CHUNK_SIZE:4][TOTAL_CHUNKS:8]
-[COMPRESSION_ALG:1][COMPRESSION_LEVEL:1][ORIGINAL_SIZE:8]
-
-Chunks:
-[CHUNK_1_LEN:4][CHUNK_1_CIPHERTEXT+TAG]  (compressed before encryption)
-...
-```
+KDF parameters are stored in the header and validated against min/max bounds on decrypt (see `kdf.rs`), so changing the default constants doesn't break old files. Any header layout change must keep decrypt support for all existing versions.
 
 **Compression (src-tauri/src/crypto/compression.rs):**
 - Algorithm: ZSTD (Zstandard) level 3 (balanced speed/ratio)
@@ -193,27 +137,18 @@ Frontend calls Rust via `invoke()` in `src/composables/useTauri.ts`:
 - `batch_encrypt_archive` / `batch_decrypt_archive`: Archive-mode batch operations
 - `generate_key_file`: Create key files for optional two-factor encryption
 
-### Mobile Readiness (Future Goal)
+### Mobile (Future Goal, Not Maintained)
 
-The app includes platform-aware UI pieces intended to help future mobile support, but they are not currently part of a fully supported mobile release workflow:
-
-**Platform Detection (`src/composables/usePlatform.ts`)**
-- Uses `@tauri-apps/plugin-os` to detect the current platform
-- Returns `isMobile` ref (true for iOS/Android, false for desktop)
-- State is cached globally to avoid repeated API calls
-
-**Adaptive Navigation**
-- **Desktop**: Traditional top tab bar in `App.vue`
-- **Mobile (future)**: Bottom navigation bar (`BottomNav.vue`) with icons for thumb-friendly access
-- Navigation is conditionally rendered based on `isMobile` state
-
-**Mobile-Oriented Styling**
-- The codebase includes mobile-oriented viewport and safe-area styling for future work, but this behavior is not currently part of a maintained mobile release target.
+iOS/Android are not part of the dev, CI, or release workflow. The UI already has scaffolding for them: `usePlatform.ts` exposes a cached `isMobile` flag, and `App.vue` uses it to switch between top tabs (desktop) and `BottomNav.vue` (mobile). There is also safe-area/viewport CSS. Keep the updater desktop-only. `src-tauri/gen/` is generated and gitignored. When mobile work resumes, see the playbook in `AGENTS.md` and reconfirm the steps against current Tauri mobile docs.
 
 ### Security Notes
 
 - Passwords wrapped in `Password` type and zeroized after use (`src-tauri/src/crypto/secure.rs`)
 - On Windows, temp files use ACLs to restrict access to current user only (`src-tauri/src/security/windows_acl.rs`)
+- Archive extraction (`commands/archive.rs`) enforces decompression-ratio and absolute size caps against zip bombs, and validates entry paths. Preserve these checks when touching archive code.
+- Keep the Tauri CSP in `src-tauri/tauri.conf.json` restrictive. Change it deliberately only when new asset, network, or IPC requirements are introduced.
+- Desktop window is 700×680 (min 500×500). Keep default sizing compatible with 1366×768 displays.
+- `AGENTS.md` mirrors much of this file for other agents. Update both when changing commands, CI, or architecture notes.
 
 ## Working with Tauri
 
@@ -223,11 +158,6 @@ The app includes platform-aware UI pieces intended to help future mobile support
 - Platform detection uses `@tauri-apps/plugin-os` for mobile vs desktop UI
 - All file I/O happens in Rust backend for security
 - Events flow from Rust → Frontend for progress updates during batch operations
-
-### Mobile Notes (When Work Resumes)
-
-- Reconfirm toolchain steps from current Tauri mobile documentation before enabling iOS/Android workflows.
-- Treat generated mobile project directories (for example under `src-tauri/gen/`) as derived artifacts unless explicitly tracked.
 
 ### Auto-Updater (Desktop Only)
 
@@ -262,7 +192,7 @@ The app includes automatic update checking for desktop platforms using Tauri's u
 
 ## Common Modifications
 
-**Adding New Crypto Algorithms**: Modify `src-tauri/src/crypto/cipher.rs` and update `STREAMING_VERSION` in `src-tauri/src/crypto/streaming.rs`
+**Adding New Crypto Algorithms or Header Fields**: Modify `src-tauri/src/crypto/cipher.rs`, then add a new `STREAMING_VERSION_V*` constant in `src-tauri/src/crypto/streaming.rs`. Wire it into both the version-selection `match` in the encrypt path and the version check/parsing in the decrypt path. Keep V4–V7 decryptable.
 
 **Changing Key Derivation Parameters**: Update constants in `src-tauri/src/crypto/kdf.rs` (MEMORY_COST, TIME_COST, PARALLELISM)
 

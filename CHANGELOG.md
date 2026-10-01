@@ -5,6 +5,13 @@ All notable changes to FileCrypter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.19] - 2026-10-01
+
+
+
+### Bug Fixes
+
+- **deps:** Bump dompurify to 3.4.11 to resolve GHSA-cmwh-pvxp-8882 ([a3f934c](https://github.com/novafluxx/filecrypter/commit/a3f934c96b660f6052d271a90f076a9958d28b04))
 ## [1.0.18] - 2026-06-06
 
 

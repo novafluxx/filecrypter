@@ -11,14 +11,13 @@ FileCrypter is a cross-platform file encryption application built with Tauri v2.
 - **Frontend**: Vue 3 (Composition API) + TypeScript + Vite + PrimeVue 4
 - **Backend**: Rust + Tauri v2
 - **Cryptography**: AES-256-GCM encryption with Argon2id key derivation
-- **Package Manager**: pnpm via Corepack (for frontend), Cargo (for Rust)
+- **Package Manager**: pnpm (for frontend; version pinned by `packageManager` in `package.json`), Cargo (for Rust)
 
 ## Development Commands
 
 ### Frontend Development
 ```bash
-corepack enable                # Enable the pinned pnpm version
-pnpm install --frozen-lockfile # Install dependencies
+pnpm install --frozen-lockfile # Install dependencies (pnpm switches to the pinned version automatically)
 pnpm run dev                   # Start Vite dev server (port 5173)
 pnpm run build                 # Build frontend with TypeScript checking
 pnpm run preview               # Preview production build

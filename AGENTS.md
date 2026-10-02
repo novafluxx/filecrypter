@@ -13,7 +13,7 @@
 - `.github/workflows/ci.yml` is path-filtered and runs only the Rust and/or frontend jobs affected by a push or pull request.
 
 ## Build, Test, and Development Commands
-- `corepack enable` enables the pinned pnpm version declared in `package.json`.
+- pnpm switches itself to the version pinned in the `packageManager` field of `package.json`; no Corepack needed.
 - `pnpm install --frozen-lockfile` installs frontend dependencies and matches CI.
 - `pnpm run dev` starts the Vite dev server on the strict Tauri dev URL port, 5173.
 - `pnpm run build` runs type checking (`vue-tsc`) and builds the frontend.
@@ -52,7 +52,7 @@
 - Rust integration tests live in `src-tauri/tests/`.
 - Frontend: no test framework is configured yet.
 - Preferred test command: `cd src-tauri && cargo test`.
-- CI runs `corepack enable`, Node 24 setup, `pnpm install --frozen-lockfile`, `pnpm exec vue-tsc --noEmit`, and `pnpm run lint` for frontend changes.
+- CI runs `pnpm/action-setup`, Node 24 setup, `pnpm install --frozen-lockfile`, `pnpm exec vue-tsc --noEmit`, and `pnpm run lint` for frontend changes.
 - CI runs `cargo test --locked --all-features --lib --tests` for Rust changes, and on pull requests also runs `cargo fmt --check` and `cargo clippy --locked --all-features -- -D warnings`.
 
 ## Commit & Pull Request Guidelines

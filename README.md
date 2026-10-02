@@ -20,7 +20,7 @@ See `README_USER.md` for end-user instructions (how to encrypt/decrypt, batch mo
 ## Tech Stack
 - Frontend: Vue 3 + TypeScript + Vite
 - Backend: Rust + Tauri v2
-- Package manager: pnpm via Corepack (frontend), Cargo (backend)
+- Package manager: pnpm (frontend), Cargo (backend)
 
 ## Project Structure
 - `src/` frontend app (entry: `src/main.ts`, root: `src/App.vue`)
@@ -33,12 +33,12 @@ See `README_USER.md` for end-user instructions (how to encrypt/decrypt, batch mo
 
 ## Getting Started
 Prerequisites:
-- Node.js 24 LTS with Corepack enabled for frontend tooling
+- Node.js 24 LTS
+- pnpm ([install guide](https://pnpm.io/installation)); it switches to the version pinned in `package.json` automatically
 - Rust toolchain for the Tauri backend
 
 Install dependencies:
 ```bash
-corepack enable
 pnpm install --frozen-lockfile
 ```
 

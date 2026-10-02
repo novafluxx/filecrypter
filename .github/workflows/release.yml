@@ -243,6 +243,11 @@ jobs:
           sed -i "0,/^version = .*/{s/^version = .*/version = \"$VERSION\"/}" src-tauri/Cargo.toml
           echo "✅ Updated src-tauri/Cargo.toml"
 
+          # Keep Cargo.lock in sync so `cargo ... --locked` in CI keeps passing.
+          # --workspace only rewrites workspace members, never third-party deps.
+          cargo update --workspace --manifest-path src-tauri/Cargo.toml
+          echo "✅ Updated src-tauri/Cargo.lock"
+
           jq --arg v "$VERSION" '.version = $v' src-tauri/tauri.conf.json > src-tauri/tauri.conf.json.tmp && mv src-tauri/tauri.conf.json.tmp src-tauri/tauri.conf.json
           echo "✅ Updated src-tauri/tauri.conf.json"
 
@@ -263,6 +268,9 @@ jobs:
           fi
           if ! grep -q "\"version\": \"$VERSION\"" src-tauri/tauri.conf.json; then
             echo "❌ tauri.conf.json version mismatch"; exit 1
+          fi
+          if ! grep -A1 '^name = "filecrypter"$' src-tauri/Cargo.lock | grep -q "^version = \"$VERSION\""; then
+            echo "❌ Cargo.lock version mismatch"; exit 1
           fi
           echo "✅ All version files correct"
 
@@ -289,7 +297,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add package.json src-tauri/Cargo.toml src-tauri/tauri.conf.json CHANGELOG.md
+          git add package.json src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json CHANGELOG.md
 
           if git diff --cached --quiet; then
             echo "Version already at $VERSION, no changes to commit"

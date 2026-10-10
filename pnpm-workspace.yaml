@@ -1,3 +1,5 @@
 allowBuilds:
   esbuild: true
-minimumReleaseAge: 2880
+
+# Supply-chain defense: only resolve package versions published at least 7 days ago (minutes)
+minimumReleaseAge: 10080
